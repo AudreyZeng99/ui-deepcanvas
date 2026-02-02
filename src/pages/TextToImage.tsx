@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { 
   Wand2, 
   Image as ImageIcon, 
-  Settings2, 
   Download, 
   Share2, 
   Edit3, 
@@ -11,10 +10,6 @@ import {
   Sparkles,
   Maximize2,
   CheckCircle2,
-  Circle,
-  ChevronDown,
-  ChevronUp,
-  ArrowDown,
   Scaling,
   Palette,
   Sliders

@@ -1,6 +1,6 @@
 import { useTheme } from '../theme/ThemeContext';
 import clsx from 'clsx';
-import { Check, Settings, PenTool, Wand2, LayoutGrid, Share2, Download, Plus, ArrowRight, User, Search, X, ChevronDown } from 'lucide-react';
+import { Check, Settings, PenTool, Wand2, LayoutGrid, Share2, Download, Plus, ArrowRight, User, X, ChevronDown } from 'lucide-react';
 
 export default function DesignSystem() {
   const { theme, setTheme, availableThemes } = useTheme();

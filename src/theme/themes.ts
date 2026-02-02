@@ -1,5 +1,5 @@
 
-import { Theme, ThemeColors } from './types';
+import { Theme } from './types';
 
 // Helper to convert hex to rgba
 function hexToRgba(hex: string, alpha: number): string {
