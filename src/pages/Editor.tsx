@@ -30,7 +30,6 @@ import {
   MoveUp,
   MoveDown,
   ShieldCheck,
-  Eye,
   ScanEye,
   Component
 } from 'lucide-react';
