@@ -22,7 +22,9 @@ export interface ThemeColors {
 
   // Semantic Accents (Legacy support or specific UI elements)
   accentPrimary: string;   // Main action/brand color
-  accentSecondary: string; // Secondary highlight
+  accentPromotion: string; // Secondary highlight / Promotion
+  accentMinor: string;     // Minor elements
+  accentSecondary?: string; // DEPRECATED: Use accentPromotion instead
   
   // New Semantic Slots for UI Elements
   cardPrimary: string;     // For primary/featured cards (e.g., Inspiration)

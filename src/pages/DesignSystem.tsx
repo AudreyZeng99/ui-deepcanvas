@@ -13,9 +13,12 @@ export default function DesignSystem() {
       </header>
 
       {/* Theme Switcher */}
-
       <section className="space-y-6">
         <h2 className="text-2xl font-semibold">Active Theme</h2>
+        <p className="text-gray-600 max-w-2xl">
+          控制全站的主题色模式（如深色/浅色/自定义），决定了全局的基础色调映射。
+          切换主题会实时更新下方 Color Palette 中的所有颜色变量值。
+        </p>
         <div className="flex flex-wrap gap-4">
           {availableThemes.map((t) => (
             <button
@@ -24,20 +27,20 @@ export default function DesignSystem() {
               className={clsx(
                 "group relative flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200 text-left min-w-[240px]",
                 theme.id === t.id 
-                  ? "border-primary bg-white shadow-lg ring-1 ring-primary" 
+                  ? "border-accent-primary bg-white shadow-lg ring-1 ring-accent-primary" 
                   : "border-black/5 bg-white/50 hover:bg-white hover:shadow-md"
               )}
             >
               <div className="flex gap-1">
                 <div className="w-6 h-6 rounded-full border border-black/5" style={{ backgroundColor: t.colors.background }} />
                 <div className="w-6 h-6 rounded-full border border-black/5" style={{ backgroundColor: t.colors.accentPrimary }} />
-                <div className="w-6 h-6 rounded-full border border-black/5" style={{ backgroundColor: t.colors.accentSecondary }} />
+                <div className="w-6 h-6 rounded-full border border-black/5" style={{ backgroundColor: t.colors.accentPromotion }} />
               </div>
               <div className="flex-1">
                  <div className="font-medium">{t.name}</div>
               </div>
               {theme.id === t.id && (
-                <div className="absolute top-2 right-2 w-5 h-5 bg-primary text-white rounded-full flex items-center justify-center">
+                <div className="absolute top-2 right-2 w-5 h-5 bg-accent-primary text-white rounded-full flex items-center justify-center">
                   <Check size={12} strokeWidth={3} />
                 </div>
               )}
@@ -61,7 +64,8 @@ export default function DesignSystem() {
           <ColorCard name="Minor" hex={theme.colors.minor} variable="--minor" className="text-white" style={{ backgroundColor: theme.colors.minor, color: theme.colors.minorForeground }} />
 
           <ColorCard name="Accent Primary" hex={theme.colors.accentPrimary} variable="--accent-primary" className="text-white" style={{ backgroundColor: theme.colors.accentPrimary }} />
-          <ColorCard name="Accent Secondary" hex={theme.colors.accentSecondary} variable="--accent-secondary" className="text-white" style={{ backgroundColor: theme.colors.accentSecondary }} />
+          <ColorCard name="Accent Promotion" hex={theme.colors.accentPromotion} variable="--accent-promotion" className="text-white" style={{ backgroundColor: theme.colors.accentPromotion }} />
+          <ColorCard name="Accent Minor" hex={theme.colors.accentMinor} variable="--accent-minor" className="text-white" style={{ backgroundColor: theme.colors.accentMinor }} />
           
           {/* Card Semantics */}
           <ColorCard name="Card Primary" hex={theme.colors.cardPrimary} variable="--card-primary" className="text-white border border-black/10" style={{ backgroundColor: theme.colors.cardPrimary }} />
@@ -117,23 +121,23 @@ export default function DesignSystem() {
           {/* Promotion */}
           <div className="space-y-4">
              <h3 className="font-medium opacity-70">Promotion</h3>
-             <div className="p-6 rounded-3xl bg-promotion text-promotion-foreground hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+             <div className="p-6 rounded-3xl bg-accent-promotion text-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                 <div className="font-bold text-lg">Card</div>
                 <div className="text-sm opacity-80">Hover me</div>
              </div>
-             <button className="w-full py-3 rounded-xl bg-promotion text-promotion-foreground hover:opacity-90 transition-opacity font-medium shadow-sm">
+             <button className="w-full py-3 rounded-xl bg-accent-promotion text-white hover:opacity-90 transition-opacity font-medium shadow-sm">
                 Button
              </button>
           </div>
 
-          {/* Important (Primary) */}
+          {/* Important (Accent Primary) */}
           <div className="space-y-4">
-             <h3 className="font-medium opacity-70">Important (Primary)</h3>
-             <div className="p-6 rounded-3xl bg-primary text-primary-foreground hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
+             <h3 className="font-medium opacity-70">Important (Accent Primary)</h3>
+             <div className="p-6 rounded-3xl bg-accent-primary text-white hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer">
                 <div className="font-bold text-lg">Card</div>
                 <div className="text-sm opacity-80">Hover me</div>
              </div>
-             <button className="w-full py-3 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-medium shadow-sm">
+             <button className="w-full py-3 rounded-xl bg-accent-primary text-white hover:opacity-90 transition-opacity font-medium shadow-sm">
                 Button
              </button>
           </div>
@@ -234,7 +238,7 @@ export default function DesignSystem() {
                 <div className="p-6 rounded-2xl border border-black/5 bg-gray-50/50 flex flex-wrap gap-4 items-center">
                   
                   {/* Export (Theme Primary) */}
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground hover:opacity-90 transition-opacity font-medium text-sm shadow-sm">
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-accent-primary text-white hover:opacity-90 transition-opacity font-medium text-sm shadow-sm">
                     <Download size={16} />
                     Export
                   </button>
@@ -259,7 +263,7 @@ export default function DesignSystem() {
                 <div className="p-6 rounded-2xl border border-black/5 bg-gray-50/50 flex flex-wrap gap-4 items-center">
                   
                   {/* New Canvas Card Button */}
-                  <button className="flex flex-col items-center justify-center w-20 h-20 rounded-2xl border-2 border-dashed border-black/10 hover:border-primary/50 hover:bg-primary/5 transition-all gap-2 text-black/40 hover:text-primary">
+                  <button className="flex flex-col items-center justify-center w-20 h-20 rounded-2xl border-2 border-dashed border-black/10 hover:border-accent-primary/50 hover:bg-accent-primary/5 transition-all gap-2 text-black/40 hover:text-accent-primary">
                     <Plus size={24} />
                     <span className="text-[10px] font-bold uppercase tracking-wider">New</span>
                   </button>
@@ -287,7 +291,7 @@ export default function DesignSystem() {
               <div className="space-y-2">
                 <span className="text-xs font-medium opacity-50 uppercase tracking-wider">Glass Panel (Blur XL)</span>
                 <div className="glass-panel p-6 w-64 h-32 flex items-center justify-center relative overflow-hidden group">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <div className="absolute inset-0 bg-gradient-to-br from-accent-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                   <span className="text-sm font-medium opacity-50 relative z-10">Hover me</span>
                 </div>
               </div>

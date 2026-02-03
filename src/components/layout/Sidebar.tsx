@@ -1,5 +1,6 @@
 import { 
   Home, 
+  Folder,
   Sparkles, 
   Image as ImageIcon, 
   PenTool, 
@@ -16,15 +17,16 @@ import clsx from 'clsx';
 import { Tooltip } from '../Tooltip';
 
 const navItems = [
-  { icon: Home, label: 'Home', path: '/' },
-  { icon: Sparkles, label: 'Inspiration', path: '/inspiration' },
-  { icon: ImageIcon, label: 'Text to Image', path: '/text-to-image' },
-  { icon: PenTool, label: 'Canvas', path: '/editor' },
-  { icon: LayoutTemplate, label: 'Templates', path: '/templates' },
-  { icon: CreditCard, label: 'Banking', path: '/banking' },
-  { icon: Gamepad2, label: 'Playground', path: '/playground' },
-  { icon: LayoutGrid, label: 'Gallery', path: '/gallery' },
-  { icon: Palette, label: 'Design System', path: '/design-system' },
+  { icon: Home, label: '首页', path: '/' },
+  { icon: Folder, label: '我的项目', path: '/projects' },
+  { icon: Sparkles, label: '灵感', path: '/inspiration' },
+  { icon: ImageIcon, label: '文生图', path: '/text-to-image' },
+  { icon: PenTool, label: '画布', path: '/editor' },
+  { icon: LayoutTemplate, label: '模版', path: '/templates' },
+  { icon: CreditCard, label: '金融', path: '/banking' },
+  { icon: Gamepad2, label: '试验场', path: '/playground' },
+  { icon: LayoutGrid, label: '资产', path: '/gallery' },
+  { icon: Palette, label: '设计系统', path: '/design-system' },
 ];
 
 export default function Sidebar() {
@@ -57,7 +59,7 @@ export default function Sidebar() {
       </nav>
 
       <div className="mt-auto px-3 w-full">
-        <Tooltip content="Settings" position="right">
+        <Tooltip content="设置" position="right">
           <NavLink 
             to="/settings"
             className={({ isActive }) =>

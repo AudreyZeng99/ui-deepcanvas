@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Sparkles, 
+  Folder,
   Image as ImageIcon, 
   PenTool, 
   LayoutTemplate, 
@@ -67,16 +68,20 @@ export default function Home() {
             <p className="text-gray-500">What will you create today?</p>
           </div>
           <div className="flex items-center gap-3">
+            <Link to="/projects" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm">
+              <Folder size={16} />
+              我的项目
+            </Link>
             <Link to="/gallery" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm">
               <LayoutGrid size={16} />
               资产
             </Link>
             <Link to="/design-system" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm">
               <Palette size={16} />
-              Design System
+              UI设计逻辑
             </Link>
             <Tooltip content="设置" position="bottom">
-              <Link to="/settings" className="p-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm" aria-label="Settings">
+              <Link to="/settings" className="flex items-center justify-center p-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm" aria-label="Settings">
                 <Settings size={20} />
               </Link>
             </Tooltip>

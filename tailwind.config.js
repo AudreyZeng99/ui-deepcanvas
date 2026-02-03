@@ -27,6 +27,8 @@ export default {
         "accent-orange": "var(--accent-secondary)",
         "accent-primary": "var(--accent-primary)",
         "accent-secondary": "var(--accent-secondary)",
+        "accent-promotion": "var(--accent-promotion)",
+        "accent-minor": "var(--accent-minor)",
         "card-primary": "var(--card-primary)",
         "card-dark": "var(--card-dark)",
         "card-light": "var(--card-light)",

@@ -83,7 +83,7 @@ export default function TextToImage() {
         <div className="flex items-center justify-between mb-6 z-20 relative" ref={settingsRef}>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold flex items-center gap-2 mr-4">
-              <ImageIcon className="text-primary" />
+              <ImageIcon className="text-accent-primary" />
               Generation Preview
             </h2>
             
@@ -95,7 +95,7 @@ export default function TextToImage() {
                   className={clsx(
                     "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border",
                     activeSetting === 'dimensions' 
-                      ? "bg-primary text-primary-foreground border-primary shadow-lg" 
+                      ? "bg-accent-primary text-white border-accent-primary shadow-lg" 
                       : "bg-white text-gray-700 border-black/5 hover:bg-gray-50 hover:border-black/10"
                   )}
                 >
@@ -141,7 +141,7 @@ export default function TextToImage() {
                   className={clsx(
                     "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border",
                     activeSetting === 'style' 
-                      ? "bg-primary text-primary-foreground border-primary shadow-lg" 
+                      ? "bg-accent-primary text-white border-accent-primary shadow-lg" 
                       : "bg-white text-gray-700 border-black/5 hover:bg-gray-50 hover:border-black/10"
                   )}
                 >
@@ -164,7 +164,7 @@ export default function TextToImage() {
                         className={clsx(
                           "px-3 py-2 rounded-lg text-sm font-medium text-left transition-all",
                           selectedStyle === style.id 
-                            ? "bg-primary text-primary-foreground" 
+                            ? "bg-accent-primary text-white" 
                             : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                         )}
                       >
@@ -183,7 +183,7 @@ export default function TextToImage() {
                 className={clsx(
                   "flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border",
                   activeSetting === 'advanced' 
-                    ? "bg-primary text-primary-foreground border-primary shadow-lg" 
+                    ? "bg-accent-primary text-white border-accent-primary shadow-lg" 
                     : "bg-white text-gray-700 border-black/5 hover:bg-gray-50 hover:border-black/10"
                 )}
               >
@@ -202,7 +202,7 @@ export default function TextToImage() {
                       <input 
                         type="range" min="10" max="150" value={modelParams.steps}
                         onChange={(e) => setModelParams(prev => ({ ...prev, steps: Number(e.target.value) }))}
-                        className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+                        className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-primary"
                       />
                     </div>
                     
@@ -214,7 +214,7 @@ export default function TextToImage() {
                       <input 
                         type="range" min="1" max="20" step="0.5" value={modelParams.cfgScale}
                         onChange={(e) => setModelParams(prev => ({ ...prev, cfgScale: Number(e.target.value) }))}
-                        className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+                        className="w-full h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent-primary"
                       />
                     </div>
 
@@ -295,7 +295,7 @@ export default function TextToImage() {
             <div 
               className={clsx(
                 "rounded-2xl border-2 transition-all p-4 relative group flex-1",
-                activeSource === 'original' ? "border-primary bg-primary/5" : "border-transparent bg-white hover:border-black/5"
+                activeSource === 'original' ? "border-accent-primary bg-accent-primary/5" : "border-transparent bg-white hover:border-black/5"
               )}
               onClick={() => setActiveSource('original')}
             >
@@ -303,7 +303,7 @@ export default function TextToImage() {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Original Prompt</label>
                 <div className={clsx(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  activeSource === 'original' ? "border-primary bg-primary text-primary-foreground" : "border-gray-300 text-transparent"
+                  activeSource === 'original' ? "border-accent-primary bg-accent-primary text-white" : "border-gray-300 text-transparent"
                 )}>
                   <CheckCircle2 size={14} />
                 </div>
@@ -326,7 +326,7 @@ export default function TextToImage() {
               <Tooltip content="AI 优化提示词">
                 <button 
                   onClick={handleOptimize}
-                  className="relative bg-white border border-black/10 shadow-sm text-promotion hover:text-promotion-foreground hover:bg-promotion hover:border-promotion px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
+                  className="relative bg-white border border-black/10 shadow-sm text-accent-promotion hover:text-white hover:bg-accent-promotion hover:border-accent-promotion px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
                 >
                   <Sparkles size={12} />
                   AI Optimize
@@ -338,7 +338,7 @@ export default function TextToImage() {
             <div 
               className={clsx(
                 "rounded-2xl border-2 transition-all p-4 relative flex-1",
-                activeSource === 'optimized' ? "border-promotion bg-promotion/5" : "border-transparent bg-white hover:border-black/5",
+                activeSource === 'optimized' ? "border-accent-promotion bg-accent-promotion/5" : "border-transparent bg-white hover:border-black/5",
                 !optimizedPrompt && "opacity-50"
               )}
               onClick={() => optimizedPrompt && setActiveSource('optimized')}
@@ -347,7 +347,7 @@ export default function TextToImage() {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Optimized Prompt</label>
                 <div className={clsx(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  activeSource === 'optimized' ? "border-promotion bg-promotion text-promotion-foreground" : "border-gray-300 text-transparent"
+                  activeSource === 'optimized' ? "border-accent-promotion bg-accent-promotion text-white" : "border-gray-300 text-transparent"
                 )}>
                   <CheckCircle2 size={14} />
                 </div>
@@ -370,7 +370,7 @@ export default function TextToImage() {
           <button 
             className={clsx(
               "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98]",
-              isGenerating ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-primary text-primary-foreground hover:opacity-90 shadow-lg hover:shadow-xl"
+              isGenerating ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-accent-primary text-white hover:opacity-90 shadow-lg hover:shadow-xl"
             )}
             onClick={() => setIsGenerating(!isGenerating)}
           >

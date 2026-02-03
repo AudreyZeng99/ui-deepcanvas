@@ -35,7 +35,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     // Semantic Accents
     root.style.setProperty('--accent-primary', theme.colors.accentPrimary);
-    root.style.setProperty('--accent-secondary', theme.colors.accentSecondary);
+    root.style.setProperty('--accent-promotion', theme.colors.accentPromotion);
+    root.style.setProperty('--accent-minor', theme.colors.accentMinor);
+    // Legacy support for accentSecondary
+    root.style.setProperty('--accent-secondary', theme.colors.accentSecondary || theme.colors.accentPromotion);
     
     // Semantic Card Colors
     root.style.setProperty('--card-primary', theme.colors.cardPrimary);
@@ -53,7 +56,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Font FamilyLegacy support (mapping semantic to old names if needed, or just keeping them for reference)
     // We map the old variables to the new semantic values to ensure backward compatibility
     root.style.setProperty('--accent-blue', theme.colors.accentPrimary);
-    root.style.setProperty('--accent-orange', theme.colors.accentSecondary);
+    root.style.setProperty('--accent-orange', theme.colors.accentSecondary || theme.colors.accentPromotion);
     
     // Optional extra colors
     if (theme.colors.accentPurple) {

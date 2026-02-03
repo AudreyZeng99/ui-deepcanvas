@@ -41,7 +41,8 @@ const baseThemes: Theme[] = [
       minorForeground: '#FFFFFF',
       
       accentPrimary: '#2E5BFF', 
-      accentSecondary: '#FF5C00',
+      accentPromotion: '#FF5C00',
+      accentMinor: '#000000',
       
       cardPrimary: '#2E5BFF',
       cardDark: '#000000',    // Black for Minor
@@ -66,7 +67,9 @@ const baseThemes: Theme[] = [
       minor: '#4ADE80',             // Mint Green
       minorForeground: '#000000',
       
-      accentPrimary: '#8F7AFB',
+      accentPrimary: '#446DF6',
+      accentPromotion: '#8F7AFB',
+      accentMinor: '#4ADE80',
       accentSecondary: '#4ADE80',
       
       cardPrimary: '#446DF6',
@@ -95,6 +98,8 @@ const baseThemes: Theme[] = [
       minorForeground: '#FFFFFF',
       
       accentPrimary: '#3B82F6',
+      accentPromotion: '#F59E0B',
+      accentMinor: '#111827',
       accentSecondary: '#F59E0B',
       
       cardPrimary: '#3B82F6',
@@ -123,7 +128,8 @@ const baseThemes: Theme[] = [
       minorForeground: '#FFFFFF',
       
       accentPrimary: '#9F9DF3',
-      accentSecondary: '#FF9BB3',
+      accentPromotion: '#FF9BB3',
+      accentMinor: '#6353AC',
       
       cardPrimary: '#9F9DF3',
       cardDark: '#6353AC',

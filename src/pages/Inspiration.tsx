@@ -54,7 +54,7 @@ export default function Inspiration() {
           Back to Dashboard
         </button>
         <h1 className="text-4xl font-bold mb-2 flex items-center gap-3">
-          <Sparkles className="text-primary" />
+          <Sparkles className="text-accent-primary" />
           Inspiration Gallery
         </h1>
         <p className="text-gray-500 text-lg">Explore curated scenarios for banking and corporate environments</p>
@@ -86,7 +86,7 @@ export default function Inspiration() {
                     e.stopPropagation();
                     navigate('/text-to-image', { state: { prompt: item.prompt } });
                   }}
-                  className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-promotion hover:text-promotion-foreground transition-all duration-300 transform translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
+                  className="w-full bg-white text-black py-4 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-accent-promotion hover:text-white transition-all duration-300 transform translate-y-8 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
                 >
                   <Wand2 size={20} />
                   Make Similar

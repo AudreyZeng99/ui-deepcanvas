@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X, Layout, Smartphone, Monitor, AlertCircle } from 'lucide-react';
+import { X, Layout, Smartphone, Monitor, AlertCircle, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
+import { useProject } from '../context/ProjectContext';
 
 interface CreateCanvasModalProps {
   isOpen: boolean;
@@ -31,28 +32,48 @@ const PRESETS = {
 
 export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModalProps) {
   const navigate = useNavigate();
+  const { isDirty, createProject } = useProject();
   const [step, setStep] = useState<Step>('selection');
   const [activeTab, setActiveTab] = useState<Tab>('common');
   const [selectedSize, setSelectedSize] = useState<{ width: number; height: number } | null>(null);
   const [customSize, setCustomSize] = useState({ width: '', height: '' });
 
+  useEffect(() => {
+    if (isOpen) {
+      if (isDirty) {
+        setStep('warning');
+      } else {
+        setStep('selection');
+      }
+    }
+  }, [isOpen, isDirty]);
+
   if (!isOpen) return null;
 
-  const handleSelectionCreate = () => {
-    setStep('warning');
+  const handleCreate = () => {
+    let width = 0;
+    let height = 0;
+
+    if (selectedSize) {
+      width = selectedSize.width;
+      height = selectedSize.height;
+    } else if (customSize.width && customSize.height) {
+      width = parseInt(customSize.width);
+      height = parseInt(customSize.height);
+    }
+
+    if (width && height) {
+      createProject(width, height);
+      handleClose();
+      navigate('/editor');
+    }
   };
 
   const handleWarningConfirm = () => {
-    // In a real app, you might pass these dimensions to a global state or context
-    // For now, we just navigate to the editor
-    
-    // Reset state for next time
-    setTimeout(() => {
-      setStep('selection');
-      setSelectedSize(null);
-      setCustomSize({ width: '', height: '' });
-    }, 500);
-    
+    setStep('selection');
+  };
+
+  const handleResumeEditing = () => {
     onClose();
     navigate('/editor');
   };
@@ -94,12 +115,20 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
               <AlertCircle size={32} />
             </div>
             <h2 className="text-2xl font-bold">Create New Canvas?</h2>
-            <p className="text-gray-500 max-w-sm">
-              新建画布将清空当前画布内容，此操作无法撤销。是否确认继续？
-            </p>
+            <div className="text-gray-500 max-w-sm">
+              <p className="inline">新建画布将清空</p>
+              <button 
+                onClick={handleResumeEditing}
+                className="inline-flex items-center gap-1 mx-1 text-accent-primary font-medium hover:underline align-baseline"
+              >
+                当前画布
+                <ArrowRight size={14} />
+              </button>
+              <p className="inline">内容，此操作无法撤销。是否确认继续？</p>
+            </div>
             <div className="flex gap-4 mt-4">
               <button 
-                onClick={handleClose}
+                onClick={handleResumeEditing}
                 className="btn-secondary min-w-[120px]"
               >
                 取消
@@ -151,13 +180,13 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
                     className={clsx(
                       "flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all gap-3 hover:bg-gray-50",
                       selectedSize?.width === preset.width && selectedSize?.height === preset.height
-                        ? "border-primary bg-primary/10" 
+                        ? "border-accent-primary bg-accent-primary/10" 
                         : "border-gray-100"
                     )}
                   >
                     <preset.icon className={clsx(
                       selectedSize?.width === preset.width && selectedSize?.height === preset.height
-                        ? "text-primary" 
+                        ? "text-accent-primary" 
                         : "text-gray-400"
                     )} size={24} />
                     <div className="text-center">
@@ -202,7 +231,7 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
                 取消
               </button>
               <button 
-                onClick={handleSelectionCreate}
+                onClick={handleCreate}
                 disabled={!selectedSize && (!customSize.width || !customSize.height)}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
