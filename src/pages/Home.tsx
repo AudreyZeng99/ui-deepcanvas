@@ -138,7 +138,7 @@ export default function Home() {
           >
             {/* Floating Decoration - Unclipped */}
             <div className="absolute right-[-30px] top-[-30px] w-40 h-40 z-50 pointer-events-none group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
-              <img src="/figure/白色云朵.png" alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
+              <img src={`${import.meta.env.BASE_URL}figure/cloud-white.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
             </div>
 
             {/* Clipped Background Effects */}
