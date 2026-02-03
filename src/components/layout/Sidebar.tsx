@@ -13,6 +13,8 @@ import {
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
+import { Tooltip } from '../Tooltip';
+
 const navItems = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Sparkles, label: 'Inspiration', path: '/inspiration' },
@@ -36,43 +38,40 @@ export default function Sidebar() {
       
       <nav className="flex-1 flex flex-col gap-3 overflow-y-auto w-full px-3 no-scrollbar">
         {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={({ isActive }) =>
-              clsx(
-                "p-3 rounded-xl transition-all duration-200 group relative flex justify-center",
-                isActive 
-                  ? "bg-black text-white shadow-lg" 
-                  : "text-gray-500 hover:bg-gray-100 hover:text-black"
-              )
-            }
-          >
-            <item.icon size={20} strokeWidth={2} />
-            <span className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-              {item.label}
-            </span>
-          </NavLink>
+          <Tooltip key={item.path} content={item.label} position="right">
+            <NavLink
+              to={item.path}
+              className={({ isActive }) =>
+                clsx(
+                  "p-3 rounded-xl transition-all duration-200 group relative flex justify-center w-full",
+                  isActive 
+                    ? "bg-black text-white shadow-lg" 
+                    : "text-gray-500 hover:bg-gray-100 hover:text-black"
+                )
+              }
+            >
+              <item.icon size={20} strokeWidth={2} />
+            </NavLink>
+          </Tooltip>
         ))}
       </nav>
 
       <div className="mt-auto px-3 w-full">
-        <NavLink 
-          to="/settings"
-          className={({ isActive }) =>
-            clsx(
-              "p-3 rounded-xl transition-all duration-200 group relative flex justify-center w-full",
-              isActive 
-                ? "bg-black text-white shadow-lg" 
-                : "text-gray-400 hover:bg-gray-100 hover:text-black"
-            )
-          }
-        >
-          <Settings size={20} />
-          <span className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50">
-            Settings
-          </span>
-        </NavLink>
+        <Tooltip content="Settings" position="right">
+          <NavLink 
+            to="/settings"
+            className={({ isActive }) =>
+              clsx(
+                "p-3 rounded-xl transition-all duration-200 group relative flex justify-center w-full",
+                isActive 
+                  ? "bg-black text-white shadow-lg" 
+                  : "text-gray-400 hover:bg-gray-100 hover:text-black"
+              )
+            }
+          >
+            <Settings size={20} />
+          </NavLink>
+        </Tooltip>
       </div>
     </aside>
   );
