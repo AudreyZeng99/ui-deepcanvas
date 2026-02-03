@@ -161,7 +161,7 @@ export default function Home() {
              {/* Floating Decoration - Unclipped - Vertically Centered */}
              <div className="absolute right-[-30px] top-1/2 -translate-y-1/2 w-40 h-40 z-50 pointer-events-none">
                 <div className="w-full h-full group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
-                   <img src={`${import.meta.env.BASE_URL}figure/cloud-blue.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
+                   <img src={`${import.meta.env.BASE_URL}figure/blue-cloud-v2.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
                 </div>
              </div>
 
