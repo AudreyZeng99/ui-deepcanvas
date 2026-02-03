@@ -151,13 +151,13 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
                     className={clsx(
                       "flex flex-col items-center justify-center p-6 rounded-2xl border-2 transition-all gap-3 hover:bg-gray-50",
                       selectedSize?.width === preset.width && selectedSize?.height === preset.height
-                        ? "border-accent-blue bg-blue-50/50" 
+                        ? "border-primary bg-primary/10" 
                         : "border-gray-100"
                     )}
                   >
                     <preset.icon className={clsx(
                       selectedSize?.width === preset.width && selectedSize?.height === preset.height
-                        ? "text-accent-blue" 
+                        ? "text-primary" 
                         : "text-gray-400"
                     )} size={24} />
                     <div className="text-center">

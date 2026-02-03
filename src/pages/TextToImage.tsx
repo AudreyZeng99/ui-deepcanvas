@@ -295,7 +295,7 @@ export default function TextToImage() {
             <div 
               className={clsx(
                 "rounded-2xl border-2 transition-all p-4 relative group flex-1",
-                activeSource === 'original' ? "border-accent-primary bg-blue-50/10" : "border-transparent bg-white hover:border-black/5"
+                activeSource === 'original' ? "border-primary bg-primary/5" : "border-transparent bg-white hover:border-black/5"
               )}
               onClick={() => setActiveSource('original')}
             >
@@ -303,7 +303,7 @@ export default function TextToImage() {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Original Prompt</label>
                 <div className={clsx(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  activeSource === 'original' ? "border-accent-primary bg-accent-primary text-white" : "border-gray-300 text-transparent"
+                  activeSource === 'original' ? "border-primary bg-primary text-primary-foreground" : "border-gray-300 text-transparent"
                 )}>
                   <CheckCircle2 size={14} />
                 </div>
@@ -326,7 +326,7 @@ export default function TextToImage() {
               <Tooltip content="AI 优化提示词">
                 <button 
                   onClick={handleOptimize}
-                  className="relative bg-white border border-black/10 shadow-sm text-accent-primary hover:text-white hover:bg-accent-primary hover:border-accent-primary px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
+                  className="relative bg-white border border-black/10 shadow-sm text-promotion hover:text-promotion-foreground hover:bg-promotion hover:border-promotion px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
                 >
                   <Sparkles size={12} />
                   AI Optimize
@@ -338,7 +338,7 @@ export default function TextToImage() {
             <div 
               className={clsx(
                 "rounded-2xl border-2 transition-all p-4 relative flex-1",
-                activeSource === 'optimized' ? "border-accent-primary bg-blue-50/10" : "border-transparent bg-white hover:border-black/5",
+                activeSource === 'optimized' ? "border-promotion bg-promotion/5" : "border-transparent bg-white hover:border-black/5",
                 !optimizedPrompt && "opacity-50"
               )}
               onClick={() => optimizedPrompt && setActiveSource('optimized')}
@@ -347,7 +347,7 @@ export default function TextToImage() {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Optimized Prompt</label>
                 <div className={clsx(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  activeSource === 'optimized' ? "border-accent-primary bg-accent-primary text-white" : "border-gray-300 text-transparent"
+                  activeSource === 'optimized' ? "border-promotion bg-promotion text-promotion-foreground" : "border-gray-300 text-transparent"
                 )}>
                   <CheckCircle2 size={14} />
                 </div>

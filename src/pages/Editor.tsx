@@ -20,13 +20,11 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
   AlignVerticalJustifyCenter,
   AlignVerticalSpaceAround,
   Lock,
   Unlock,
   CornerUpLeft,
-  CornerUpRight,
   MoveUp,
   MoveDown,
   ShieldCheck,
@@ -59,7 +57,7 @@ export default function Editor() {
           <Tooltip content="新建画布" position="bottom">
             <button 
               onClick={() => setIsCanvasModalOpen(true)}
-              className="p-1.5 bg-black text-white rounded-lg hover:bg-black/80 transition-all flex items-center gap-2 text-sm font-medium pr-3"
+              className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all flex items-center gap-2 text-sm font-medium pr-3"
             >
               <Plus size={16} />
               New Canvas
@@ -107,7 +105,7 @@ export default function Editor() {
               </button>
             </Tooltip>
             <Tooltip content="检查用户体验与交互规范" position="bottom">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg transition-colors">
                 <ScanEye size={14} />
                 体验审核
               </button>
@@ -259,11 +257,11 @@ export default function Editor() {
                </div>
                
                {/* Selection UI Example */}
-               <div className="absolute top-20 left-20 w-40 h-40 bg-blue-50/50 border-2 border-accent-blue rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
-                  <div className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-white border-2 border-accent-blue rounded-full" />
-                  <div className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-white border-2 border-accent-blue rounded-full" />
-                  <div className="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-white border-2 border-accent-blue rounded-full" />
-                  <div className="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-white border-2 border-accent-blue rounded-full" />
+               <div className="absolute top-20 left-20 w-40 h-40 bg-primary/10 border-2 border-primary rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity">
+                  <div className="absolute -top-1.5 -left-1.5 w-2.5 h-2.5 bg-white border-2 border-primary rounded-full" />
+                  <div className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-white border-2 border-primary rounded-full" />
+                  <div className="absolute -bottom-1.5 -left-1.5 w-2.5 h-2.5 bg-white border-2 border-primary rounded-full" />
+                  <div className="absolute -bottom-1.5 -right-1.5 w-2.5 h-2.5 bg-white border-2 border-primary rounded-full" />
                </div>
             </div>
           </div>
@@ -335,7 +333,7 @@ function ToolButton({ icon: Icon, label, isActive, onClick }: { icon: React.Elem
         className={clsx(
           "p-3 rounded-xl transition-all relative group",
           isActive 
-            ? "bg-black text-white shadow-md" 
+            ? "bg-primary text-primary-foreground shadow-md" 
             : "text-gray-500 hover:bg-gray-100 hover:text-black"
         )}
       >
