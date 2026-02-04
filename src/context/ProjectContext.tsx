@@ -17,6 +17,7 @@ interface ProjectContextType {
   createProject: (width: number, height: number, customName?: string) => void;
   updateProject: (data: Partial<Project>) => void;
   saveProject: () => void;
+  validateSave: (name: string) => 'ok' | 'limit_reached' | 'duplicate_name';
   loadProject: (id: string) => void;
   deleteProject: (id: string) => void;
   markAsDirty: () => void;
@@ -84,6 +85,24 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setIsDirty(false);
   };
 
+  const validateSave = (name: string): 'ok' | 'limit_reached' | 'duplicate_name' => {
+    if (!currentProject) return 'ok';
+
+    // Check limit (only if it's a new project not yet in the list)
+    const exists = projects.find(p => p.id === currentProject.id);
+    if (!exists && projects.length >= 5) {
+      return 'limit_reached';
+    }
+    
+    // Check duplicate name (excluding self)
+    const isDuplicate = projects.some(p => p.name === name && p.id !== currentProject.id);
+    if (isDuplicate) {
+      return 'duplicate_name';
+    }
+    
+    return 'ok';
+  };
+
   const loadProject = (id: string) => {
     const project = projects.find(p => p.id === id);
     if (project) {
@@ -108,6 +127,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       createProject,
       updateProject,
       saveProject,
+      validateSave,
       loadProject,
       deleteProject,
       markAsDirty

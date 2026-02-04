@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, MoreHorizontal, Folder } from 'lucide-react';
+import { Plus, Clock, Trash2, Folder } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import clsx from 'clsx';
 import { useTheme } from '../theme/ThemeContext';
@@ -10,6 +10,14 @@ export default function Projects() {
   const { theme } = useTheme();
   const { projects, loadProject, deleteProject } = useProject();
 
+  const handleCreateNew = () => {
+    if (projects.length >= 5) {
+      alert('已达到个人文件数量上限 (5个)。请先删除部分旧文件。');
+      return;
+    }
+    navigate('/editor');
+  };
+
   const handleProjectClick = (id: string) => {
     loadProject(id);
     navigate('/editor');
@@ -17,7 +25,7 @@ export default function Projects() {
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('Are you sure you want to delete this project?')) {
+    if (confirm('确认删除该项目吗？')) {
       deleteProject(id);
     }
   };
@@ -27,14 +35,14 @@ export default function Projects() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold mb-2">My Projects</h1>
+            <h1 className="text-3xl font-bold mb-2">My Projects ({projects.length}/5)</h1>
             <p className="text-gray-500">Manage and organize your creative works</p>
           </div>
           <button 
-            onClick={() => navigate('/editor')}
+            onClick={handleCreateNew}
             className={clsx(
               "px-4 py-2 rounded-xl text-white flex items-center gap-2 transition-all",
-              theme.id.includes('glass') ? "bg-accent-primary/80 backdrop-blur-md" : "bg-accent-primary hover:opacity-90"
+              projects.length >= 5 ? "bg-gray-400 cursor-not-allowed" : (theme.id.includes('glass') ? "bg-accent-primary/80 backdrop-blur-md" : "bg-accent-primary hover:opacity-90")
             )}
           >
             <Plus size={20} />
@@ -52,7 +60,7 @@ export default function Projects() {
               Start your creative journey by creating your first design project.
             </p>
             <button 
-              onClick={() => navigate('/editor')}
+              onClick={handleCreateNew}
               className="text-accent-primary font-medium hover:underline"
             >
               Create New Canvas
@@ -84,8 +92,9 @@ export default function Projects() {
                     <button 
                       onClick={(e) => handleDelete(e, project.id)}
                       className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      title="删除"
                     >
-                      <MoreHorizontal size={16} />
+                      <Trash2 size={16} />
                     </button>
                   </div>
                   <div className="flex items-center gap-2 text-xs text-gray-400">
