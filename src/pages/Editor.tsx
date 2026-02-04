@@ -1370,6 +1370,18 @@ export default function Editor() {
                       <span className="text-xs text-white/50">H</span>
                       {activeTool === 'pan' && <div className="w-1.5 h-1.5 bg-accent-primary rounded-full ml-auto" />}
                     </button>
+                    <div className="h-px bg-white/10 mx-2 my-1" />
+                    <button 
+                      onClick={() => { setShowRulers(!showRulers); setIsCursorMenuOpen(false); }}
+                      className="w-full px-4 py-2 text-left text-sm flex items-center justify-between hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Ruler size={16} />
+                        <span>Ruler</span>
+                      </div>
+                      <span className="text-xs text-white/50">Shift+R</span>
+                      {showRulers && <div className="w-1.5 h-1.5 bg-accent-primary rounded-full ml-auto" />}
+                    </button>
                  </div>
                )}
             </div>
