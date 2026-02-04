@@ -15,7 +15,6 @@ import {
   Undo2, 
   Redo2,
   Save,
-  Download,
   ZoomIn,
   ZoomOut,
   Plus,
@@ -43,7 +42,6 @@ import {
   Strikethrough,
   ShieldCheck,
   ScanEye,
-  Component,
   LayoutGrid,
   AppWindow,
   Table,
@@ -60,12 +58,9 @@ import CreateCanvasModal from '../components/CreateCanvasModal';
 import { Tooltip } from '../components/Tooltip';
 import { useProject } from '../context/ProjectContext';
 import { useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function Editor() {
   const { currentProject, createProject, saveProject, markAsDirty, isDirty, validateSave, updateProject } = useProject();
-  const navigate = useNavigate();
-  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Element Management
@@ -120,10 +115,9 @@ export default function Editor() {
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
   const [activeMaterialTab, setActiveMaterialTab] = useState<'basic' | 'bocom' | 'personal' | 'icons' | 'photos' | 'mockups' | 'none'>('basic');
-  const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
+  const [personalMaterials] = useState<string[]>([]);
   const [showEffectsModal, setShowEffectsModal] = useState(false);
   const [isCursorMenuOpen, setIsCursorMenuOpen] = useState(false);
-  const [shapeType, setShapeType] = useState<'circle' | 'square' | 'rect' | 'triangle' | 'line' | 'arrow' | 'ellipse' | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [effects, setEffects] = useState({
     stroke: false,
@@ -997,7 +991,6 @@ export default function Editor() {
                                 key={i} 
                                 onClick={() => {
                                   setSelectedElement(`personal-${i}`);
-                                  setShapeType(null);
                                   // Set image source for rendering (simulated)
                                 }}
                                 className="aspect-square bg-gray-50 rounded-lg overflow-hidden border border-gray-100 relative group cursor-pointer hover:border-accent-primary transition-colors"
@@ -1018,7 +1011,7 @@ export default function Editor() {
                     </details>
 
                     {/* Placeholder Categories */}
-                    {['图标', '照片', '样机'].map((cat, i) => (
+                    {['图标', '照片', '样机'].map((cat) => (
                       <details key={cat} className="group/accordion">
                         <summary className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer list-none select-none transition-colors">
                           <div className="text-gray-400 transition-transform duration-200 group-open/accordion:rotate-90">
