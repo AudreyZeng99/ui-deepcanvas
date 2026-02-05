@@ -427,7 +427,32 @@ export default function Editor() {
     
     // Selection Logic
     isUpdatingSelection.current = true;
-    setSelectedElement(id);
+    
+    // Multi-select logic (CMD/CTRL or SHIFT)
+    if (e.metaKey || e.ctrlKey || e.shiftKey) {
+      const newSelectedIds = selectedElementIds.includes(id)
+        ? selectedElementIds.filter(eid => eid !== id)
+        : [...selectedElementIds, id];
+      
+      setSelectedElementIds(newSelectedIds);
+      
+      // Update primary selected element
+      if (newSelectedIds.includes(id)) {
+        setSelectedElement(id);
+      } else {
+        setSelectedElement(newSelectedIds.length > 0 ? newSelectedIds[newSelectedIds.length - 1] : null);
+        // If we deselected the current element, we shouldn't start dragging it
+        if (!newSelectedIds.includes(id)) {
+           setTimeout(() => isUpdatingSelection.current = false, 50);
+           return;
+        }
+      }
+    } else {
+      // Single select
+      setSelectedElementIds([id]);
+      setSelectedElement(id);
+    }
+
     const el = elements.find(e => e.id === id);
     if (el) {
       setElementProps(el.props);
@@ -469,6 +494,7 @@ export default function Editor() {
 
   const handleCanvasClick = () => {
     setSelectedElement(null);
+    setSelectedElementIds([]);
     setActiveTool('select');
   };
 
@@ -541,6 +567,7 @@ export default function Editor() {
     // Select the new element
     isUpdatingSelection.current = true;
     setSelectedElement(newId);
+    setSelectedElementIds([newId]);
     setElementProps(newEl.props);
     setSelectedContent(content);
     setTimeout(() => isUpdatingSelection.current = false, 50);
@@ -553,6 +580,7 @@ export default function Editor() {
     if (tool !== 'select' && tool !== 'pan') {
       setIsCursorMenuOpen(false);
       setSelectedElement(null); // Deselect when switching tools
+      setSelectedElementIds([]);
     }
 
     const panelTools = ['text', 'shape', 'image', 'background', 'draw', 'table'];
@@ -567,6 +595,7 @@ export default function Editor() {
         setShowLeftPanel(false);
         setLeftPanelContent(null);
         setSelectedElement(null); // Deselect any element to show AI panel clearly
+        setSelectedElementIds([]);
     } else {
       setShowLeftPanel(false);
       setLeftPanelContent(null);
