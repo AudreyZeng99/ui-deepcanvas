@@ -1097,23 +1097,29 @@ export default function Editor() {
             <div className="h-12 border-b border-black/5 flex items-center justify-between px-4 bg-gray-50/50">
               <span className="font-semibold text-sm">图层管理</span>
               <div className="flex gap-1">
-                 {selectedElementIds.length > 1 && (
                    <Tooltip content="成组" position="bottom">
-                     <button onClick={handleGroupLayers} className="p-1 hover:bg-black/5 rounded text-gray-600">
+                     <button 
+                       onClick={handleGroupLayers} 
+                       disabled={selectedElementIds.length < 2}
+                       className={clsx("p-1 rounded text-gray-600 transition-all", selectedElementIds.length < 2 ? "opacity-30 cursor-not-allowed" : "hover:bg-black/5")}
+                     >
                        <Group size={16} />
                      </button>
                    </Tooltip>
-                 )}
-                 {selectedElementIds.length > 0 && elements.some(el => selectedElementIds.includes(el.id) && el.groupId) && (
+                   
                    <Tooltip content="解组" position="bottom">
-                     <button onClick={handleUngroupLayers} className="p-1 hover:bg-black/5 rounded text-gray-600">
+                     <button 
+                       onClick={handleUngroupLayers} 
+                       disabled={!elements.some(el => selectedElementIds.includes(el.id) && el.groupId)}
+                       className={clsx("p-1 rounded text-gray-600 transition-all", !elements.some(el => selectedElementIds.includes(el.id) && el.groupId) ? "opacity-30 cursor-not-allowed" : "hover:bg-black/5")}
+                     >
                        <Ungroup size={16} />
                      </button>
                    </Tooltip>
-                 )}
-                 <button onClick={() => setShowLayers(false)} className="p-1 hover:bg-black/5 rounded text-gray-400 hover:text-gray-600">
-                   <X size={16} />
-                 </button>
+
+                   <button onClick={() => setShowLayers(false)} className="p-1 hover:bg-black/5 rounded text-gray-400 hover:text-gray-600 ml-2">
+                     <X size={16} />
+                   </button>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">

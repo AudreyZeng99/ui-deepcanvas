@@ -173,27 +173,33 @@ export default function MaterialsModal({
                           ))}
                       </div>
                   </div>
-                   {/* Logo */}
-                  <div className="space-y-3">
-                      <h4 className="text-sm font-medium text-gray-500">交行 Logo</h4>
-                      <div className="grid grid-cols-4 gap-4">
-                          {logoItems.map((item) => (
-                               <button 
-                                 key={item.id} 
-                                 onClick={() => onAddElement('bocom', item.id)} 
-                                 className={clsx("h-16 rounded-xl flex items-center justify-center text-sm font-bold border hover:shadow-md hover:scale-105 transition-all", item.color)}
-                               >
-                                  {item.label}
-                               </button>
-                          ))}
-                      </div>
-                  </div>
               </div>
               
               {/* Gradient fade overlay if collapsed */}
               {!isOfficialExpanded && (
                 <div className="absolute left-0 right-0 h-24 -mt-24 bg-gradient-to-t from-white to-transparent pointer-events-none" />
               )}
+          </div>
+
+          <div className="w-full h-px bg-gray-100" />
+
+          {/* 3. Brand Logo Materials */}
+          <div className="space-y-3">
+              <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+                <span className="w-1 h-4 bg-accent-primary rounded-full"></span>
+                品牌标识
+              </h3>
+              <div className="grid grid-cols-4 gap-4">
+                  {logoItems.map((item) => (
+                       <button 
+                         key={item.id} 
+                         onClick={() => onAddElement('bocom', item.id)} 
+                         className={clsx("h-16 rounded-xl flex items-center justify-center text-sm font-bold border hover:shadow-md hover:scale-105 transition-all", item.color)}
+                       >
+                          {item.label}
+                       </button>
+                  ))}
+              </div>
           </div>
 
           <div className="w-full h-px bg-gray-100" />
