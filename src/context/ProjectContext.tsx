@@ -11,17 +11,17 @@ export interface Project {
 }
 
 interface ProjectContextType {
-  currentProject: Project | null;
-  projects: Project[];
-  isDirty: boolean;
-  createProject: (width: number, height: number, customName?: string) => void;
-  updateProject: (data: Partial<Project>) => void;
-  saveProject: () => void;
-  validateSave: (name: string) => 'ok' | 'limit_reached' | 'duplicate_name';
-  loadProject: (id: string) => void;
-  deleteProject: (id: string) => void;
-  markAsDirty: () => void;
-}
+    currentProject: Project | null;
+    projects: Project[];
+    isDirty: boolean;
+    createProject: (width: number, height: number, customName?: string) => void;
+    updateProject: (data: Partial<Project>) => void;
+    saveProject: (data?: Partial<Project>) => void;
+    validateSave: (name: string) => 'ok' | 'limit_reached' | 'duplicate_name';
+    loadProject: (id: string) => void;
+    deleteProject: (id: string) => void;
+    markAsDirty: () => void;
+  }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
@@ -64,11 +64,12 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     setIsDirty(true);
   };
 
-  const saveProject = () => {
+  const saveProject = (data?: Partial<Project>) => {
     if (!currentProject) return;
     
     const updatedProject = {
       ...currentProject,
+      ...(data || {}),
       lastModified: Date.now(),
     };
 

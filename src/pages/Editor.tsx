@@ -42,16 +42,69 @@ import {
   Strikethrough,
   ShieldCheck,
   ScanEye,
-  LayoutGrid,
-  AppWindow,
   Table,
   Sparkles,
+  Download,
+  Share2,
   X,
   ChevronRight,
   ChevronDown,
   AlertTriangle,
   Trash2,
-  Copy
+  Copy,
+  Package, // For Materials (Treasure Chest)
+  Wallpaper, // For Background
+  Shapes as ShapesIcon, // For Shapes
+  Highlighter, // For Brush Styles
+  Brush, // For Brush Styles
+  Star,
+  Heart,
+  Hexagon,
+  Octagon,
+  ArrowRight,
+  ArrowLeft,
+  MessageCircle,
+  Zap,
+  Cloud,
+  Check,
+  Smile,
+  Sun,
+  Moon,
+  Umbrella,
+  Music,
+  Headphones,
+  Camera,
+  Video,
+  Mic,
+  Bell,
+  Calendar,
+  Clock,
+  MapPin,
+  Tag,
+  Flag,
+  Bookmark,
+  ThumbsUp,
+  ThumbsDown,
+  User,
+  Users,
+  Settings,
+  Search,
+  Home,
+  Menu,
+  Globe,
+  Megaphone,
+  Gift,
+  RotateCw,
+  Palette,
+  ChevronLeft,
+  Send,
+  ImagePlus,
+  Eraser,
+  Crop,
+  FileImage,
+  CheckCircle2,
+  XCircle,
+  MousePointerClick
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -118,7 +171,7 @@ export default function Editor() {
   const [personalMaterials] = useState<string[]>([]);
   const [showEffectsModal, setShowEffectsModal] = useState(false);
   const [isCursorMenuOpen, setIsCursorMenuOpen] = useState(false);
-  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({}); // Default false = limited to 10
   const [effects, setEffects] = useState({
     stroke: false,
     shadow: false,
@@ -127,6 +180,26 @@ export default function Editor() {
     threeD: false,
     glass: false
   });
+  
+  // AI Assistant State
+  const [aiMode, setAiMode] = useState<'blend' | 'edit' | 'erase'>('blend');
+  const [aiChatHistory, setAiChatHistory] = useState<{id: string, role: 'user' | 'ai', type: 'text' | 'image', content: string}[]>([
+    { id: 'welcome', role: 'ai', type: 'text', content: '你好！我是你的 AI 设计助手。\n\n1. AI修改只针对背景图。\n2. AI溶图：最多融合2张图片。\n3. AI改图：不框选是改整张图，框选则是修改选定区域。\n4. AI擦除：请注意框选颜色与背景色不要高度重合。使用框选后，提示词请说明框的颜色（如：请帮我擦除红色框中的内容）。\n\n提示：目前版本只支持单轮对话，多轮对话功能敬请期待。' }
+  ]);
+  const [aiInput, setAiInput] = useState('');
+  const [aiUploadedFiles, setAiUploadedFiles] = useState<File[]>([]);
+  const [aiSelectionColor, setAiSelectionColor] = useState('#FF0000');
+  const [aiSelectionBox, setAiSelectionBox] = useState<{x: number, y: number, w: number, h: number} | null>(null);
+  const [aiBoxStart, setAiBoxStart] = useState<{x: number, y: number} | null>(null);
+  const aiFileInputRef = useRef<HTMLInputElement>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  
+  // Drawing State
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [currentPoints, setCurrentPoints] = useState<{x: number, y: number}[]>([]);
+  const [brushType, setBrushType] = useState('solid');
+  const [brushColor, setBrushColor] = useState('#000000');
+  const [brushWidth, setBrushWidth] = useState(5);
 
   // Drag & Resize State
   const [dragState, setDragState] = useState<{
@@ -258,7 +331,7 @@ export default function Editor() {
       return;
     }
     
-    saveProject();
+    saveProject({ elements });
   };
 
   const handleRenameSave = () => {
@@ -394,6 +467,53 @@ export default function Editor() {
 
   const [canvasBackground, setCanvasBackground] = useState('#FFFFFF');
 
+  // Background Panel State
+  const [customColor, setCustomColor] = useState('#ffffff');
+  const [gradientStops, setGradientStops] = useState<{id: number, color: string, position: number}[]>([
+    { id: 1, color: '#3b82f6', position: 0 },
+    { id: 2, color: '#06b6d4', position: 100 }
+  ]);
+  const [gradientAngle, setGradientAngle] = useState(90);
+  const [backgroundView, setBackgroundView] = useState<'main' | 'public' | 'traffic'>('main');
+
+  const backgroundLibraryItems = [
+    { id: 'public', icon: Globe, label: '公共背景库', bgClass: 'bg-blue-100', textClass: 'text-blue-600' },
+    { id: 'traffic', icon: Megaphone, label: '流量投放素材', bgClass: 'bg-purple-100', textClass: 'text-purple-600' },
+  ];
+
+  // Mock Data for Background Libraries
+  const publicBackgrounds = [
+    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80',
+    'https://images.unsplash.com/photo-1557683316-973673baf926?w=400&q=80',
+    'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=400&q=80',
+    'https://images.unsplash.com/photo-1523821741446-edb2b68bb7a0?w=400&q=80',
+    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80',
+    'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?w=400&q=80',
+    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400&q=80',
+    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=400&q=80',
+    'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400&q=80',
+    'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=400&q=80',
+  ];
+
+  const trafficBackgrounds = [
+    'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=400&q=80',
+    'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=400&q=80',
+    'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=400&q=80',
+    'https://images.unsplash.com/photo-1557682260-96773eb01377?w=400&q=80',
+    'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=400&q=80',
+    'https://images.unsplash.com/photo-1614850523018-c4fd03882696?w=400&q=80',
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&q=80',
+    'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&q=80',
+  ];
+
+  const applyGradient = () => {
+    const stopsStr = gradientStops
+      .sort((a, b) => a.position - b.position)
+      .map(s => `${s.color} ${s.position}%`)
+      .join(', ');
+    setCanvasBackground(`linear-gradient(${gradientAngle}deg, ${stopsStr})`);
+  };
+
   // --- Actions ---
   const handleAddElement = (type: CanvasElement['type'], subType: string | undefined, specificProps: any = {}, content: string = '') => {
     const newId = `${type}-${Date.now()}`;
@@ -425,17 +545,138 @@ export default function Editor() {
     // Close cursor menu if a different tool is selected (not select/pan)
     if (tool !== 'select' && tool !== 'pan') {
       setIsCursorMenuOpen(false);
+      setSelectedElement(null); // Deselect when switching tools
     }
 
-    const panelTools = ['text', 'material', 'image', 'background', 'draw', 'table', 'ai'];
+    const panelTools = ['text', 'material', 'shape', 'image', 'background', 'draw', 'table'];
     if (panelTools.includes(tool)) {
       setShowLeftPanel(true);
       setLeftPanelContent(tool);
-      // Removed immediate element creation for 'text'
+      // Reset background view when opening panel
+      if (tool === 'background') {
+        setBackgroundView('main');
+      }
+    } else if (tool === 'ai') {
+        setShowLeftPanel(false);
+        setLeftPanelContent(null);
+        setSelectedElement(null); // Deselect any element to show AI panel clearly
     } else {
       setShowLeftPanel(false);
       setLeftPanelContent(null);
     }
+  };
+
+  // Drawing Handlers
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if ((activeTool as string) === 'ai-box-select') {
+       const rect = e.currentTarget.getBoundingClientRect();
+       const x = (e.clientX - rect.left) / (zoom / 100);
+       const y = (e.clientY - rect.top) / (zoom / 100);
+       setAiBoxStart({x, y});
+       setAiSelectionBox({x, y, w: 0, h: 0});
+       return;
+    }
+
+    if (activeTool !== 'draw') return;
+    
+    setIsDrawing(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / (zoom / 100);
+    const y = (e.clientY - rect.top) / (zoom / 100);
+    setCurrentPoints([{x, y}]);
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if ((activeTool as string) === 'ai-box-select' && aiBoxStart) {
+       const rect = e.currentTarget.getBoundingClientRect();
+       const x = (e.clientX - rect.left) / (zoom / 100);
+       const y = (e.clientY - rect.top) / (zoom / 100);
+       
+       const w = x - aiBoxStart.x;
+       const h = y - aiBoxStart.y;
+       
+       setAiSelectionBox({
+           x: w > 0 ? aiBoxStart.x : x,
+           y: h > 0 ? aiBoxStart.y : y,
+           w: Math.abs(w),
+           h: Math.abs(h)
+       });
+       return;
+    }
+
+    if (!isDrawing || activeTool !== 'draw') return;
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / (zoom / 100);
+    const y = (e.clientY - rect.top) / (zoom / 100);
+    setCurrentPoints(prev => [...prev, {x, y}]);
+  };
+
+  const handleCanvasMouseUp = () => {
+    if ((activeTool as string) === 'ai-box-select') {
+        setAiBoxStart(null);
+        setActiveTool('ai'); 
+        return;
+    }
+
+    if (!isDrawing || activeTool !== 'draw') return;
+    setIsDrawing(false);
+    
+    if (currentPoints.length < 2) return;
+
+    // Create new element
+    const minX = Math.min(...currentPoints.map(p => p.x));
+    const minY = Math.min(...currentPoints.map(p => p.y));
+    const maxX = Math.max(...currentPoints.map(p => p.x));
+    const maxY = Math.max(...currentPoints.map(p => p.y));
+    const w = maxX - minX;
+    const h = maxY - minY;
+    
+    // Normalize points to 0-100 range (percentage) for scalable vector
+    const safeW = Math.max(w, 1);
+    const safeH = Math.max(h, 1);
+    const points = currentPoints.map(p => ({
+      x: (p.x - minX) / safeW * 100, 
+      y: (p.y - minY) / safeH * 100
+    }));
+    
+    const newId = `draw-${Date.now()}`;
+    const newEl: CanvasElement = {
+      id: newId,
+      type: 'draw',
+      props: {
+        x: minX,
+        y: minY,
+        w: safeW,
+        h: safeH,
+        rotation: 0,
+        opacity: 100,
+        stroke: brushColor,
+        strokeWidth: brushWidth,
+        brushType: brushType,
+        points: points,
+        fill: 'transparent',
+        flipX: false,
+        flipY: false,
+        radius: 0
+      }
+    };
+    
+    setElements(prev => [...prev, newEl]);
+    setCurrentPoints([]);
+    
+    // Select the new element
+    // setTimeout to avoid conflict with click event
+    setTimeout(() => {
+        setSelectedElement(newId);
+        setElementProps(newEl.props);
+        // Switch back to select tool after drawing? Or keep drawing?
+        // Usually keep drawing. But user wants to see properties after selecting.
+        // If I keep drawing tool active, user can draw another one.
+        // To select, user needs to switch to 'select' tool.
+        // But I can update properties panel context if I want.
+        // Let's keep it simple.
+    }, 50);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -474,7 +715,7 @@ export default function Editor() {
   };
 
   return (
-    <div className="h-[calc(100vh-3rem)] relative bg-white/50 rounded-3xl overflow-hidden border border-black/5 flex flex-col">
+    <div className="h-screen relative bg-white overflow-hidden flex flex-col">
       <CreateCanvasModal 
         isOpen={isCanvasModalOpen} 
         onClose={() => setIsCanvasModalOpen(false)} 
@@ -639,17 +880,23 @@ export default function Editor() {
 
           <div className="h-5 w-px bg-black/10 mr-2" />
 
-          <Tooltip content="保存 (Ctrl+S)" position="bottom">
+          <Tooltip content={isDirty ? "保存 (Ctrl+S)" : "已保存"} position="bottom">
             <button 
               onClick={handleSaveWrapper}
-              className="btn-primary py-1.5 px-3 text-sm flex items-center gap-2 rounded-lg"
+              disabled={!isDirty}
+              className={clsx(
+                "py-1.5 px-3 text-sm flex items-center gap-2 rounded-lg transition-colors",
+                isDirty 
+                  ? "btn-primary" 
+                  : "bg-gray-100 text-gray-400 cursor-default"
+              )}
             >
               <Save size={16} />
-              Save
+              {isDirty ? 'Save' : 'Saved'}
             </button>
           </Tooltip>
           {/* Hidden button to trigger save from timeout */}
-          <button id="hidden-save-trigger" className="hidden" onClick={saveProject} />
+          <button id="hidden-save-trigger" className="hidden" onClick={() => saveProject({ elements })} />
         </div>
       </header>
 
@@ -666,12 +913,12 @@ export default function Editor() {
                  <Layers size={18} />
                </button>
              </Tooltip>
-             <Tooltip content="背景设置" position="bottom">
+             <Tooltip content="素材库" position="bottom">
                <button 
-                 className={clsx("p-1.5 rounded-lg transition-colors", activeTool === 'background' ? "bg-black/5" : "hover:bg-black/5")}
-                 onClick={() => handleToolClick('background')}
+                 className={clsx("p-1.5 rounded-lg transition-colors", activeTool === 'material' ? "bg-black/5" : "hover:bg-black/5")}
+                 onClick={() => handleToolClick('material')}
                >
-                 <AppWindow size={18} />
+                 <Package size={18} />
                </button>
              </Tooltip>
              <div className="flex items-center gap-0.5 ml-1">
@@ -770,6 +1017,7 @@ export default function Editor() {
               <span className="font-semibold text-sm">
                 {leftPanelContent === 'text' && '文本工具'}
                 {leftPanelContent === 'material' && '素材库'}
+                {leftPanelContent === 'shape' && '基础形状'}
                 {leftPanelContent === 'image' && '图片资源'}
                 {leftPanelContent === 'background' && '背景设置'}
                 {leftPanelContent === 'draw' && '画笔工具'}
@@ -782,28 +1030,208 @@ export default function Editor() {
             </div>
             <div className="flex-1 p-4 overflow-y-auto">
               {leftPanelContent === 'text' && (
-                <div className="space-y-4">
+                <div className="space-y-6">
                    <div className="space-y-2">
-                     <div className="text-xs font-medium text-gray-500">Presets</div>
+                     <div className="text-xs font-medium text-gray-500">文字标题</div>
                      <button 
-                       onClick={() => handleAddElement('text', undefined, { fontSize: 48, fontWeight: 'bold' }, 'Heading')}
+                       onClick={() => handleAddElement('text', undefined, { fontSize: 48, fontWeight: 'bold' }, '主标题')}
                        className="w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-left text-2xl font-bold border border-transparent hover:border-black/5 transition-all"
                      >
-                       Heading
+                       主标题
                      </button>
                      <button 
-                       onClick={() => handleAddElement('text', undefined, { fontSize: 32, fontWeight: 'semibold' }, 'Subheading')}
+                       onClick={() => handleAddElement('text', undefined, { fontSize: 32, fontWeight: 'semibold' }, '副标题')}
                        className="w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-left text-lg font-semibold border border-transparent hover:border-black/5 transition-all"
                      >
-                       Subheading
+                       副标题
                      </button>
                      <button 
-                       onClick={() => handleAddElement('text', undefined, { fontSize: 16, fontWeight: 'normal' }, 'Body text')}
+                       onClick={() => handleAddElement('text', undefined, { fontSize: 16, fontWeight: 'normal' }, '正文内容')}
                        className="w-full p-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-left text-sm text-gray-600 border border-transparent hover:border-black/5 transition-all"
                      >
-                       Body text
+                       正文内容
                      </button>
                    </div>
+
+                   <div className="space-y-2">
+                     <div 
+                       className={clsx(
+                         "flex items-center justify-between group cursor-pointer"
+                       )}
+                       onClick={() => setExpandedCategories(prev => ({
+                         ...prev,
+                         'artistic-text': !prev['artistic-text']
+                       }))}
+                     >
+                       <div className="text-xs font-medium text-gray-500">艺术字体</div>
+                       <div className={clsx(
+                         "text-gray-400 transition-transform duration-200",
+                         expandedCategories['artistic-text'] ? "rotate-90" : ""
+                       )}>
+                         <ChevronRight size={14} />
+                       </div>
+                     </div>
+                     
+                     <div className="transition-all duration-300">
+                       <div className="grid grid-cols-1 gap-2">
+                         {(expandedCategories['artistic-text'] ? [
+                           { label: '霓虹光效', style: { color: '#00ff00', textShadow: '0 0 10px #00ff00', fontWeight: 'bold', fontSize: 32 } },
+                           { label: '金属质感', style: { background: 'linear-gradient(to bottom, #eee, #999)', backgroundClip: 'text', color: 'transparent', fontWeight: 'bold', fontSize: 32 } },
+                           { label: '复古风格', style: { fontFamily: 'serif', color: '#8B4513', letterSpacing: '2px', fontSize: 32 } },
+                           { label: '故障艺术', style: { textShadow: '2px 0 red, -2px 0 blue', fontWeight: 'bold', fontSize: 32 } },
+                           { label: '火焰特效', style: { color: '#ff4500', textShadow: '0 -2px 4px #ffd700', fontWeight: 'bold', fontSize: 32 } },
+                           { label: '冰霜冻结', style: { color: '#e0ffff', textShadow: '0 0 5px #00bfff', fontWeight: 'bold', fontSize: 32 } },
+                         ] : [
+                           { label: '霓虹光效', style: { color: '#00ff00', textShadow: '0 0 10px #00ff00', fontWeight: 'bold', fontSize: 32 } },
+                           { label: '金属质感', style: { background: 'linear-gradient(to bottom, #eee, #999)', backgroundClip: 'text', color: 'transparent', fontWeight: 'bold', fontSize: 32 } },
+                           { label: '复古风格', style: { fontFamily: 'serif', color: '#8B4513', letterSpacing: '2px', fontSize: 32 } },
+                         ]).map((item, i) => (
+                           <button 
+                             key={i} 
+                             onClick={() => handleAddElement('text', undefined, { ...item.style }, item.label)}
+                             className="w-full p-4 bg-gray-900 rounded-xl border border-transparent hover:border-gray-700 transition-all overflow-hidden"
+                           >
+                             <span style={item.style as any}>{item.label}</span>
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+                   </div>
+                </div>
+              )}
+
+              {leftPanelContent === 'shape' && (
+                <div className="space-y-4 h-full flex flex-col">
+                  {[
+                    {
+                      id: 'basic',
+                      title: '基础形状',
+                      items: [
+                        { icon: Square, label: '正方形', type: 'square' },
+                        { icon: RectangleHorizontal, label: '矩形', type: 'rect' },
+                        { icon: Circle, label: '圆形', type: 'circle' },
+                        { icon: Circle, label: '椭圆形', type: 'ellipse' },
+                        { icon: Triangle, label: '三角形', type: 'triangle' },
+                        { icon: Star, label: '星形', type: 'star' },
+                        { icon: Heart, label: '心形', type: 'heart' },
+                        { icon: Hexagon, label: '六边形', type: 'hexagon' },
+                        { icon: Octagon, label: '八边形', type: 'octagon' },
+                      ]
+                    },
+                    {
+                      id: 'arrows',
+                      title: '线段与箭头',
+                      items: [
+                        { icon: Minus, label: '直线段', type: 'line' },
+                        { icon: MoveRight, label: '箭头线段', type: 'arrow' },
+                        { icon: ArrowUp, label: '上箭头', type: 'arrow-up' },
+                        { icon: ArrowDown, label: '下箭头', type: 'arrow-down' },
+                        { icon: ArrowLeft, label: '左箭头', type: 'arrow-left' },
+                        { icon: ArrowRight, label: '右箭头', type: 'arrow-right' },
+                      ]
+                    },
+                    {
+                      id: 'symbols',
+                      title: '符号与图标',
+                      items: [
+                        { icon: Smile, label: '笑脸', type: 'smile' },
+                        { icon: MessageCircle, label: '气泡', type: 'bubble' },
+                        { icon: Zap, label: '闪电', type: 'zap' },
+                        { icon: Cloud, label: '云朵', type: 'cloud' },
+                        { icon: Check, label: '对勾', type: 'check' },
+                        { icon: X, label: '关闭', type: 'x' },
+                        { icon: Sun, label: '太阳', type: 'sun' },
+                        { icon: Moon, label: '月亮', type: 'moon' },
+                        { icon: Umbrella, label: '雨伞', type: 'umbrella' },
+                        { icon: Music, label: '音乐', type: 'music' },
+                        { icon: Headphones, label: '耳机', type: 'headphones' },
+                        { icon: Camera, label: '相机', type: 'camera' },
+                        { icon: Video, label: '视频', type: 'video' },
+                        { icon: Mic, label: '麦克风', type: 'mic' },
+                        { icon: Bell, label: '铃声', type: 'bell' },
+                        { icon: Calendar, label: '日历', type: 'calendar' },
+                        { icon: Clock, label: '时钟', type: 'clock' },
+                        { icon: MapPin, label: '定位', type: 'map-pin' },
+                        { icon: Tag, label: '标签', type: 'tag' },
+                        { icon: Flag, label: '旗帜', type: 'flag' },
+                        { icon: Bookmark, label: '书签', type: 'bookmark' },
+                        { icon: ThumbsUp, label: '点赞', type: 'thumbs-up' },
+                        { icon: ThumbsDown, label: '踩', type: 'thumbs-down' },
+                        { icon: User, label: '用户', type: 'user' },
+                        { icon: Users, label: '用户组', type: 'users' },
+                        { icon: Settings, label: '设置', type: 'settings' },
+                        { icon: Search, label: '搜索', type: 'search' },
+                        { icon: Home, label: '主页', type: 'home' },
+                        { icon: Menu, label: '菜单', type: 'menu' },
+                      ]
+                    }
+                  ].map((category) => (
+                    <div key={category.id} className="space-y-2">
+                      <div 
+                        className={clsx(
+                          "flex items-center justify-between group",
+                          category.items.length > 10 ? "cursor-pointer" : "cursor-default"
+                        )}
+                        onClick={() => {
+                          if (category.items.length > 10) {
+                            setExpandedCategories(prev => ({
+                              ...prev,
+                              [category.id]: !prev[category.id]
+                            }));
+                          }
+                        }}
+                      >
+                        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{category.title}</h3>
+                        {category.items.length > 10 && (
+                          <div className={clsx(
+                            "text-gray-400 transition-transform duration-200",
+                            expandedCategories[category.id] ? "rotate-90" : ""
+                          )}>
+                            <ChevronRight size={14} />
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="transition-all duration-300">
+                        <div className="flex flex-wrap gap-2 pb-2">
+                          {(expandedCategories[category.id] ? category.items : category.items.slice(0, 10)).map((item, i) => (
+                            <button 
+                              key={i} 
+                              onClick={() => {
+                                let w = 100;
+                                let h = 100;
+                                let radius = 0;
+                                
+                                // Set dimensions based on type
+                                if (item.type === 'line' || item.type === 'arrow') {
+                                  w = 200;
+                                  h = 2;
+                                } else if (item.type === 'rect' || item.type === 'ellipse') {
+                                  w = 160;
+                                  h = 100;
+                                } else if (item.type === 'circle') {
+                                  radius = 50;
+                                }
+
+                                handleAddElement('shape', item.type, {
+                                  w,
+                                  h,
+                                  radius
+                                });
+                              }}
+                              className="w-8 h-8 flex items-center justify-center bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-black/5 transition-all group/btn relative"
+                              title={item.label}
+                            >
+                              <item.icon size={16} className="text-gray-600" />
+                              <span className="absolute -bottom-6 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover/btn:opacity-100 transition-opacity whitespace-nowrap z-50 pointer-events-none">
+                                {item.label}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -828,51 +1256,6 @@ export default function Editor() {
 
                   {/* Content Area - Accordion List */}
                   <div className="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
-                    {/* Basic Shapes */}
-                    <details className="group/accordion" open={activeMaterialTab === 'basic'}>
-                      <summary 
-                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer list-none select-none transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setActiveMaterialTab(activeMaterialTab === 'basic' ? 'none' : 'basic');
-                        }}
-                      >
-                        <div className={clsx("text-gray-400 transition-transform duration-200", activeMaterialTab === 'basic' ? "rotate-90" : "")}>
-                          <ChevronRight size={14} />
-                        </div>
-                        <span className="text-sm font-medium text-gray-700">基础形状</span>
-                      </summary>
-                      
-                      <div className={clsx("pl-2 pt-2", activeMaterialTab === 'basic' ? "block" : "hidden")}>
-                        <div className="grid grid-cols-3 gap-3 pb-2">
-                          {[
-                            { icon: Circle, label: '圆形', type: 'circle' },
-                            { icon: Square, label: '正方形', type: 'square' },
-                            { icon: Circle, label: '椭圆形', type: 'ellipse' },
-                            { icon: Minus, label: '直线段', type: 'line' },
-                            { icon: MoveRight, label: '箭头线段', type: 'arrow' },
-                            { icon: Triangle, label: '三角形', type: 'triangle' },
-                            { icon: RectangleHorizontal, label: '矩形', type: 'rect' },
-                          ].map((item, i) => (
-                            <button 
-                              key={i} 
-                              onClick={() => {
-                                handleAddElement('shape', item.type, {
-                                  w: item.type === 'line' || item.type === 'arrow' ? 200 : 100,
-                                  h: item.type === 'line' || item.type === 'arrow' ? 2 : (item.type === 'rect' || item.type === 'ellipse' ? 60 : 100),
-                                  radius: item.type === 'circle' ? 50 : 0
-                                });
-                              }}
-                              className="aspect-square flex flex-col items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 rounded-xl border border-transparent hover:border-black/5 transition-all"
-                            >
-                              <item.icon size={24} className="text-gray-600" />
-                              <span className="text-[10px] text-gray-500">{item.label}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </details>
-
                     {/* BoCom Materials */}
                     <details className="group/accordion" open={activeMaterialTab === 'bocom'}>
                       <summary 
@@ -1045,24 +1428,217 @@ export default function Editor() {
               )}
 
               {leftPanelContent === 'background' && (
-                <div className="space-y-4">
-                   <div className="space-y-2">
-                      <div className="text-xs font-medium text-gray-500">纯色填充</div>
-                      <div className="grid grid-cols-5 gap-2">
-                        {['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#000000', '#ffffff', '#808080', '#c0c0c0'].map(c => (
-                          <button key={c} onClick={() => setCanvasBackground(c)} className="w-8 h-8 rounded-full border border-black/5 hover:scale-110 transition-transform" style={{backgroundColor: c}} />
-                        ))}
+                <div className="h-full flex flex-col">
+                  {backgroundView === 'main' ? (
+                    <div className="space-y-6">
+                       {/* Background Library */}
+                       <div className="space-y-2">
+                         <div className="flex items-center justify-between group cursor-pointer">
+                           <div className="text-xs font-medium text-gray-500">背景库</div>
+                         </div>
+                         
+                         <div className="space-y-2">
+                           {backgroundLibraryItems.map(item => (
+                             <button 
+                               key={item.id} 
+                               onClick={() => setBackgroundView(item.id as 'public' | 'traffic')}
+                               className="w-full flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-xl text-left border border-transparent hover:border-black/5 transition-all group"
+                             >
+                               <div className="flex items-center gap-2">
+                                 <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center", item.bgClass, item.textClass)}>
+                                   <item.icon size={16} />
+                                 </div>
+                                 <span className="text-sm font-medium text-gray-700">{item.label}</span>
+                               </div>
+                               <ChevronRight size={14} className="text-gray-400 group-hover:text-gray-600" />
+                             </button>
+                           ))}
+                         </div>
+                       </div>
+    
+                       <div className="space-y-2">
+                          <div className="text-xs font-medium text-gray-500">纯色背景</div>
+                          <div className="grid grid-cols-5 gap-2">
+                            {['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#000000', '#ffffff', '#808080', '#c0c0c0'].map(c => (
+                              <button key={c} onClick={() => setCanvasBackground(c)} className="w-8 h-8 rounded-full border border-black/5 hover:scale-110 transition-transform" style={{backgroundColor: c}} />
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2 pt-2">
+                            <div className="relative w-8 h-8 rounded-full border border-black/10 overflow-hidden shrink-0 group">
+                                <div className="absolute inset-0 bg-white flex items-center justify-center group-hover:bg-gray-50 transition-colors">
+                                    <Palette size={14} className="text-gray-500" />
+                                </div>
+                                <input 
+                                    type="color" 
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                    value={customColor}
+                                    onChange={(e) => {
+                                        setCustomColor(e.target.value);
+                                        setCanvasBackground(e.target.value);
+                                    }}
+                                />
+                            </div>
+                            <input 
+                                type="text" 
+                                value={customColor}
+                                placeholder="#000000"
+                                className="flex-1 min-w-0 h-8 px-2 text-xs border border-gray-200 rounded-lg outline-none focus:border-black/20 transition-colors font-mono uppercase"
+                                onChange={(e) => {
+                                    setCustomColor(e.target.value);
+                                    if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+                                        setCanvasBackground(e.target.value);
+                                    }
+                                }}
+                            />
+                          </div>
+                       </div>
+                       <div className="space-y-2">
+                          <div className="text-xs font-medium text-gray-500">渐变背景</div>
+                          <div className="grid grid-cols-5 gap-2">
+                             {[
+                               'linear-gradient(to right, #3b82f6, #06b6d4)',
+                               'linear-gradient(to right, #a855f7, #ec4899)',
+                               'linear-gradient(to right, #f59e0b, #f97316)',
+                               'linear-gradient(to right, #10b981, #14b8a6)',
+                               'linear-gradient(to right, #ef4444, #f43f5e)',
+                               'linear-gradient(to right, #8b5cf6, #d946ef)',
+                               'linear-gradient(to right, #0ea5e9, #6366f1)',
+                               'linear-gradient(to right, #f43f5e, #fb7185)',
+                             ].map((gradient, i) => (
+                               <div 
+                                 key={i}
+                                 onClick={() => setCanvasBackground(gradient)} 
+                                 className="w-8 h-8 rounded-full border border-black/5 hover:scale-110 transition-transform cursor-pointer"
+                                 style={{ background: gradient }}
+                               />
+                             ))}
+                          </div>
+                          
+                          <div className="pt-2 space-y-3 border-t border-gray-100 mt-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-gray-500">自定渐变</span>
+                                <button 
+                                    onClick={applyGradient}
+                                    className="text-[10px] bg-black text-white px-2 py-1 rounded hover:opacity-90 transition-opacity"
+                                >
+                                    应用
+                                </button>
+                            </div>
+                            
+                            {/* Gradient Preview */}
+                            <div 
+                              className="w-full h-12 rounded-lg border border-black/5"
+                              style={{ 
+                                background: `linear-gradient(${gradientAngle}deg, ${gradientStops.sort((a, b) => a.position - b.position).map(s => `${s.color} ${s.position}%`).join(', ')})` 
+                              }}
+                            />
+    
+                            <div className="flex items-center gap-2">
+                                <RotateCw size={12} className="text-gray-400" />
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="360" 
+                                    value={gradientAngle} 
+                                    onChange={(e) => setGradientAngle(Number(e.target.value))}
+                                    className="flex-1 h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                                />
+                                <span className="text-[10px] w-6 text-right font-mono text-gray-500">{gradientAngle}°</span>
+                            </div>
+    
+                            <div className="space-y-2">
+                                {gradientStops.map((stop, index) => (
+                                    <div key={stop.id} className="flex items-center gap-2">
+                                        <div className="relative w-6 h-6 rounded-full border border-black/10 overflow-hidden shrink-0">
+                                            <input 
+                                                type="color" 
+                                                value={stop.color}
+                                                onChange={(e) => {
+                                                    const newStops = [...gradientStops];
+                                                    newStops[index].color = e.target.value;
+                                                    setGradientStops(newStops);
+                                                }}
+                                                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                            />
+                                            <div className="w-full h-full" style={{backgroundColor: stop.color}} />
+                                        </div>
+                                        <input 
+                                            type="text"
+                                            value={stop.color}
+                                            onChange={(e) => {
+                                                const newStops = [...gradientStops];
+                                                newStops[index].color = e.target.value;
+                                                setGradientStops(newStops);
+                                            }}
+                                            className="w-16 h-6 text-[10px] border border-gray-200 rounded px-1 font-mono uppercase outline-none focus:border-black/20"
+                                        />
+                                        <input 
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            value={stop.position}
+                                            onChange={(e) => {
+                                                const newStops = [...gradientStops];
+                                                newStops[index].position = Number(e.target.value);
+                                                setGradientStops(newStops);
+                                            }}
+                                            className="w-10 h-6 text-[10px] border border-gray-200 rounded px-1 font-mono outline-none focus:border-black/20 text-center"
+                                        />
+                                        <span className="text-[10px] text-gray-400">%</span>
+                                        {gradientStops.length > 2 && (
+                                            <button 
+                                                onClick={() => setGradientStops(gradientStops.filter(s => s.id !== stop.id))}
+                                                className="text-gray-400 hover:text-red-500 transition-colors ml-auto"
+                                            >
+                                                <X size={12} />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <button 
+                                onClick={() => setGradientStops([...gradientStops, { id: Date.now(), color: '#ffffff', position: 100 }])}
+                                className="w-full py-1.5 flex items-center justify-center gap-1 text-[10px] font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 rounded border border-gray-200 transition-colors"
+                            >
+                                <Plus size={12} />
+                                添加颜色节点
+                            </button>
+                          </div>
+                       </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col h-full -mx-4 px-4">
+                      {/* Sub-view Header */}
+                      <div className="flex items-center gap-2 pb-4 mb-4 border-b border-gray-100">
+                        <button 
+                          onClick={() => setBackgroundView('main')}
+                          className="p-1.5 -ml-1.5 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-sm font-medium text-gray-800">
+                          {backgroundView === 'public' ? '公共背景库' : '流量投放素材'}
+                        </span>
                       </div>
-                   </div>
-                   <div className="space-y-2">
-                      <div className="text-xs font-medium text-gray-500">渐变背景</div>
-                      <div className="grid grid-cols-2 gap-2">
-                         <div onClick={() => setCanvasBackground('linear-gradient(to right, #3b82f6, #06b6d4)')} className="h-16 rounded-lg bg-gradient-to-r from-blue-500 to-cyan-500 cursor-pointer" />
-                         <div onClick={() => setCanvasBackground('linear-gradient(to right, #a855f7, #ec4899)')} className="h-16 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 cursor-pointer" />
-                         <div onClick={() => setCanvasBackground('linear-gradient(to right, #f59e0b, #f97316)')} className="h-16 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 cursor-pointer" />
-                         <div onClick={() => setCanvasBackground('linear-gradient(to right, #10b981, #14b8a6)')} className="h-16 rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 cursor-pointer" />
+                      
+                      {/* Grid Content with Scroll */}
+                      <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        <div className="grid grid-cols-2 gap-3 pb-4">
+                          {(backgroundView === 'public' ? publicBackgrounds : trafficBackgrounds).map((url, i) => (
+                            <div 
+                              key={i}
+                              className="group relative aspect-[3/4] rounded-lg overflow-hidden border border-black/5 cursor-pointer hover:shadow-md transition-all"
+                              onClick={() => setCanvasBackground(`url(${url}) center/cover no-repeat`)}
+                            >
+                              <img src={url} alt="background" className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                   </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1070,20 +1646,30 @@ export default function Editor() {
                 <div className="space-y-4">
                    <div className="space-y-2">
                       <div className="text-xs font-medium text-gray-500">笔刷类型</div>
-                      <div className="space-y-2">
-                         <button className="w-full flex items-center gap-3 p-2 bg-gray-50 rounded-lg hover:bg-gray-100 border border-transparent hover:border-black/5 transition-all">
-                           <div className="w-8 h-8 rounded-full bg-black flex items-center justify-center text-white"><PenTool size={16}/></div>
-                           <span className="text-sm">钢笔</span>
-                         </button>
-                         <button className="w-full flex items-center gap-3 p-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
-                           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600"><Minus size={16}/></div>
-                           <span className="text-sm">马克笔</span>
-                         </button>
+                      <div className="grid grid-cols-2 gap-2">
+                         {[
+                           { id: 'solid', name: '实线', icon: PenTool },
+                           { id: 'dashed', name: '虚线', icon: Minus },
+                           { id: 'dotted', name: '点状线', icon: Circle },
+                           { id: 'marker', name: '马克笔', icon: Highlighter },
+                           { id: 'watercolor', name: '水彩笔', icon: Brush },
+                           { id: 'highlighter', name: '荧光笔', icon: Highlighter },
+                         ].map(brush => (
+                           <button 
+                             key={brush.id} 
+                             onClick={() => setBrushType(brush.id)}
+                             className={clsx(
+                               "flex flex-col items-center justify-center gap-2 p-3 rounded-lg border transition-all",
+                               brushType === brush.id 
+                                 ? "bg-black text-white border-black shadow-md" 
+                                 : "bg-gray-50 text-gray-700 hover:bg-gray-100 border-transparent hover:border-black/5"
+                             )}
+                           >
+                             <brush.icon size={20} />
+                             <span className="text-xs">{brush.name}</span>
+                           </button>
+                         ))}
                       </div>
-                   </div>
-                   <div className="space-y-2">
-                      <div className="text-xs font-medium text-gray-500">笔刷粗细</div>
-                      <input type="range" className="w-full accent-black h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
                    </div>
                 </div>
               )}
@@ -1177,9 +1763,49 @@ export default function Editor() {
                   height: '600px',
                   backgroundColor: canvasBackground,
                   transform: `scale(${zoom / 100})`,
-                  borderRadius: `${borderRadius}px`
+                  borderRadius: `${borderRadius}px`,
+                  cursor: activeTool === 'draw' ? 'crosshair' : 'default'
                 }}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
               >
+                 {/* Drawing Overlay */}
+                 {isDrawing && currentPoints.length > 0 && (
+                   <svg className="absolute inset-0 w-full h-full pointer-events-none z-50" style={{overflow: 'visible'}}>
+                     <path
+                       d={`M ${currentPoints.map(p => `${p.x},${p.y}`).join(' L ')}`}
+                       stroke={brushColor}
+                       strokeWidth={brushWidth}
+                       fill="none"
+                       strokeLinecap="round"
+                       strokeLinejoin="round"
+                       style={{
+                         strokeDasharray: brushType === 'dashed' ? '10,10' : brushType === 'dotted' ? '2,2' : 'none'
+                       }}
+                     />
+                   </svg>
+                 )}
+
+                 {/* AI Selection Box Overlay */}
+                 {aiSelectionBox && (
+                    <div 
+                      className="absolute z-50 pointer-events-none border-2 border-dashed bg-black/5"
+                      style={{
+                        left: aiSelectionBox.x,
+                        top: aiSelectionBox.y,
+                        width: aiSelectionBox.w,
+                        height: aiSelectionBox.h,
+                        borderColor: aiSelectionColor
+                      }}
+                    >
+                      <div className="absolute -top-6 left-0 bg-black text-white text-[10px] px-2 py-0.5 rounded shadow-sm whitespace-nowrap">
+                        AI 修改区域
+                      </div>
+                    </div>
+                 )}
+
                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">
                     <ImageIcon size={64} className="mb-4 opacity-20" />
                     <p className="text-lg font-medium">1920 x 1080</p>
@@ -1204,15 +1830,16 @@ export default function Editor() {
                         height: props.h,
                         transform: `rotate(${props.rotation}deg) scaleX(${props.flipX ? -1 : 1}) scaleY(${props.flipY ? -1 : 1}) ${isSelected && effects.threeD ? 'perspective(500px) rotateX(20deg)' : ''}`,
                         opacity: props.opacity / 100,
-                        backgroundColor: (currentShapeType === 'line' || currentShapeType === 'arrow' || el.type === 'text') ? 'transparent' : props.fill,
+                        backgroundColor: (currentShapeType === 'line' || currentShapeType === 'arrow' || el.type === 'text' || el.type === 'draw') ? 'transparent' : props.fill,
                         borderColor: props.stroke,
-                        borderWidth: (currentShapeType === 'line' || currentShapeType === 'arrow') ? 0 : `${props.strokeWidth}px`,
+                        borderWidth: (currentShapeType === 'line' || currentShapeType === 'arrow' || el.type === 'draw') ? 0 : `${props.strokeWidth}px`,
                         borderRadius: currentShapeType === 'circle' ? '50%' : `${props.radius}px`,
                         boxShadow: isSelected ? [
                            effects.shadow ? '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)' : '',
                            effects.glow ? `0 0 20px ${props.fill}` : ''
                         ].filter(Boolean).join(', ') || 'none' : 'none',
                         WebkitBoxReflect: isSelected && effects.reflection ? 'below 0px linear-gradient(to bottom, rgba(0,0,0,0.0), rgba(0,0,0,0.4))' : undefined,
+                        pointerEvents: activeTool === 'draw' ? 'none' : 'auto'
                       }}
                       className={clsx(
                         "absolute cursor-move z-10 flex items-center justify-center",
@@ -1252,6 +1879,23 @@ export default function Editor() {
                             </button>
                           </Tooltip>
                         </div>
+                      )}
+
+                      {el.type === 'draw' && (
+                         <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{overflow: 'visible'}}>
+                           <path
+                             d={`M ${props.points?.map((p: any) => `${p.x},${p.y}`).join(' L ')}`}
+                             stroke={props.stroke}
+                             strokeWidth={props.strokeWidth} // This might need scaling if container is small?
+                             fill="none"
+                             strokeLinecap="round"
+                             strokeLinejoin="round"
+                             vectorEffect="non-scaling-stroke" // Keep stroke width constant even if SVG is scaled!
+                             style={{
+                               strokeDasharray: props.brushType === 'dashed' ? '10,10' : props.brushType === 'dotted' ? '2,2' : 'none'
+                             }}
+                           />
+                         </svg>
                       )}
 
                       {el.type === 'text' && (
@@ -1381,10 +2025,10 @@ export default function Editor() {
 
             <div className="w-px h-8 bg-black/5 mx-1" />
             <ToolButton 
-              icon={LayoutGrid} 
-              label="素材" 
-              isActive={activeTool === 'material'} 
-              onClick={() => handleToolClick('material')} 
+              icon={ShapesIcon} 
+              label="形状" 
+              isActive={activeTool === 'shape'} 
+              onClick={() => handleToolClick('shape')} 
             />
             <ToolButton 
               icon={Type} 
@@ -1393,10 +2037,10 @@ export default function Editor() {
               onClick={() => handleToolClick('text')} 
             />
             <ToolButton 
-              icon={ImageIcon} 
-              label="图片 (I)" 
-              isActive={activeTool === 'image'} 
-              onClick={() => handleToolClick('image')} 
+              icon={Wallpaper} 
+              label="背景" 
+              isActive={activeTool === 'background'} 
+              onClick={() => handleToolClick('background')} 
             />
             <ToolButton 
               icon={PenTool} 
@@ -1419,27 +2063,252 @@ export default function Editor() {
           </div>
         </div>
 
-        {/* Right Sidebar - Element Properties */}
-        {selectedElement && (
-            <div className="absolute top-0 right-0 bottom-0 w-64 bg-white border-l border-black/5 flex flex-col animate-in slide-in-from-right duration-200 z-30 shadow-xl">
-              <div className="h-12 border-b border-black/5 flex items-center justify-between px-4">
-                <span className="font-semibold text-sm">
-                  {selectedElement.startsWith('text') && '文本属性'}
-                  {(selectedElement.startsWith('shape') || selectedElement.startsWith('bocom') || selectedElement.startsWith('personal')) && '素材属性'}
-                  {selectedElement.startsWith('image') && '图片属性'}
-                  {selectedElement.startsWith('bg') && '背景属性'}
-                  {selectedElement.startsWith('draw') && '路径属性'}
-                  {selectedElement.startsWith('table') && '表格属性'}
-                  {selectedElement.startsWith('ai') && 'AI 生成属性'}
+        {/* Right Sidebar - Element Properties or AI Assistant */}
+        {(selectedElement || activeTool === 'ai') && (
+            <div className={clsx(
+                "absolute top-0 right-0 bottom-0 bg-white border-l border-black/5 flex flex-col animate-in slide-in-from-right duration-200 z-30 shadow-xl",
+                activeTool === 'ai' ? "w-80" : "w-64"
+            )}>
+              <div className="h-12 border-b border-black/5 flex items-center justify-between px-4 bg-gray-50/50">
+                <span className="font-semibold text-sm flex items-center gap-2">
+                  {activeTool === 'ai' && <Sparkles size={16} className="text-purple-600" />}
+                  {activeTool === 'ai' ? 'AI 设计助手' : (
+                    <>
+                      {selectedElement?.startsWith('text') && '文本属性'}
+                      {(selectedElement?.startsWith('shape') || selectedElement?.startsWith('bocom') || selectedElement?.startsWith('personal')) && '素材属性'}
+                      {selectedElement?.startsWith('image') && '图片属性'}
+                      {selectedElement?.startsWith('bg') && '背景属性'}
+                      {selectedElement?.startsWith('draw') && '路径属性'}
+                      {selectedElement?.startsWith('table') && '表格属性'}
+                      {selectedElement?.startsWith('ai') && 'AI 生成属性'}
+                    </>
+                  )}
                 </span>
-                <button onClick={() => setSelectedElement(null)} className="p-1 hover:bg-black/5 rounded">
+                <button onClick={() => { setSelectedElement(null); if (activeTool === 'ai') handleToolClick('select'); }} className="p-1 hover:bg-black/5 rounded text-gray-500">
                   <X size={16} />
                 </button>
               </div>
+              
+              {activeTool === 'ai' ? (
+                 <div className="flex-1 flex flex-col h-full overflow-hidden">
+                    {/* AI Mode Selector */}
+                    <div className="p-3 border-b border-gray-100 flex gap-2">
+                       <button 
+                         onClick={() => setAiMode('blend')}
+                         className={clsx(
+                           "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                           aiMode === 'blend' ? "bg-purple-100 text-purple-700 shadow-sm ring-1 ring-purple-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                         )}
+                       >
+                         <ImagePlus size={14} />
+                         AI 溶图
+                       </button>
+                       <button 
+                         onClick={() => setAiMode('edit')}
+                         className={clsx(
+                           "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                           aiMode === 'edit' ? "bg-blue-100 text-blue-700 shadow-sm ring-1 ring-blue-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                         )}
+                       >
+                         <Crop size={14} />
+                         AI 改图
+                       </button>
+                       <button 
+                         onClick={() => setAiMode('erase')}
+                         className={clsx(
+                           "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                           aiMode === 'erase' ? "bg-red-100 text-red-700 shadow-sm ring-1 ring-red-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                         )}
+                       >
+                         <Eraser size={14} />
+                         AI 擦除
+                       </button>
+                    </div>
+
+                    {/* Chat Area */}
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
+                       {aiChatHistory.map((msg, idx) => (
+                          <div key={idx} className={clsx("flex gap-3", msg.role === 'user' ? "flex-row-reverse" : "")}>
+                             <div className={clsx(
+                               "w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm border",
+                               msg.role === 'ai' ? "bg-white border-purple-100 text-purple-600" : "bg-black text-white border-black"
+                             )}>
+                               {msg.role === 'ai' ? <Sparkles size={16} /> : <div className="text-xs font-bold">U</div>}
+                             </div>
+                             <div className={clsx(
+                               "max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed shadow-sm",
+                               msg.role === 'ai' ? "bg-white border border-gray-100 text-gray-700 rounded-tl-none" : "bg-black text-white rounded-tr-none"
+                             )}>
+                                {msg.type === 'text' ? (
+                                  <p className="whitespace-pre-wrap">{msg.content}</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                     <div 
+                                       className="relative group cursor-zoom-in rounded-lg overflow-hidden border border-black/5 bg-gray-100 z-10"
+                                       onClick={() => setPreviewImage(msg.content)}
+                                     >
+                                       <img src={msg.content} alt="AI Result" className="w-full h-auto relative z-0" />
+                                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors z-20 pointer-events-none" />
+                                     </div>
+                                     <div className="flex gap-2 relative z-30">
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if(confirm('确定要应用到画布吗？这将覆盖当前背景且无法撤销。')) {
+                                                    setCanvasBackground(`url(${msg.content}) center/cover no-repeat`);
+                                                }
+                                            }}
+                                            className="flex-1 bg-black text-white py-1.5 rounded-lg text-[10px] font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-1"
+                                        >
+                                          <CheckCircle2 size={12} />
+                                          应用到画布
+                                        </button>
+                                     </div>
+                                  </div>
+                                )}
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+
+                    {/* Input Area */}
+                    <div className="p-3 border-t border-gray-100 bg-white">
+                       {/* Contextual Tools */}
+                       <div className="flex gap-2 mb-2">
+                          {aiMode === 'blend' && (
+                             <>
+                               <input 
+                                 type="file" 
+                                 ref={aiFileInputRef}
+                                 className="hidden" 
+                                 accept="image/*"
+                                 multiple
+                                 onChange={(e) => {
+                                   if (e.target.files) {
+                                     const newFiles = Array.from(e.target.files).slice(0, 2 - aiUploadedFiles.length);
+                                     setAiUploadedFiles(prev => [...prev, ...newFiles]);
+                                   }
+                                 }}
+                               />
+                               <button 
+                                 onClick={() => aiFileInputRef.current?.click()}
+                                 disabled={aiUploadedFiles.length >= 2}
+                                 className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-[10px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                               >
+                                 <ImagePlus size={14} />
+                                 上传图片 ({aiUploadedFiles.length}/2)
+                               </button>
+                               {aiUploadedFiles.map((file, i) => (
+                                 <div key={i} className="relative group w-8 h-8 rounded-lg overflow-hidden border border-gray-200">
+                                   <img src={URL.createObjectURL(file)} className="w-full h-full object-cover" />
+                                   <button 
+                                     onClick={() => setAiUploadedFiles(files => files.filter((_, idx) => idx !== i))}
+                                     className="absolute inset-0 bg-black/40 hidden group-hover:flex items-center justify-center text-white"
+                                   >
+                                     <XCircle size={14} />
+                                   </button>
+                                 </div>
+                               ))}
+                             </>
+                          )}
+
+                          {aiMode === 'edit' && (
+                             <>
+                               <button 
+                                 onClick={() => {
+                                    setActiveTool('ai-box-select');
+                                    setAiBoxStart(null);
+                                    setAiSelectionBox(null);
+                                 }}
+                                 className={clsx(
+                                   "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] transition-colors",
+                                   (activeTool as string) === 'ai-box-select' ? "bg-blue-600 text-white shadow-sm" : "bg-gray-50 hover:bg-gray-100 text-gray-600"
+                                 )}
+                               >
+                                 <Crop size={14} />
+                                 {(activeTool as string) === 'ai-box-select' ? '正在框选...' : (aiSelectionBox ? '重新框选' : '开始框选')}
+                               </button>
+                               
+                               <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 rounded-lg">
+                                  <div className="w-3 h-3 rounded-full border border-black/10" style={{backgroundColor: aiSelectionColor}} />
+                                  <input 
+                                    type="color" 
+                                    value={aiSelectionColor}
+                                    onChange={(e) => setAiSelectionColor(e.target.value)}
+                                    className="w-4 h-4 opacity-0 absolute cursor-pointer"
+                                  />
+                               </div>
+                             </>
+                          )}
+
+                          {aiMode === 'erase' && (
+                             <>
+                               <button 
+                                 onClick={() => {
+                                    setActiveTool('ai-box-select');
+                                    setAiBoxStart(null);
+                                    setAiSelectionBox(null);
+                                 }}
+                                 className={clsx(
+                                   "flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] transition-colors",
+                                   (activeTool as string) === 'ai-box-select' ? "bg-red-600 text-white shadow-sm" : "bg-gray-50 hover:bg-gray-100 text-gray-600"
+                                 )}
+                               >
+                                 <Eraser size={14} />
+                                 {(activeTool as string) === 'ai-box-select' ? '正在框选...' : (aiSelectionBox ? '重新框选' : '开始擦除')}
+                               </button>
+                               
+                               <div className="flex items-center gap-1 px-2 py-1.5 bg-gray-50 rounded-lg">
+                                  <div className="w-3 h-3 rounded-full border border-black/10" style={{backgroundColor: aiSelectionColor}} />
+                                  <input 
+                                    type="color" 
+                                    value={aiSelectionColor}
+                                    onChange={(e) => setAiSelectionColor(e.target.value)}
+                                    className="w-4 h-4 opacity-0 absolute cursor-pointer"
+                                  />
+                               </div>
+                             </>
+                          )}
+                       </div>
+
+                       <div className="relative">
+                          <textarea 
+                            value={aiInput}
+                            onChange={(e) => setAiInput(e.target.value)}
+                            placeholder={aiMode === 'blend' ? "描述你想如何融合这些图片..." : aiMode === 'edit' ? (aiSelectionBox ? "描述你想如何修改框选区域..." : "描述你想如何修改画面（可框选局部）...") : "描述你想擦除的内容..."}
+                            className="w-full bg-gray-50 border border-transparent hover:border-black/10 focus:border-purple-500 rounded-xl px-3 py-2.5 text-xs outline-none resize-none pr-10 min-h-[80px] transition-all"
+                          />
+                          <button 
+                              className="absolute bottom-2 right-2 p-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                              disabled={!aiInput.trim() || (aiMode === 'blend' && aiUploadedFiles.length === 0) || (aiMode === 'erase' && !aiSelectionBox)}
+                              onClick={() => {
+                               // Handle Send
+                               const newMsg = { id: Date.now().toString(), role: 'user' as const, type: 'text' as const, content: aiInput };
+                               setAiChatHistory(prev => [...prev, newMsg]);
+                               setAiInput('');
+                               
+                               // Simulate AI Response
+                               setTimeout(() => {
+                                  const responseMsg = { 
+                                      id: (Date.now() + 1).toString(), 
+                                      role: 'ai' as const, 
+                                      type: 'image' as const, 
+                                      content: 'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8YXJ0fGVufDB8fDB8fHww' // Placeholder
+                                  };
+                                  setAiChatHistory(prev => [...prev, responseMsg]);
+                               }, 1500);
+                            }}
+                          >
+                            <Send size={16} />
+                          </button>
+                       </div>
+                    </div>
+                 </div>
+              ) : (
               <div className="flex-1 p-4 overflow-y-auto space-y-6">
                 
                 {/* Text Specific Properties */}
-                {selectedElement.startsWith('text') && (
+                {selectedElement?.startsWith('text') && (
                   <div className="space-y-4">
                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">文本属性</div>
                      
@@ -1523,7 +2392,7 @@ export default function Editor() {
                 )}
 
                 {/* Image Specific Properties */}
-                {selectedElement.startsWith('image') && (
+                {selectedElement?.startsWith('image') && (
                    <div className="space-y-3">
                       <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">图片样式</div>
                       <div className="space-y-2">
@@ -1550,7 +2419,7 @@ export default function Editor() {
                 )}
 
                 {/* Shape/Material Properties (Original) */}
-                {(selectedElement.startsWith('shape') || selectedElement.startsWith('bocom') || selectedElement.startsWith('personal')) && (
+                {(selectedElement?.startsWith('shape') || selectedElement?.startsWith('bocom') || selectedElement?.startsWith('personal')) && (
                 <div className="space-y-3">
                   <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">形状属性</div>
                   
@@ -1600,9 +2469,11 @@ export default function Editor() {
                 )}
 
                 {/* Draw Specific Properties */}
-                {selectedElement.startsWith('draw') && (
-                   <div className="space-y-3">
+                {selectedElement?.startsWith('draw') && (
+                   <div className="space-y-4">
                       <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">笔触设置</div>
+                      
+                      {/* Color */}
                       <div className="space-y-1">
                         <label className="text-[10px] text-gray-400">颜色</label>
                         <div className="flex items-center gap-2">
@@ -1615,6 +2486,8 @@ export default function Editor() {
                            />
                         </div>
                      </div>
+
+                     {/* Width */}
                      <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-gray-400">粗细</span>
@@ -1622,11 +2495,12 @@ export default function Editor() {
                         </div>
                         <input type="range" min="1" max="50" className="w-full accent-black h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer" value={elementProps.strokeWidth} onChange={(e) => setElementProps(p => ({...p, strokeWidth: Number(e.target.value)}))} />
                       </div>
+                     {/* Properties handled by common section below */}
                    </div>
                 )}
 
                 {/* Table Specific Properties */}
-                 {selectedElement.startsWith('table') && (
+                 {selectedElement?.startsWith('table') && (
                     <div className="space-y-3">
                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">表格样式</div>
                        <div className="grid grid-cols-2 gap-3">
@@ -1653,7 +2527,7 @@ export default function Editor() {
                  )}
 
                  {/* AI Specific Properties */}
-                 {selectedElement.startsWith('ai') && (
+                 {selectedElement?.startsWith('ai') && (
                     <div className="space-y-3">
                        <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">AI 生成选项</div>
                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-100 space-y-2">
@@ -1727,7 +2601,55 @@ export default function Editor() {
 
                 {/* Layer controls removed per request */}
               </div>
+              )}
             </div>
+        )}
+
+        {/* Image Preview Overlay */}
+        {previewImage && (
+           <div 
+             className="fixed inset-0 z-[60] bg-black/90 flex flex-col items-center justify-center animate-in fade-in duration-200"
+             onClick={() => setPreviewImage(null)}
+           >
+             {/* Toolbar */}
+             <div 
+                className="absolute top-0 left-0 right-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/50 to-transparent"
+                onClick={(e) => e.stopPropagation()}
+             >
+                <div className="text-white/80 text-sm font-medium px-4">
+                  预览模式
+                </div>
+                <div className="flex items-center gap-3">
+                   <button 
+                     onClick={() => {
+                       const link = document.createElement('a');
+                       link.href = previewImage;
+                       link.download = `ai-generated-${Date.now()}.jpg`;
+                       document.body.appendChild(link);
+                       link.click();
+                       document.body.removeChild(link);
+                     }}
+                     className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2 px-4"
+                   >
+                     <Download size={18} />
+                     <span className="text-sm">导出</span>
+                   </button>
+                   <button 
+                     onClick={() => setPreviewImage(null)}
+                     className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                   >
+                     <X size={24} />
+                   </button>
+                </div>
+             </div>
+
+             <img 
+               src={previewImage} 
+               alt="Preview" 
+               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl" 
+               onClick={(e) => e.stopPropagation()}
+             />
+           </div>
         )}
 
       </div>

@@ -1,78 +1,133 @@
 import { 
-  Home, 
-  Folder,
   Sparkles, 
   Image as ImageIcon, 
   PenTool, 
   LayoutTemplate, 
-  CreditCard, 
-  Gamepad2, 
   LayoutGrid, 
-  Palette, 
-  Settings 
+  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
+  FolderOpen
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
 import { Tooltip } from '../Tooltip';
 
-const navItems = [
-  { icon: Home, label: '首页', path: '/' },
-  { icon: Folder, label: '我的项目', path: '/projects' },
-  { icon: Sparkles, label: '灵感', path: '/inspiration' },
-  { icon: ImageIcon, label: '文生图', path: '/text-to-image' },
-  { icon: PenTool, label: '画布', path: '/editor' },
-  { icon: LayoutTemplate, label: '模版', path: '/templates' },
-  { icon: CreditCard, label: '金融', path: '/banking' },
-  { icon: Gamepad2, label: '试验场', path: '/playground' },
-  { icon: LayoutGrid, label: '资产', path: '/gallery' },
-  { icon: Palette, label: '设计系统', path: '/design-system' },
+const menuGroups = [
+  {
+    title: '开始设计',
+    items: [
+      { icon: Sparkles, label: '灵感', path: '/inspiration' },
+      { icon: ImageIcon, label: '文生图', path: '/text-to-image' },
+      { icon: PenTool, label: '创建设计', path: '/editor' },
+      { icon: LayoutTemplate, label: '模版', path: '/templates' },
+    ]
+  },
+  {
+    title: '我的',
+    items: [
+      { icon: FolderOpen, label: '我的项目', path: '/projects' },
+      { icon: LayoutGrid, label: '资产管理', path: '/gallery' },
+    ]
+  }
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  isCollapsed: boolean;
+  toggleCollapse: () => void;
+}
+
+export default function Sidebar({ isCollapsed, toggleCollapse }: SidebarProps) {
   return (
-    <aside className="fixed left-0 top-0 h-screen w-20 flex flex-col items-center py-6 bg-white/80 backdrop-blur-xl border-r border-black/5 z-50">
-      <div className="mb-8">
-        <NavLink to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl hover:scale-105 transition-transform">
-          D
+    <aside 
+      className={clsx(
+        "fixed left-0 top-0 h-screen flex flex-col py-6 bg-white border-r border-gray-100 z-50 transition-all duration-300 ease-in-out",
+        isCollapsed ? "w-20 items-center" : "w-64 px-4"
+      )}
+    >
+      {/* Header / Logo */}
+      <div className={clsx("mb-6 flex items-center", isCollapsed ? "justify-center" : "px-6")}>
+        <NavLink to="/" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl transition-transform group-hover:scale-105 shrink-0">
+            D
+          </div>
+          {!isCollapsed && (
+            <span className="font-bold text-xl tracking-tight text-gray-900 whitespace-nowrap overflow-hidden">
+              DeepCanvas
+            </span>
+          )}
         </NavLink>
       </div>
       
-      <nav className="flex-1 flex flex-col gap-3 overflow-y-auto w-full px-3 no-scrollbar">
-        {navItems.map((item) => (
-          <Tooltip key={item.path} content={item.label} position="right">
-            <NavLink
-              to={item.path}
-              className={({ isActive }) =>
-                clsx(
-                  "p-3 rounded-xl transition-all duration-200 group relative flex justify-center w-full",
-                  isActive 
-                    ? "bg-black text-white shadow-lg" 
-                    : "text-gray-500 hover:bg-gray-100 hover:text-black"
-                )
-              }
-            >
-              <item.icon size={20} strokeWidth={2} />
-            </NavLink>
-          </Tooltip>
+      {/* Navigation */}
+      <nav className={clsx("flex-1 flex flex-col gap-6 overflow-y-auto w-full no-scrollbar", isCollapsed && "px-3")}>
+        {menuGroups.map((group, index) => (
+          <div key={group.title} className="flex flex-col gap-2">
+            {!isCollapsed && (
+              <h3 className="px-4 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                {group.title}
+              </h3>
+            )}
+            {group.items.map((item) => (
+              <Tooltip key={item.path} content={isCollapsed ? item.label : ''} position="right">
+                <NavLink
+                  to={item.path}
+                  className={({ isActive }) =>
+                    clsx(
+                      "p-3 rounded-xl transition-all duration-200 group relative flex items-center",
+                      isCollapsed ? "justify-center w-full" : "gap-3 px-4 mx-2",
+                      isActive 
+                        ? (isCollapsed ? "bg-black text-white shadow-lg" : "bg-gray-100 text-black font-medium")
+                        : "text-gray-500 hover:bg-gray-50 hover:text-black"
+                    )
+                  }
+                >
+                  <item.icon size={20} strokeWidth={2} className="shrink-0" />
+                  {!isCollapsed && <span className="whitespace-nowrap overflow-hidden">{item.label}</span>}
+                </NavLink>
+              </Tooltip>
+            ))}
+            {/* Add separator between groups if not the last one */}
+            {index < menuGroups.length - 1 && isCollapsed && (
+              <div className="mx-2 h-px bg-gray-100 my-2" />
+            )}
+          </div>
         ))}
       </nav>
 
-      <div className="mt-auto px-3 w-full">
-        <Tooltip content="设置" position="right">
+      {/* Footer / Settings / Collapse Toggle */}
+      <div className={clsx("mt-auto w-full flex flex-col gap-2", isCollapsed ? "px-3 pb-6" : "px-2 pb-6")}>
+        <Tooltip content="设置" position="right" disabled={!isCollapsed}>
           <NavLink 
             to="/settings"
             className={({ isActive }) =>
               clsx(
-                "p-3 rounded-xl transition-all duration-200 group relative flex justify-center w-full",
+                "p-3 rounded-xl transition-all duration-200 group relative flex items-center",
+                isCollapsed ? "justify-center w-full" : "gap-3 px-4 mx-2",
                 isActive 
-                  ? "bg-black text-white shadow-lg" 
-                  : "text-gray-400 hover:bg-gray-100 hover:text-black"
+                  ? (isCollapsed ? "bg-black text-white shadow-lg" : "bg-gray-100 text-black font-medium")
+                  : "text-gray-400 hover:bg-gray-50 hover:text-black"
               )
             }
           >
-            <Settings size={20} />
+            <Settings size={20} className="shrink-0" />
+            {!isCollapsed && <span className="whitespace-nowrap overflow-hidden">设置</span>}
           </NavLink>
+        </Tooltip>
+        
+        {/* Unified Toggle Button */}
+        <Tooltip content={isCollapsed ? "展开侧边栏" : "收起侧边栏"} position="right" disabled={!isCollapsed}>
+          <button 
+            onClick={toggleCollapse}
+            className={clsx(
+              "p-3 rounded-xl transition-all duration-200 group relative flex items-center text-gray-400 hover:bg-gray-50 hover:text-black",
+              isCollapsed ? "justify-center w-full" : "gap-3 px-4 mx-2"
+            )}
+          >
+            {isCollapsed ? <PanelLeftOpen size={20} className="shrink-0" /> : <PanelLeftClose size={20} className="shrink-0" />}
+            {!isCollapsed && <span className="whitespace-nowrap overflow-hidden">收起导航</span>}
+          </button>
         </Tooltip>
       </div>
     </aside>

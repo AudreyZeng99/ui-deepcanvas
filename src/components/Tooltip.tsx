@@ -6,9 +6,10 @@ interface TooltipProps {
   children: React.ReactNode;
   position?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
+  disabled?: boolean;
 }
 
-export function Tooltip({ content, children, position = 'top', className = '' }: TooltipProps) {
+export function Tooltip({ content, children, position = 'top', className = '', disabled = false }: TooltipProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -43,6 +44,7 @@ export function Tooltip({ content, children, position = 'top', className = '' }:
   };
 
   const handleMouseEnter = () => {
+    if (disabled || !content) return;
     updatePosition();
     setIsVisible(true);
   };

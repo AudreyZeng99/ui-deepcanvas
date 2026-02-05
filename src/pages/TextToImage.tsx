@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Wand2, 
   Image as ImageIcon, 
@@ -30,6 +30,7 @@ const STYLES = [
 import { Tooltip } from '../components/Tooltip';
 
 export default function TextToImage() {
+  const navigate = useNavigate();
   const location = useLocation();
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
@@ -262,7 +263,10 @@ export default function TextToImage() {
         {/* Action Bar */}
         <div className="mt-6 flex justify-between items-center">
           <div className="flex gap-2">
-            <button className="btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm">
+            <button 
+              onClick={() => navigate('/editor')}
+              className="btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm"
+            >
               <Edit3 size={16} />
               Edit in Canvas
             </button>

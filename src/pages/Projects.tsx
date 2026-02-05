@@ -34,9 +34,8 @@ export default function Projects() {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">My Projects ({projects.length}/5)</h1>
-            <p className="text-gray-500">Manage and organize your creative works</p>
+          <div className="text-xl text-gray-500 font-medium">
+            我的项目 <span className="mx-2">|</span> 管理和组织您的创意作品 ({projects.length}/5)
           </div>
           <button 
             onClick={handleCreateNew}
@@ -46,7 +45,7 @@ export default function Projects() {
             )}
           >
             <Plus size={20} />
-            New Project
+            新建项目
           </button>
         </div>
 
