@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import ExportModal, { ExportSettings } from '../../components/ExportModal';
 
 export default function IDPhoto() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);

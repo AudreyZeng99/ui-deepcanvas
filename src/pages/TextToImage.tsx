@@ -28,7 +28,7 @@ const STYLES = [
 ];
 
 import { Tooltip } from '../components/Tooltip';
-import ExportModal, { ExportSettings } from '../components/ExportModal';
+import ExportModal from '../components/ExportModal';
 
 export default function TextToImage() {
   const navigate = useNavigate();
