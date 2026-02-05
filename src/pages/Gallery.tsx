@@ -33,7 +33,7 @@ const exportAssets = generateMockAssets('export', 8, 300);
 type AssetType = 'text-to-image' | 'edit' | 'export';
 
 export default function Gallery() {
-  const navigate = useNavigate();
+  const { currentProject } = useProject();
   const [activeTab, setActiveTab] = useState<AssetType>('text-to-image');
   const [selectedItems, setSelectedItems] = useState<Set<number>>(new Set());
   const [previewItem, setPreviewItem] = useState<any | null>(null);

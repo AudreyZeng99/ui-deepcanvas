@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Camera, ChevronRight, Play, Heart, ArrowLeft, ChevronDown, LayoutTemplate, Plus } from 'lucide-react';
+import { Search, Camera, ChevronRight, Play, Heart, ChevronDown, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 

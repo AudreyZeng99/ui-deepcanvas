@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Sparkles, Wand2, LayoutTemplate } from 'lucide-react';
+import { Wand2, LayoutTemplate } from 'lucide-react';
 
 const inspirationCategories = [
   {

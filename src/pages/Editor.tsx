@@ -45,7 +45,6 @@ import {
   Table,
   Sparkles,
   Download,
-  Share2,
   X,
   ChevronRight,
   ChevronDown,
@@ -93,7 +92,6 @@ import {
   Menu,
   Globe,
   Megaphone,
-  Gift,
   RotateCw,
   Palette,
   ChevronLeft,
@@ -101,10 +99,8 @@ import {
   ImagePlus,
   Eraser,
   Crop,
-  FileImage,
   CheckCircle2,
   XCircle,
-  MousePointerClick
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -198,8 +194,8 @@ export default function Editor() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<{x: number, y: number}[]>([]);
   const [brushType, setBrushType] = useState('solid');
-  const [brushColor, setBrushColor] = useState('#000000');
-  const [brushWidth, setBrushWidth] = useState(5);
+  const [brushColor] = useState('#000000');
+  const [brushWidth] = useState(5);
 
   // Drag & Resize State
   const [dragState, setDragState] = useState<{
