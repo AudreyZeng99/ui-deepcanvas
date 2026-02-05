@@ -17,14 +17,14 @@ import {
 import clsx from 'clsx';
 
 const STYLES = [
-  { id: 'none', label: 'No Style' },
-  { id: 'cinematic', label: 'Cinematic' },
-  { id: 'photorealistic', label: 'Photorealistic' },
-  { id: 'anime', label: 'Anime' },
-  { id: 'digital-art', label: 'Digital Art' },
-  { id: 'oil-painting', label: 'Oil Painting' },
-  { id: 'cyberpunk', label: 'Cyberpunk' },
-  { id: 'studio-photo', label: 'Studio Photo' },
+  { id: 'none', label: '无风格' },
+  { id: 'cinematic', label: '电影质感' },
+  { id: 'photorealistic', label: '真实摄影' },
+  { id: 'anime', label: '动漫风格' },
+  { id: 'digital-art', label: '数字艺术' },
+  { id: 'oil-painting', label: '油画' },
+  { id: 'cyberpunk', label: '赛博朋克' },
+  { id: 'studio-photo', label: '影棚摄影' },
 ];
 
 import { Tooltip } from '../components/Tooltip';
@@ -70,8 +70,8 @@ export default function TextToImage() {
 
   const handleOptimize = () => {
     // Mock optimization logic
-    const enhancements = ", highly detailed, 8k resolution, cinematic lighting, photorealistic, trending on artstation, masterpiece, sharp focus";
-    setOptimizedPrompt((originalPrompt || "A beautiful scene") + enhancements);
+    const enhancements = "，细节丰富，8k分辨率，电影级光效，真实感，艺术站热门，杰作，清晰聚焦";
+    setOptimizedPrompt((originalPrompt || "绝美场景") + enhancements);
     setActiveSource('optimized');
   };
 
@@ -85,7 +85,7 @@ export default function TextToImage() {
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold flex items-center gap-2 mr-4">
               <ImageIcon className="text-accent-primary" />
-              Generation Preview
+              生成预览
             </h2>
             
             {/* Dimensions Button */}
@@ -106,15 +106,63 @@ export default function TextToImage() {
               </Tooltip>
               
               {activeSetting === 'dimensions' && (
-                <div className="absolute top-full left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-black/5 p-4 animate-in fade-in zoom-in-95 duration-200 origin-top-left">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">Dimensions (px)</label>
-                  <div className="flex items-center gap-2 mb-2">
+                <div className="absolute top-full left-0 mt-2 w-[480px] bg-white rounded-2xl shadow-xl border border-black/5 p-4 animate-in fade-in zoom-in-95 duration-200 origin-top-left z-50">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">常用尺寸</label>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <button onClick={() => setDimensions({ width: 1920, height: 1080 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">桌面端</div>
+                      <div className="text-[10px] text-gray-400">1920x1080</div>
+                    </button>
+                    <button onClick={() => setDimensions({ width: 1080, height: 1920 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">移动端</div>
+                      <div className="text-[10px] text-gray-400">1080x1920</div>
+                    </button>
+                    <button onClick={() => setDimensions({ width: 1080, height: 1080 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">方形</div>
+                      <div className="text-[10px] text-gray-400">1080x1080</div>
+                    </button>
+                  </div>
+
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">流量投放尺寸</label>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <button onClick={() => setDimensions({ width: 1200, height: 628 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">信息流图</div>
+                      <div className="text-[10px] text-gray-400">1200x628</div>
+                    </button>
+                    <button onClick={() => setDimensions({ width: 600, height: 600 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">轮播图</div>
+                      <div className="text-[10px] text-gray-400">600x600</div>
+                    </button>
+                    <button onClick={() => setDimensions({ width: 1080, height: 1920 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">全屏广告</div>
+                      <div className="text-[10px] text-gray-400">1080x1920</div>
+                    </button>
+                  </div>
+
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">中心活动宣传尺寸</label>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <button onClick={() => setDimensions({ width: 1200, height: 1600 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">海报</div>
+                      <div className="text-[10px] text-gray-400">1200x1600</div>
+                    </button>
+                    <button onClick={() => setDimensions({ width: 2000, height: 600 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">网页横幅</div>
+                      <div className="text-[10px] text-gray-400">2000x600</div>
+                    </button>
+                    <button onClick={() => setDimensions({ width: 800, height: 600 })} className="p-2 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg border border-transparent hover:border-accent-primary transition-all text-center">
+                      <div className="font-medium mb-1">活动卡片</div>
+                      <div className="text-[10px] text-gray-400">800x600</div>
+                    </button>
+                  </div>
+
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">自定义尺寸 (px)</label>
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       value={dimensions.width}
                       onChange={(e) => setDimensions(prev => ({ ...prev, width: Number(e.target.value) }))}
                       className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-transparent focus:bg-white focus:border-accent-primary focus:outline-none text-sm"
-                      placeholder="W"
+                      placeholder="宽"
                     />
                     <span className="text-gray-400">×</span>
                     <input
@@ -122,13 +170,8 @@ export default function TextToImage() {
                       value={dimensions.height}
                       onChange={(e) => setDimensions(prev => ({ ...prev, height: Number(e.target.value) }))}
                       className="w-full px-3 py-2 rounded-lg bg-gray-50 border border-transparent focus:bg-white focus:border-accent-primary focus:outline-none text-sm"
-                      placeholder="H"
+                      placeholder="高"
                     />
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => setDimensions({ width: 1024, height: 1024 })} className="flex-1 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg">1:1</button>
-                    <button onClick={() => setDimensions({ width: 1920, height: 1080 })} className="flex-1 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg">16:9</button>
-                    <button onClick={() => setDimensions({ width: 1080, height: 1920 })} className="flex-1 py-1 text-xs bg-gray-50 hover:bg-gray-100 rounded-lg">9:16</button>
                   </div>
                 </div>
               )}
@@ -147,13 +190,13 @@ export default function TextToImage() {
                   )}
                 >
                   <Palette size={16} />
-                  {STYLES.find(s => s.id === selectedStyle)?.label || 'Style'}
+                  {STYLES.find(s => s.id === selectedStyle)?.label || '风格'}
                 </button>
               </Tooltip>
 
               {activeSetting === 'style' && (
-                <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-black/5 p-4 animate-in fade-in zoom-in-95 duration-200 origin-top-left max-h-[300px] overflow-y-auto custom-scrollbar">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">Select Style</label>
+                <div className="absolute top-full left-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-black/5 p-4 animate-in fade-in zoom-in-95 duration-200 origin-top-left max-h-[300px] overflow-y-auto custom-scrollbar z-50">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 block">选择风格</label>
                   <div className="grid grid-cols-2 gap-2">
                     {STYLES.map(style => (
                       <button
@@ -189,15 +232,15 @@ export default function TextToImage() {
                 )}
               >
                 <Sliders size={16} />
-                Advanced
+                高级设置
               </button>
 
               {activeSetting === 'advanced' && (
-                <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-black/5 p-5 animate-in fade-in zoom-in-95 duration-200 origin-top-left">
+                <div className="absolute top-full left-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-black/5 p-5 animate-in fade-in zoom-in-95 duration-200 origin-top-left z-50">
                   <div className="space-y-4">
                     <div>
                       <div className="flex justify-between mb-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Steps</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase">生成步数 (Steps)</label>
                         <span className="text-xs font-mono">{modelParams.steps}</span>
                       </div>
                       <input 
@@ -209,7 +252,7 @@ export default function TextToImage() {
                     
                     <div>
                       <div className="flex justify-between mb-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase">Guidance (CFG)</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase">引导系数 (CFG)</label>
                         <span className="text-xs font-mono">{modelParams.cfgScale}</span>
                       </div>
                       <input 
@@ -220,19 +263,19 @@ export default function TextToImage() {
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">Seed</label>
+                      <label className="text-xs font-bold text-gray-500 uppercase mb-2 block">随机种子 (Seed)</label>
                       <div className="flex gap-2">
                         <input 
                           type="number"
                           value={modelParams.seed}
                           onChange={(e) => setModelParams(prev => ({ ...prev, seed: Number(e.target.value) }))}
                           className="flex-1 px-3 py-2 rounded-lg bg-gray-50 border border-transparent focus:bg-white focus:border-accent-primary focus:outline-none text-xs font-mono"
-                          placeholder="-1 for random"
+                          placeholder="-1 为随机"
                         />
                         <button 
                           onClick={() => setModelParams(prev => ({ ...prev, seed: -1 }))}
                           className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 text-gray-600"
-                          title="Randomize"
+                          title="随机"
                         >
                           <RefreshCw size={14} />
                         </button>
@@ -249,12 +292,12 @@ export default function TextToImage() {
           {/* Placeholder for Generated Image */}
           <div className="text-center opacity-30">
             <Sparkles size={64} className="mx-auto mb-4" />
-            <p className="text-lg font-medium">Ready to imagine</p>
+            <p className="text-lg font-medium">准备开始想象</p>
             <p className="text-sm mt-2">{dimensions.width} x {dimensions.height}px</p>
           </div>
           
           <div className="absolute bottom-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button className="p-3 bg-white shadow-lg rounded-xl hover:bg-gray-50 transition-colors" title="Expand">
+            <button className="p-3 bg-white shadow-lg rounded-xl hover:bg-gray-50 transition-colors" title="查看大图">
               <Maximize2 size={20} />
             </button>
           </div>
@@ -268,17 +311,17 @@ export default function TextToImage() {
               className="btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm"
             >
               <Edit3 size={16} />
-              Edit in Canvas
+              去编辑
             </button>
           </div>
           <div className="flex gap-2">
             <button className="btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm">
               <Share2 size={16} />
-              Share
+              分享
             </button>
             <button className="btn-primary py-2.5 px-5 flex items-center gap-2 text-sm">
               <Download size={16} />
-              Export
+              导出
             </button>
           </div>
         </div>
@@ -292,7 +335,7 @@ export default function TextToImage() {
           <div className="bg-white/60 backdrop-blur-xl border border-black/5 rounded-3xl p-5 flex flex-col gap-4 flex-1 h-full">
             <div className="flex items-center gap-2 mb-1">
               <Wand2 size={20} className="text-accent-primary" />
-              <h3 className="font-bold text-lg">Prompt Engineering</h3>
+              <h3 className="font-bold text-lg">提示词工程</h3>
             </div>
 
             {/* Original Prompt */}
@@ -304,7 +347,7 @@ export default function TextToImage() {
               onClick={() => setActiveSource('original')}
             >
               <div className="flex justify-between items-center mb-3">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Original Prompt</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">原始提示词</label>
                 <div className={clsx(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
                   activeSource === 'original' ? "border-accent-primary bg-accent-primary text-white" : "border-gray-300 text-transparent"
@@ -315,7 +358,7 @@ export default function TextToImage() {
               <textarea 
                 value={originalPrompt}
                 onChange={(e) => setOriginalPrompt(e.target.value)}
-                placeholder="Describe what you want to see..."
+                placeholder="描述你想要看到的画面..."
                 maxLength={1500}
                 className="w-full h-[calc(100%-2rem)] bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
               />
@@ -333,7 +376,7 @@ export default function TextToImage() {
                   className="relative bg-white border border-black/10 shadow-sm text-accent-promotion hover:text-white hover:bg-accent-promotion hover:border-accent-promotion px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
                 >
                   <Sparkles size={12} />
-                  AI Optimize
+                  AI 优化
                 </button>
               </Tooltip>
             </div>
@@ -348,7 +391,7 @@ export default function TextToImage() {
               onClick={() => optimizedPrompt && setActiveSource('optimized')}
             >
               <div className="flex justify-between items-center mb-3">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Optimized Prompt</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">AI 优化提示词</label>
                 <div className={clsx(
                   "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
                   activeSource === 'optimized' ? "border-accent-promotion bg-accent-promotion text-white" : "border-gray-300 text-transparent"
@@ -359,7 +402,7 @@ export default function TextToImage() {
               <textarea 
                 value={optimizedPrompt}
                 onChange={(e) => setOptimizedPrompt(e.target.value)}
-                placeholder="AI optimized prompt will appear here..."
+                placeholder="AI 优化后的提示词将出现在这里..."
                 maxLength={1500}
                 disabled={!optimizedPrompt && activeSource !== 'optimized'}
                 className="w-full h-[calc(100%-2rem)] bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
@@ -381,12 +424,12 @@ export default function TextToImage() {
             {isGenerating ? (
               <>
                 <RefreshCw size={20} className="animate-spin" />
-                Generating...
+                生成中...
               </>
             ) : (
               <>
                 <Sparkles size={20} />
-                Generate
+                开始生成
               </>
             )}
           </button>
