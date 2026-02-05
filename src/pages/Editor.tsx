@@ -105,6 +105,7 @@ import {
   EyeOff,
   Group,
   Ungroup,
+  CheckSquare,
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -169,6 +170,7 @@ export default function Editor() {
     letterSpacing: 0,
     writingMode: 'horizontal-tb'
   });
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
   const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
@@ -604,8 +606,8 @@ export default function Editor() {
   const handleLayerClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Multi-select logic (CMD/CTRL or SHIFT)
-    if (e.metaKey || e.ctrlKey || e.shiftKey) {
+    // Multi-select logic (CMD/CTRL or SHIFT or Multi-Select Mode)
+    if (e.metaKey || e.ctrlKey || e.shiftKey || isMultiSelectMode) {
       const newSelectedIds = selectedElementIds.includes(id)
         ? selectedElementIds.filter(eid => eid !== id)
         : [...selectedElementIds, id];
@@ -1093,10 +1095,21 @@ export default function Editor() {
         
         {/* Layer Panel */}
         {showLayers && (
-          <div className="absolute top-0 left-0 bottom-0 w-64 bg-white border-r border-black/5 flex flex-col animate-in slide-in-from-left duration-200 z-30 shadow-xl">
+          <div className="absolute top-0 left-0 bottom-0 w-64 bg-white border-r border-black/5 flex flex-col animate-in slide-in-from-left duration-200 z-[40] shadow-xl">
             <div className="h-12 border-b border-black/5 flex items-center justify-between px-4 bg-gray-50/50">
               <span className="font-semibold text-sm">图层管理</span>
               <div className="flex gap-1">
+                   <Tooltip content="多选模式" position="bottom">
+                     <button 
+                       onClick={() => setIsMultiSelectMode(!isMultiSelectMode)}
+                       className={clsx("p-1 rounded transition-all", isMultiSelectMode ? "bg-accent-primary/10 text-accent-primary" : "text-gray-600 hover:bg-black/5")}
+                     >
+                       <CheckSquare size={16} />
+                     </button>
+                   </Tooltip>
+
+                   <div className="w-px h-4 bg-gray-200 mx-1 self-center" />
+
                    <Tooltip content="成组" position="bottom">
                      <button 
                        onClick={handleGroupLayers} 
