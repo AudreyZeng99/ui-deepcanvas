@@ -28,6 +28,7 @@ const STYLES = [
 ];
 
 import { Tooltip } from '../components/Tooltip';
+import ExportModal, { ExportSettings } from '../components/ExportModal';
 
 export default function TextToImage() {
   const navigate = useNavigate();
@@ -36,6 +37,8 @@ export default function TextToImage() {
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
   const [activeSource, setActiveSource] = useState<'original' | 'optimized'>('original');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   // Settings
   const [activeSetting, setActiveSetting] = useState<'dimensions' | 'style' | 'advanced' | null>(null);
@@ -289,18 +292,24 @@ export default function TextToImage() {
         </div>
         
         <div className="flex-1 flex items-center justify-center bg-[#F5F5F7] rounded-2xl border border-black/5 relative overflow-hidden">
-          {/* Placeholder for Generated Image */}
-          <div className="text-center opacity-30">
-            <Sparkles size={64} className="mx-auto mb-4" />
-            <p className="text-lg font-medium">准备开始想象</p>
-            <p className="text-sm mt-2">{dimensions.width} x {dimensions.height}px</p>
-          </div>
+          {/* Placeholder or Generated Image */}
+          {generatedImage ? (
+            <img src={generatedImage} alt="Generated" className="w-full h-full object-contain" />
+          ) : (
+            <div className="text-center opacity-30">
+              <Sparkles size={64} className="mx-auto mb-4" />
+              <p className="text-lg font-medium">准备开始想象</p>
+              <p className="text-sm mt-2">{dimensions.width} x {dimensions.height}px</p>
+            </div>
+          )}
           
-          <div className="absolute bottom-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button className="p-3 bg-white shadow-lg rounded-xl hover:bg-gray-50 transition-colors" title="查看大图">
-              <Maximize2 size={20} />
-            </button>
-          </div>
+          {generatedImage && (
+            <div className="absolute bottom-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button className="p-3 bg-white shadow-lg rounded-xl hover:bg-gray-50 transition-colors" title="查看大图">
+                <Maximize2 size={20} />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Action Bar */}
@@ -319,7 +328,19 @@ export default function TextToImage() {
               <Share2 size={16} />
               分享
             </button>
-            <button className="btn-primary py-2.5 px-5 flex items-center gap-2 text-sm">
+            <button 
+              onClick={() => {
+                if (!generatedImage) {
+                  // alert('请先生成图片'); // Optional: show toast
+                  return;
+                }
+                setIsExportModalOpen(true);
+              }}
+              className={clsx(
+                "btn-primary py-2.5 px-5 flex items-center gap-2 text-sm",
+                !generatedImage && "opacity-50 cursor-not-allowed"
+              )}
+            >
               <Download size={16} />
               导出
             </button>
@@ -419,7 +440,14 @@ export default function TextToImage() {
               "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98]",
               isGenerating ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-accent-primary text-white hover:opacity-90 shadow-lg hover:shadow-xl"
             )}
-            onClick={() => setIsGenerating(!isGenerating)}
+            onClick={() => {
+              if (isGenerating) return;
+              setIsGenerating(true);
+              setTimeout(() => {
+                setIsGenerating(false);
+                setGeneratedImage('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80');
+              }, 2000);
+            }}
           >
             {isGenerating ? (
               <>
@@ -435,6 +463,19 @@ export default function TextToImage() {
           </button>
         </div>
       </div>
+      
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        previewImage={generatedImage || ''}
+        onExport={(settings) => {
+          console.log('Exporting with settings:', settings);
+          setIsExportModalOpen(false);
+          // Show toast or alert
+          alert('导出成功！');
+        }}
+      />
     </div>
   );
 }

@@ -20,7 +20,8 @@ import {
   Layers,
   FileText,
   Presentation,
-  MoreHorizontal
+  ScanFace,
+  History
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -208,16 +209,14 @@ export default function Home() {
             
             {/* Tool Grid */}
             <div className="grid grid-cols-4 gap-3 mt-4 relative z-10">
-              <ToolIcon icon={Wand2} label="AI 改图" className={toolIconClass} />
-              <ToolIcon icon={Eraser} label="AI 擦除" className={toolIconClass} />
-              <ToolIcon icon={Scissors} label="AI 抠图" className={toolIconClass} />
-              <ToolIcon icon={Layers} label="AI 溶图" className={toolIconClass} />
-              <ToolIcon icon={FileText} label="md2Card" className={toolIconClass} />
-              <ToolIcon icon={Presentation} label="PPT 生成" className={toolIconClass} />
-              <div className={clsx("flex flex-col items-center justify-center gap-2 p-3 rounded-2xl backdrop-blur-sm border transition-all duration-300", toolIconClass)}>
-                 <MoreHorizontal size={24} />
-                 <span className="text-xs font-medium opacity-90">更多</span>
-              </div>
+              <ToolIcon icon={Wand2} label="AI 改图" className={toolIconClass} onClick={() => navigate('/tools/ai-edit')} />
+              <ToolIcon icon={Eraser} label="AI 擦除" className={toolIconClass} onClick={() => navigate('/tools/ai-erase')} />
+              <ToolIcon icon={Scissors} label="AI 抠图" className={toolIconClass} onClick={() => navigate('/tools/ai-matting')} />
+              <ToolIcon icon={Layers} label="AI 溶图" className={toolIconClass} onClick={() => navigate('/tools/ai-blend')} />
+              <ToolIcon icon={FileText} label="md2Card" className={toolIconClass} onClick={() => navigate('/tools/md2card')} />
+              <ToolIcon icon={Presentation} label="PPT 生成" className={toolIconClass} onClick={() => navigate('/tools/ppt-gen')} />
+              <ToolIcon icon={ScanFace} label="证件照生成" className={toolIconClass} onClick={() => navigate('/tools/id-photo')} />
+              <ToolIcon icon={History} label="老照片修复" className={toolIconClass} onClick={() => navigate('/tools/old-photo')} />
             </div>
           </BentoCard>
         </div>
@@ -226,9 +225,15 @@ export default function Home() {
   );
 }
 
-function ToolIcon({ icon: Icon, label, className }: { icon: React.ElementType, label: string, className?: string }) {
+function ToolIcon({ icon: Icon, label, className, onClick }: { icon: React.ElementType, label: string, className?: string, onClick?: () => void }) {
   return (
-    <div className={clsx("flex flex-col items-center justify-center gap-2 p-3 rounded-2xl backdrop-blur-sm border hover:scale-105 transition-all duration-300 cursor-pointer group/icon", className)}>
+    <div 
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.();
+      }}
+      className={clsx("flex flex-col items-center justify-center gap-2 p-3 rounded-2xl backdrop-blur-sm border hover:scale-105 transition-all duration-300 cursor-pointer group/icon", className)}
+    >
       <Icon size={24} className="group-hover/icon:scale-110 transition-transform duration-300" />
       <span className="text-xs font-medium opacity-90 whitespace-nowrap">{label}</span>
     </div>

@@ -10,19 +10,36 @@ const inspirationCategories = [
         id: 'bg-1',
         title: "Modern Banking Hall",
         prompt: "A futuristic modern banking hall with sleek glass counters, warm ambient lighting, marble floors, busy professionals, wide angle shot, 8k resolution, architectural photography",
-        image: "bg-gradient-to-br from-gray-800 to-gray-900"
+        image: "bg-gradient-to-br from-gray-800 to-gray-900",
+        imageUrl: "https://images.unsplash.com/photo-1556742049-0cfed4f7a07d?w=800&q=80"
       },
       {
         id: 'bg-2',
-        title: "Abstract Tech",
+        title: "Global Network",
         prompt: "Abstract technology background, circuit board patterns, glowing blue lines, dark background, 8k resolution",
-        image: "bg-gradient-to-br from-blue-900 to-slate-900"
+        image: "bg-gradient-to-br from-blue-900 to-slate-900",
+        imageUrl: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&q=80"
       },
       {
         id: 'bg-3',
-        title: "Nature Texture",
+        title: "Nature Landscape",
         prompt: "Close up texture of green leaves, water droplets, fresh nature background, high detail, macro photography",
-        image: "bg-gradient-to-br from-green-800 to-emerald-900"
+        image: "bg-gradient-to-br from-green-800 to-emerald-900",
+        imageUrl: "https://images.unsplash.com/photo-1501854140884-074bf86ee911?w=800&q=80"
+      },
+      {
+        id: 'bg-4',
+        title: "Urban Cityscape",
+        prompt: "Cyberpunk city street, neon lights, rain, futuristic cars, night time, cinematic shot",
+        image: "bg-gradient-to-br from-purple-900 to-indigo-900",
+        imageUrl: "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80"
+      },
+      {
+        id: 'bg-5',
+        title: "Minimalist Studio",
+        prompt: "Clean minimalist interior, white walls, soft shadows, plant in corner, wooden floor",
+        image: "bg-gradient-to-br from-gray-100 to-white",
+        imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=800&q=80"
       }
     ]
   },
@@ -32,21 +49,38 @@ const inspirationCategories = [
     items: [
       {
         id: 'mat-1',
-        title: "3D Icon Set",
-        prompt: "Set of 3D icons, glossy finish, colorful, high quality render, isometric view",
-        image: "bg-gradient-to-br from-purple-600 to-pink-600"
+        title: "Frosted Glass 2025",
+        prompt: "Number 2025 made of frosted glass, soft lighting, depth of field, 3d render, abstract background",
+        image: "bg-gradient-to-br from-purple-600 to-pink-600",
+        imageUrl: "https://images.unsplash.com/photo-1633511090164-b43840ea1607?w=800&q=80"
       },
       {
         id: 'mat-2',
-        title: "Paper Cut Art",
-        prompt: "Paper cut art style, layered paper, shadows, depth, intricate details",
-        image: "bg-gradient-to-br from-orange-400 to-red-500"
+        title: "3D White Horse",
+        prompt: "White horse statue, 3d render style, minimalist, studio lighting, soft shadows, elegant",
+        image: "bg-gradient-to-br from-orange-400 to-red-500",
+        imageUrl: "https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=800&q=80"
       },
       {
         id: 'mat-3',
-        title: "Glass Morphism Elements",
+        title: "Glass Morphism",
         prompt: "Glass morphism UI elements, frosted glass effect, blur, transparency, modern design",
-        image: "bg-gradient-to-br from-cyan-400 to-blue-500"
+        image: "bg-gradient-to-br from-cyan-400 to-blue-500",
+        imageUrl: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80"
+      },
+      {
+        id: 'mat-4',
+        title: "3D Shapes",
+        prompt: "Abstract 3D geometric shapes, floating, colorful, matte finish, high quality render",
+        image: "bg-gradient-to-br from-pink-400 to-purple-500",
+        imageUrl: "https://images.unsplash.com/photo-1614624532983-4ce03382d63d?w=800&q=80"
+      },
+      {
+        id: 'mat-5',
+        title: "Liquid Metal",
+        prompt: "Liquid metal texture, chrome, reflective, flowing, abstract art, silver and gold",
+        image: "bg-gradient-to-br from-gray-300 to-gray-500",
+        imageUrl: "https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=800&q=80"
       }
     ]
   },
@@ -149,17 +183,27 @@ export default function Inspiration() {
               <span className="w-1.5 h-6 bg-accent-primary rounded-full"></span>
               {category.title}
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8">
               {category.items.map((item) => (
                 <div 
                   key={item.id} 
                   className="group relative h-[300px] rounded-3xl overflow-hidden cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-500 border border-black/5"
                 >
                   {/* Placeholder Image Background */}
-                  <div className={`absolute inset-0 ${item.image} transition-transform duration-700 group-hover:scale-105`}>
-                     <div className="w-full h-full flex items-center justify-center text-white/10 font-bold text-6xl">
-                       AI
-                     </div>
+                  <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
+                    {/* @ts-ignore */}
+                    {item.imageUrl ? (
+                      <img 
+                        /* @ts-ignore */
+                        src={item.imageUrl} 
+                        alt={item.title} 
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className={`w-full h-full ${item.image} flex items-center justify-center text-white/10 font-bold text-6xl`}>
+                        AI
+                      </div>
+                    )}
                   </div>
 
                   {/* Content Overlay */}

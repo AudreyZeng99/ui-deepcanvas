@@ -110,6 +110,7 @@ import {
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
 import MaterialsModal from '../components/MaterialsModal';
+import ExportModal from '../components/ExportModal';
 import { Tooltip } from '../components/Tooltip';
 import { useProject } from '../context/ProjectContext';
 import { useEffect, useRef } from 'react';
@@ -175,6 +176,7 @@ export default function Editor() {
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
   const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
   const [isMaterialsModalOpen, setIsMaterialsModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const [showEffectsModal, setShowEffectsModal] = useState(false);
   const [isCursorMenuOpen, setIsCursorMenuOpen] = useState(false);
@@ -2669,14 +2671,7 @@ export default function Editor() {
                 </div>
                 <div className="flex items-center gap-3">
                    <button 
-                     onClick={() => {
-                       const link = document.createElement('a');
-                       link.href = previewImage;
-                       link.download = `ai-generated-${Date.now()}.jpg`;
-                       document.body.appendChild(link);
-                       link.click();
-                       document.body.removeChild(link);
-                     }}
+                     onClick={() => setIsExportModalOpen(true)}
                      className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2 px-4"
                    >
                      <Download size={18} />
@@ -2707,6 +2702,17 @@ export default function Editor() {
           onAddElement={handleAddElement}
           onUpload={handleFileUpload}
           personalMaterials={personalMaterials}
+        />
+        
+        <ExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          previewImage={previewImage || 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80'}
+          onExport={(settings) => {
+            console.log('Exporting with settings:', settings);
+            setIsExportModalOpen(false);
+            alert('导出成功！');
+          }}
         />
 
       </div>
