@@ -101,9 +101,14 @@ import {
   Crop,
   CheckCircle2,
   XCircle,
+  Eye,
+  EyeOff,
+  Group,
+  Ungroup,
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
+import MaterialsModal from '../components/MaterialsModal';
 import { Tooltip } from '../components/Tooltip';
 import { useProject } from '../context/ProjectContext';
 import { useEffect, useRef } from 'react';
@@ -120,6 +125,9 @@ export default function Editor() {
     props: any;
     content?: string;
     src?: string;
+    visible?: boolean;
+    locked?: boolean;
+    groupId?: string;
   }
   const [elements, setElements] = useState<CanvasElement[]>([]);
   const isUpdatingSelection = useRef(false);
@@ -163,8 +171,9 @@ export default function Editor() {
   });
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
-  const [activeMaterialTab, setActiveMaterialTab] = useState<'basic' | 'bocom' | 'personal' | 'icons' | 'photos' | 'mockups' | 'none'>('basic');
-  const [personalMaterials] = useState<string[]>([]);
+  const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
+  const [isMaterialsModalOpen, setIsMaterialsModalOpen] = useState(false);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const [showEffectsModal, setShowEffectsModal] = useState(false);
   const [isCursorMenuOpen, setIsCursorMenuOpen] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({}); // Default false = limited to 10
@@ -544,7 +553,7 @@ export default function Editor() {
       setSelectedElement(null); // Deselect when switching tools
     }
 
-    const panelTools = ['text', 'material', 'shape', 'image', 'background', 'draw', 'table'];
+    const panelTools = ['text', 'shape', 'image', 'background', 'draw', 'table'];
     if (panelTools.includes(tool)) {
       setShowLeftPanel(true);
       setLeftPanelContent(tool);
@@ -560,6 +569,81 @@ export default function Editor() {
       setShowLeftPanel(false);
       setLeftPanelContent(null);
     }
+  };
+
+  // Layer Management Functions
+  const toggleLayerVisibility = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setElements(prev => prev.map(el => {
+      if (el.id === id) {
+        return { ...el, visible: el.visible === undefined ? false : !el.visible };
+      }
+      return el;
+    }));
+  };
+
+  const toggleLayerLock = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setElements(prev => prev.map(el => {
+      if (el.id === id) {
+        return { ...el, locked: !el.locked };
+      }
+      return el;
+    }));
+  };
+
+  const deleteLayer = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (window.confirm('确定要删除这个图层吗？')) {
+      setElements(prev => prev.filter(el => el.id !== id));
+      if (selectedElement === id) setSelectedElement(null);
+      setSelectedElementIds(prev => prev.filter(eid => eid !== id));
+    }
+  };
+
+  const handleLayerClick = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    // Multi-select logic (CMD/CTRL or SHIFT)
+    if (e.metaKey || e.ctrlKey || e.shiftKey) {
+      const newSelectedIds = selectedElementIds.includes(id)
+        ? selectedElementIds.filter(eid => eid !== id)
+        : [...selectedElementIds, id];
+      
+      setSelectedElementIds(newSelectedIds);
+      // Update primary selected element to the last one clicked if selected, or null if empty
+      if (newSelectedIds.includes(id)) {
+        setSelectedElement(id);
+      } else {
+        setSelectedElement(newSelectedIds.length > 0 ? newSelectedIds[newSelectedIds.length - 1] : null);
+      }
+    } else {
+      // Single select
+      setSelectedElementIds([id]);
+      setSelectedElement(id);
+    }
+    
+    // Sync props for the primary selection
+    const el = elements.find(e => e.id === id);
+    if (el) {
+      setElementProps(el.props);
+      setSelectedContent(el.content || '');
+    }
+  };
+
+  const handleGroupLayers = () => {
+    if (selectedElementIds.length < 2) return;
+    const groupId = `group-${Date.now()}`;
+    setElements(prev => prev.map(el => 
+      selectedElementIds.includes(el.id) ? { ...el, groupId } : el
+    ));
+  };
+
+  const handleUngroupLayers = () => {
+    if (selectedElementIds.length === 0) return;
+    setElements(prev => prev.map(el => 
+      selectedElementIds.includes(el.id) ? { ...el, groupId: undefined } : el
+    ));
   };
 
   // Drawing Handlers
@@ -679,6 +763,7 @@ export default function Editor() {
     const file = e.target.files?.[0];
     if (file) {
       const url = URL.createObjectURL(file);
+      setPersonalMaterials(prev => [...prev, url]);
       
       const newId = `personal-${Date.now()}`;
       const newEl: CanvasElement = {
@@ -909,10 +994,10 @@ export default function Editor() {
                  <Layers size={18} />
                </button>
              </Tooltip>
-             <Tooltip content="素材库" position="bottom">
+             <Tooltip content="素材百宝箱" position="bottom">
                <button 
-                 className={clsx("p-1.5 rounded-lg transition-colors", activeTool === 'material' ? "bg-black/5" : "hover:bg-black/5")}
-                 onClick={() => handleToolClick('material')}
+                 className={clsx("p-1.5 rounded-lg transition-colors", isMaterialsModalOpen ? "bg-black/5" : "hover:bg-black/5")}
+                 onClick={() => setIsMaterialsModalOpen(true)}
                >
                  <Package size={18} />
                </button>
@@ -1006,13 +1091,97 @@ export default function Editor() {
       {/* Main Content Area */}
       <div className="flex-1 relative bg-[#F9FAFB] overflow-hidden flex">
         
+        {/* Layer Panel */}
+        {showLayers && (
+          <div className="absolute top-0 left-0 bottom-0 w-64 bg-white border-r border-black/5 flex flex-col animate-in slide-in-from-left duration-200 z-30 shadow-xl">
+            <div className="h-12 border-b border-black/5 flex items-center justify-between px-4 bg-gray-50/50">
+              <span className="font-semibold text-sm">图层管理</span>
+              <div className="flex gap-1">
+                 {selectedElementIds.length > 1 && (
+                   <Tooltip content="成组" position="bottom">
+                     <button onClick={handleGroupLayers} className="p-1 hover:bg-black/5 rounded text-gray-600">
+                       <Group size={16} />
+                     </button>
+                   </Tooltip>
+                 )}
+                 {selectedElementIds.length > 0 && elements.some(el => selectedElementIds.includes(el.id) && el.groupId) && (
+                   <Tooltip content="解组" position="bottom">
+                     <button onClick={handleUngroupLayers} className="p-1 hover:bg-black/5 rounded text-gray-600">
+                       <Ungroup size={16} />
+                     </button>
+                   </Tooltip>
+                 )}
+                 <button onClick={() => setShowLayers(false)} className="p-1 hover:bg-black/5 rounded text-gray-400 hover:text-gray-600">
+                   <X size={16} />
+                 </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+              {elements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-400 text-sm gap-2">
+                  <Layers size={24} className="opacity-20" />
+                  <span>暂无图层</span>
+                </div>
+              ) : (
+                [...elements].reverse().map((el) => (
+                  <div 
+                    key={el.id}
+                    className={clsx(
+                      "group flex items-center gap-2 p-2 rounded-lg text-sm transition-colors cursor-pointer border border-transparent",
+                      selectedElementIds.includes(el.id) ? "bg-blue-50 border-blue-100 text-blue-700" : "hover:bg-gray-50 text-gray-600"
+                    )}
+                    onClick={(e) => handleLayerClick(el.id, e)}
+                  >
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={(e) => toggleLayerVisibility(el.id, e)}
+                        className={clsx("p-1 rounded hover:bg-black/5", el.visible === false && "text-gray-400")}
+                      >
+                        {el.visible === false ? <EyeOff size={12} /> : <Eye size={12} />}
+                      </button>
+                      <button 
+                        onClick={(e) => toggleLayerLock(el.id, e)}
+                        className={clsx("p-1 rounded hover:bg-black/5", el.locked && "text-amber-500")}
+                      >
+                        {el.locked ? <Lock size={12} /> : <Unlock size={12} />}
+                      </button>
+                    </div>
+                    
+                    <div className="flex-1 truncate select-none flex items-center gap-2">
+                       {/* Type Icon */}
+                       {el.type === 'text' && <Type size={12} className="opacity-50" />}
+                       {el.type === 'image' && <ImageIcon size={12} className="opacity-50" />}
+                       {el.type === 'shape' && <Square size={12} className="opacity-50" />}
+                       
+                       <span className="truncate">
+                         {el.content || (
+                           el.type === 'text' ? '文本' :
+                           el.type === 'image' ? '图片' :
+                           el.type === 'shape' ? (el.subType || '形状') :
+                           '图层'
+                         )}
+                       </span>
+                    </div>
+
+                    <button 
+                      onClick={(e) => deleteLayer(el.id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 hover:text-red-500 rounded transition-all"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Left Sidebar - Tool Details */}
         {showLeftPanel && (
           <div className="absolute top-0 left-0 bottom-0 w-64 bg-white border-r border-black/5 flex flex-col animate-in slide-in-from-left duration-200 z-30 shadow-xl">
             <div className="h-12 border-b border-black/5 flex items-center justify-between px-4">
               <span className="font-semibold text-sm">
                 {leftPanelContent === 'text' && '文本工具'}
-                {leftPanelContent === 'material' && '素材库'}
                 {leftPanelContent === 'shape' && '基础形状'}
                 {leftPanelContent === 'image' && '图片资源'}
                 {leftPanelContent === 'background' && '背景设置'}
@@ -1231,181 +1400,7 @@ export default function Editor() {
                 </div>
               )}
 
-              {leftPanelContent === 'material' && (
-                <div className="space-y-4 h-full flex flex-col">
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <input 
-                      type="text" 
-                      placeholder="搜索素材..." 
-                      className="w-full pl-8 pr-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-xs outline-none focus:border-accent-primary transition-colors"
-                    />
-                    <ScanEye className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
-                  </div>
-
-                  {/* Upload Button */}
-                  <label className="flex items-center justify-center gap-2 w-full py-2 bg-black text-white rounded-lg text-xs font-medium cursor-pointer hover:opacity-90 transition-opacity">
-                     <Upload size={14} />
-                     上传个人素材
-                     <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
-                  </label>
-
-                  {/* Content Area - Accordion List */}
-                  <div className="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
-                    {/* BoCom Materials */}
-                    <details className="group/accordion" open={activeMaterialTab === 'bocom'}>
-                      <summary 
-                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer list-none select-none transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setActiveMaterialTab(activeMaterialTab === 'bocom' ? 'none' : 'bocom');
-                        }}
-                      >
-                        <div className={clsx("text-gray-400 transition-transform duration-200", activeMaterialTab === 'bocom' ? "rotate-90" : "")}>
-                          <ChevronRight size={14} />
-                        </div>
-                        <span className="text-sm font-medium text-gray-700">交行素材</span>
-                      </summary>
-
-                      <div className={clsx("pl-4 pt-2 space-y-4 pb-2", activeMaterialTab === 'bocom' ? "block" : "hidden")}>
-                        {/* 小福鹿系列 */}
-                        <details className="group" open>
-                          <summary className="flex items-center gap-2 text-xs font-medium text-gray-900 cursor-pointer list-none mb-2 outline-none select-none">
-                             <div className="text-gray-400 transition-transform group-open:rotate-90">
-                                <ChevronRight size={12} />
-                             </div>
-                             小福鹿系列 (通用)
-                             <span className="text-[10px] text-gray-400 font-normal ml-auto mr-2">24</span>
-                          </summary>
-                          <div className="pl-2">
-                             <div className="grid grid-cols-3 gap-2">
-                                {(expandedCategories['bocom-general'] ? Array.from({length: 24}, (_, i) => i + 1) : Array.from({length: 6}, (_, i) => i + 1)).map(i => (
-                                  <button 
-                                    key={i} 
-                                    onClick={() => handleAddElement('bocom', 'series-' + i)}
-                                    className="aspect-square bg-white rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-100 hover:border-accent-primary hover:shadow-sm transition-all group/item"
-                                  >
-                                    <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-[10px] text-orange-500 font-bold group-hover/item:scale-110 transition-transform">鹿</div>
-                                    <span className="text-[9px] text-gray-400">动作 {i}</span>
-                                  </button>
-                                ))}
-                             </div>
-                             <button 
-                               onClick={() => setExpandedCategories(prev => ({...prev, 'bocom-general': !prev['bocom-general']}))}
-                               className="w-full mt-2 py-1.5 flex items-center justify-center gap-1 text-[10px] text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors border border-transparent hover:border-gray-200"
-                             >
-                                <span>{expandedCategories['bocom-general'] ? '收起' : '查看全部 (24)'}</span>
-                                <ChevronDown size={12} className={clsx("transition-transform", expandedCategories['bocom-general'] ? "rotate-180" : "")} />
-                             </button>
-                          </div>
-                        </details>
- 
-                        {/* 分行特色小福鹿 */}
-                        <details className="group" open>
-                          <summary className="flex items-center gap-2 text-xs font-medium text-gray-900 cursor-pointer list-none mb-2 outline-none select-none">
-                             <div className="text-gray-400 transition-transform group-open:rotate-90">
-                                <ChevronRight size={12} />
-                             </div>
-                             分行特色小福鹿
-                          </summary>
-                          <div className="grid grid-cols-3 gap-2 pl-2">
-                             {['北京', '上海', '广东', '深圳', '江苏', '浙江'].map((branch, i) => (
-                               <button 
-                                key={i} 
-                                onClick={() => handleAddElement('bocom', 'branch-' + i)}
-                                className="aspect-square bg-white rounded-lg flex flex-col items-center justify-center gap-1 border border-gray-100 hover:border-accent-primary hover:shadow-sm transition-all group/item"
-                              >
-                                 <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-[10px] text-blue-500 font-bold group-hover/item:scale-110 transition-transform">{branch.slice(0,1)}</div>
-                                 <span className="text-[9px] text-gray-400">{branch}</span>
-                               </button>
-                             ))}
-                          </div>
-                        </details>
- 
-                        {/* Logo */}
-                        <details className="group" open>
-                          <summary className="flex items-center gap-2 text-xs font-medium text-gray-900 cursor-pointer list-none mb-2 outline-none select-none">
-                             <div className="text-gray-400 transition-transform group-open:rotate-90">
-                                <ChevronRight size={12} />
-                             </div>
-                             交行logo
-                          </summary>
-                          <div className="grid grid-cols-2 gap-2 pl-2">
-                             <div className="h-12 bg-blue-50 rounded-lg flex items-center justify-center text-xs text-blue-700 font-bold border border-blue-100">
-                               Bank of Comm.
-                             </div>
-                             <div className="h-12 bg-white rounded-lg flex items-center justify-center text-xs text-gray-500 font-bold border border-gray-200">
-                               Icon Only
-                             </div>
-                             <div className="h-12 bg-white rounded-lg flex items-center justify-center text-xs text-gray-500 font-bold border border-gray-200">
-                               White Logo
-                             </div>
-                             <div className="h-12 bg-blue-600 rounded-lg flex items-center justify-center text-xs text-white font-bold border border-blue-700">
-                               Blue Logo
-                             </div>
-                          </div>
-                        </details>
-                      </div>
-                    </details>
-
-                    {/* Personal Materials */}
-                    <details className="group/accordion" open={activeMaterialTab === 'personal'}>
-                      <summary 
-                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer list-none select-none transition-colors"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setActiveMaterialTab(activeMaterialTab === 'personal' ? 'none' : 'personal');
-                        }}
-                      >
-                        <div className={clsx("text-gray-400 transition-transform duration-200", activeMaterialTab === 'personal' ? "rotate-90" : "")}>
-                          <ChevronRight size={14} />
-                        </div>
-                        <span className="text-sm font-medium text-gray-700">个人素材</span>
-                      </summary>
-
-                      <div className={clsx("pl-2 pt-2 space-y-3 pb-2", activeMaterialTab === 'personal' ? "block" : "hidden")}>
-                         <div className="grid grid-cols-3 gap-2">
-                            {personalMaterials.map((url, i) => (
-                              <div 
-                                key={i} 
-                                onClick={() => {
-                                  setSelectedElement(`personal-${i}`);
-                                  // Set image source for rendering (simulated)
-                                }}
-                                className="aspect-square bg-gray-50 rounded-lg overflow-hidden border border-gray-100 relative group cursor-pointer hover:border-accent-primary transition-colors"
-                              >
-                                 <img src={url} alt="Uploaded" className="w-full h-full object-cover" />
-                                 <button className="absolute top-1 right-1 p-1 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                                   <X size={10} />
-                                 </button>
-                              </div>
-                            ))}
-                            {personalMaterials.length === 0 && (
-                              <div className="col-span-2 py-8 text-center text-xs text-gray-400">
-                                暂无个人素材
-                              </div>
-                            )}
-                         </div>
-                      </div>
-                    </details>
-
-                    {/* Placeholder Categories */}
-                    {['图标', '照片', '样机'].map((cat) => (
-                      <details key={cat} className="group/accordion">
-                        <summary className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer list-none select-none transition-colors">
-                          <div className="text-gray-400 transition-transform duration-200 group-open/accordion:rotate-90">
-                            <ChevronRight size={14} />
-                          </div>
-                          <span className="text-sm font-medium text-gray-700">{cat}</span>
-                        </summary>
-                        <div className="pl-8 py-2 text-xs text-gray-400">
-                          暂无{cat}内容
-                        </div>
-                      </details>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Material Panel moved to Modal */}
 
               {leftPanelContent === 'image' && (
                 <div className="space-y-4">
@@ -2647,6 +2642,15 @@ export default function Editor() {
              />
            </div>
         )}
+        
+        {/* Materials Modal */}
+        <MaterialsModal
+          isOpen={isMaterialsModalOpen}
+          onClose={() => setIsMaterialsModalOpen(false)}
+          onAddElement={handleAddElement}
+          onUpload={handleFileUpload}
+          personalMaterials={personalMaterials}
+        />
 
       </div>
     </div>
