@@ -170,7 +170,7 @@ export default function Editor() {
     letterSpacing: 0,
     writingMode: 'horizontal-tb'
   });
-  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false);
+  // const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Removed multi-select mode state
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
   const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
@@ -606,8 +606,8 @@ export default function Editor() {
   const handleLayerClick = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     
-    // Multi-select logic (CMD/CTRL or SHIFT or Multi-Select Mode)
-    if (e.metaKey || e.ctrlKey || e.shiftKey || isMultiSelectMode) {
+    // Multi-select logic (CMD/CTRL or SHIFT)
+    if (e.metaKey || e.ctrlKey || e.shiftKey) {
       const newSelectedIds = selectedElementIds.includes(id)
         ? selectedElementIds.filter(eid => eid !== id)
         : [...selectedElementIds, id];
@@ -1099,17 +1099,6 @@ export default function Editor() {
             <div className="h-12 border-b border-black/5 flex items-center justify-between px-4 bg-gray-50/50">
               <span className="font-semibold text-sm">图层管理</span>
               <div className="flex gap-1">
-                   <Tooltip content="多选模式" position="bottom">
-                     <button 
-                       onClick={() => setIsMultiSelectMode(!isMultiSelectMode)}
-                       className={clsx("p-1 rounded transition-all", isMultiSelectMode ? "bg-accent-primary/10 text-accent-primary" : "text-gray-600 hover:bg-black/5")}
-                     >
-                       <CheckSquare size={16} />
-                     </button>
-                   </Tooltip>
-
-                   <div className="w-px h-4 bg-gray-200 mx-1 self-center" />
-
                    <Tooltip content="成组" position="bottom">
                      <button 
                        onClick={handleGroupLayers} 
@@ -1180,6 +1169,26 @@ export default function Editor() {
                            '图层'
                          )}
                        </span>
+                    </div>
+
+                    <div 
+                      className={clsx(
+                        "p-1 cursor-pointer transition-all flex items-center",
+                        selectedElementIds.includes(el.id) ? "opacity-100 text-blue-600" : "opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-600"
+                      )}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newSelectedIds = selectedElementIds.includes(el.id)
+                          ? selectedElementIds.filter(eid => eid !== el.id)
+                          : [...selectedElementIds, el.id];
+                        setSelectedElementIds(newSelectedIds);
+                      }}
+                    >
+                      {selectedElementIds.includes(el.id) ? (
+                        <CheckSquare size={14} className="text-blue-600" />
+                      ) : (
+                        <Square size={14} />
+                      )}
                     </div>
 
                     <button 
