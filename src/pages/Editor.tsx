@@ -148,7 +148,7 @@ export default function Editor() {
   // New State for Interactions
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [selectedContent, setSelectedContent] = useState<string>('');
-  const [elementProps, setElementProps] = useState({ 
+  const [elementProps, setElementProps] = useState<Record<string, any>>({  
     x: 300, 
     y: 250, 
     w: 200, 
@@ -1727,17 +1727,113 @@ export default function Editor() {
               {leftPanelContent === 'table' && (
                 <div className="space-y-4">
                    <div className="space-y-2">
-                      <div className="text-xs font-medium text-gray-500">插入表格</div>
-                      <div className="grid grid-cols-5 gap-1 p-2 bg-gray-50 rounded-lg border border-black/5">
-                         {[...Array(25)].map((_, i) => (
-                           <div key={i} className="w-full aspect-square border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-200 cursor-pointer transition-colors" />
+                      <div className="text-xs font-medium text-gray-500">表格模版</div>
+                      <div className="grid grid-cols-2 gap-3">
+                         {[
+                           { 
+                             name: '基础表格', 
+                             props: { 
+                               rows: 4, cols: 4, 
+                               showHead: true, zebra: false, 
+                               borderColor: '#000000', borderWidth: 1,
+                               headerBg: '#f3f4f6', headerColor: '#000000',
+                               cellBg: '#ffffff', cellColor: '#000000',
+                               alternateBg: '#f9fafb',
+                               data: [['表头1', '表头2', '表头3', '表头4'], ['内容', '内容', '内容', '内容'], ['内容', '内容', '内容', '内容'], ['内容', '内容', '内容', '内容']]
+                             },
+                             preview: (
+                                <div className="w-full h-full bg-white border border-gray-300 flex flex-col text-[4px]">
+                                  <div className="h-1/4 bg-gray-100 border-b border-gray-300 flex items-center justify-around"><div className="w-2 h-1 bg-gray-300"/></div>
+                                  <div className="flex-1 flex flex-col">
+                                    <div className="flex-1 border-b border-gray-200"/>
+                                    <div className="flex-1 border-b border-gray-200"/>
+                                    <div className="flex-1"/>
+                                  </div>
+                                </div>
+                             )
+                           },
+                           { 
+                             name: '极简表格', 
+                             props: { 
+                               rows: 4, cols: 4, 
+                               showHead: true, zebra: false, 
+                               borderColor: '#e5e7eb', borderWidth: 1,
+                               headerBg: '#ffffff', headerColor: '#000000',
+                               cellBg: '#ffffff', cellColor: '#6b7280',
+                               alternateBg: '#ffffff',
+                               showVerticalLines: false,
+                               data: [['Header', 'Header', 'Header', 'Header'], ['Text', 'Text', 'Text', 'Text'], ['Text', 'Text', 'Text', 'Text'], ['Text', 'Text', 'Text', 'Text']]
+                             },
+                             preview: (
+                                <div className="w-full h-full bg-white flex flex-col">
+                                  <div className="h-1/4 border-b-2 border-gray-200"></div>
+                                  <div className="h-1/4 border-b border-gray-100"></div>
+                                  <div className="h-1/4 border-b border-gray-100"></div>
+                                </div>
+                             )
+                           },
+                           { 
+                             name: '商务蓝', 
+                             props: { 
+                               rows: 4, cols: 4, 
+                               showHead: true, zebra: true, 
+                               borderColor: '#bfdbfe', borderWidth: 1,
+                               headerBg: '#3b82f6', headerColor: '#ffffff',
+                               cellBg: '#ffffff', cellColor: '#000000',
+                               alternateBg: '#eff6ff',
+                               data: [['部门', 'Q1', 'Q2', 'Q3'], ['研发', '120', '130', '140'], ['市场', '80', '90', '100'], ['销售', '200', '210', '220']]
+                             },
+                             preview: (
+                                <div className="w-full h-full bg-white border border-blue-100 flex flex-col overflow-hidden rounded-sm">
+                                  <div className="h-1/4 bg-blue-500"></div>
+                                  <div className="h-1/4 bg-blue-50"></div>
+                                  <div className="h-1/4 bg-white"></div>
+                                  <div className="h-1/4 bg-blue-50"></div>
+                                </div>
+                             )
+                           },
+                           { 
+                             name: '深色模式', 
+                             props: { 
+                               rows: 4, cols: 4, 
+                               showHead: true, zebra: false, 
+                               borderColor: '#374151', borderWidth: 1,
+                               headerBg: '#111827', headerColor: '#ffffff',
+                               cellBg: '#1f2937', cellColor: '#e5e7eb',
+                               alternateBg: '#374151',
+                               data: [['Type', 'Value', 'Status', 'Date'], ['A-01', '500', 'Done', '2024'], ['A-02', '300', 'Pending', '2024'], ['A-03', '800', 'Done', '2024']]
+                             },
+                             preview: (
+                                <div className="w-full h-full bg-gray-800 border border-gray-700 flex flex-col overflow-hidden rounded-sm">
+                                  <div className="h-1/4 bg-gray-900 border-b border-gray-700"></div>
+                                  <div className="h-1/4 bg-gray-800 border-b border-gray-700"></div>
+                                  <div className="h-1/4 bg-gray-800"></div>
+                                </div>
+                             )
+                           }
+                         ].map((template, i) => (
+                           <div 
+                             key={i} 
+                             onClick={() => handleAddElement('table', undefined, { w: 400, h: 200, ...template.props })}
+                             className="group cursor-pointer space-y-2"
+                           >
+                             <div className="w-full aspect-[4/3] bg-gray-50 rounded-lg border border-gray-200 overflow-hidden group-hover:border-black/20 group-hover:shadow-sm transition-all p-2">
+                               {template.preview}
+                             </div>
+                             <div className="text-xs text-center text-gray-600 group-hover:text-black transition-colors">{template.name}</div>
+                           </div>
                          ))}
                       </div>
-                      <div className="flex gap-2">
-                        <input type="number" placeholder="行" className="w-full p-2 bg-gray-50 rounded-lg text-xs border border-gray-200 outline-none focus:border-black transition-colors" />
-                        <input type="number" placeholder="列" className="w-full p-2 bg-gray-50 rounded-lg text-xs border border-gray-200 outline-none focus:border-black transition-colors" />
-                      </div>
-                      <button className="w-full py-2 bg-black text-white rounded-lg text-xs font-medium hover:opacity-90 transition-opacity">插入表格</button>
+                   </div>
+                   
+                   <div className="pt-4 border-t border-gray-100">
+                     <div className="text-xs font-medium text-gray-500 mb-2">基础工具</div>
+                     <button 
+                        onClick={() => handleAddElement('table', undefined, { w: 400, h: 200, rows: 3, cols: 3, showHead: true, borderColor: '#000000', borderWidth: 1, headerBg: '#e5e7eb', data: [['', '', ''], ['', '', ''], ['', '', '']] })}
+                        className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-lg text-xs font-medium transition-colors border border-gray-200"
+                     >
+                       插入空白表格
+                     </button>
                    </div>
                 </div>
               )}
@@ -1946,6 +2042,46 @@ export default function Editor() {
                              }}
                            />
                          </svg>
+                      )}
+
+                      {el.type === 'table' && (
+                        <div className="w-full h-full overflow-hidden" style={{
+                           borderRadius: `${props.radius || 0}px`,
+                           border: props.borderOuter !== false ? `${props.borderWidth}px solid ${props.borderColor}` : 'none',
+                           backgroundColor: props.backgroundColor || 'transparent'
+                        }}>
+                          <table className="w-full h-full border-collapse table-fixed">
+                            <tbody>
+                              {(props.data || []).map((row: string[], rowIndex: number) => (
+                                <tr key={rowIndex} style={{ height: props.rowHeight ? `${props.rowHeight}px` : 'auto' }}>
+                                  {row.map((cell: string, colIndex: number) => {
+                                    const isHeader = props.showHead && rowIndex === 0;
+                                    const isAlternate = props.zebra && rowIndex % 2 === 0 && !isHeader;
+                                    return (
+                                      <td 
+                                        key={colIndex}
+                                        className="p-2 overflow-hidden break-words"
+                                        style={{
+                                          backgroundColor: isHeader ? props.headerBg : (isAlternate ? props.alternateBg : props.cellBg),
+                                          color: isHeader ? props.headerColor : props.cellColor,
+                                          border: props.borderInner !== false ? `${props.borderWidth}px solid ${props.borderColor}` : 'none',
+                                          textAlign: props.textAlign || 'left',
+                                          fontFamily: props.fontFamily || 'Inter',
+                                          fontSize: `${props.fontSize || 14}px`,
+                                          fontWeight: isHeader ? 'bold' : 'normal',
+                                          width: props.colWidths?.[colIndex] ? `${props.colWidths[colIndex]}px` : (props.defaultColWidth ? `${props.defaultColWidth}px` : 'auto'),
+                                          verticalAlign: 'middle'
+                                        }}
+                                      >
+                                        {cell}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
 
                       {el.type === 'text' && (
@@ -2432,11 +2568,252 @@ export default function Editor() {
                      <div className="flex items-center justify-between pt-1">
                         <span className="text-xs text-gray-600">竖排文字</span>
                         <button 
-                           onClick={() => setElementProps(p => ({...p, writingMode: p.writingMode === 'vertical-rl' ? 'horizontal-tb' : 'vertical-rl'}))}
+                           onClick={() => setElementProps((p: any) => ({...p, writingMode: p.writingMode === 'vertical-rl' ? 'horizontal-tb' : 'vertical-rl'}))}
                            className={clsx("w-10 h-5 rounded-full relative transition-colors", elementProps.writingMode === 'vertical-rl' ? "bg-black" : "bg-gray-200")}
                         >
                            <div className={clsx("w-3 h-3 bg-white rounded-full absolute top-1 transition-all", elementProps.writingMode === 'vertical-rl' ? "left-6" : "left-1")} />
                         </button>
+                     </div>
+                  </div>
+                )}
+
+                {/* Table Specific Properties */}
+                {selectedElement?.startsWith('table') && (
+                  <div className="space-y-6">
+                     <div className="text-xs font-medium text-gray-500 uppercase tracking-wider">表格属性</div>
+                     
+                     {/* Data Import */}
+                     <div className="space-y-2">
+                        <div className="text-[10px] font-medium text-gray-400">数据导入</div>
+                        <div className="grid grid-cols-2 gap-2">
+                           <button className="flex items-center justify-center gap-1 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs text-gray-600 transition-colors">
+                              <Upload size={12} />
+                              导入 Excel/CSV
+                           </button>
+                           <button className="flex items-center justify-center gap-1 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg text-xs text-gray-600 transition-colors">
+                              <Type size={12} />
+                              编辑数据
+                           </button>
+                        </div>
+                     </div>
+
+                     {/* Structure */}
+                     <div className="space-y-2">
+                        <div className="text-[10px] font-medium text-gray-400">表格结构</div>
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="flex items-center justify-between bg-gray-50 px-2 py-1.5 rounded-lg border border-transparent hover:border-black/10">
+                              <span className="text-xs text-gray-500">行数</span>
+                              <input 
+                                type="number" 
+                                min="1"
+                                className="w-12 bg-transparent text-right text-xs outline-none"
+                                value={elementProps.rows || 3}
+                                onChange={(e) => {
+                                   const newRows = parseInt(e.target.value);
+                                   setElementProps((p: any) => ({...p, rows: newRows}));
+                                }}
+                              />
+                           </div>
+                           <div className="flex items-center justify-between bg-gray-50 px-2 py-1.5 rounded-lg border border-transparent hover:border-black/10">
+                              <span className="text-xs text-gray-500">列数</span>
+                              <input 
+                                type="number" 
+                                min="1"
+                                className="w-12 bg-transparent text-right text-xs outline-none"
+                                value={elementProps.cols || 3}
+                                onChange={(e) => {
+                                   const newCols = parseInt(e.target.value);
+                                   setElementProps((p: any) => ({...p, cols: newCols}));
+                                }}
+                              />
+                           </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                           <input 
+                             type="checkbox" 
+                             checked={elementProps.showHead || false}
+                             onChange={(e) => setElementProps((p: any) => ({...p, showHead: e.target.checked}))}
+                             className="rounded border-gray-300 text-black focus:ring-black/5"
+                           />
+                           <span className="text-xs text-gray-600">显示表头</span>
+                        </div>
+                     </div>
+
+                     {/* Dimensions */}
+                     <div className="space-y-2">
+                        <div className="text-[10px] font-medium text-gray-400">尺寸设置</div>
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="space-y-1">
+                              <span className="text-[10px] text-gray-400">行高</span>
+                              <div className="flex items-center bg-gray-50 px-2 py-1.5 rounded-lg border border-transparent hover:border-black/10">
+                                 <input 
+                                   type="number" 
+                                   placeholder="自适应"
+                                   className="w-full bg-transparent text-xs outline-none"
+                                   value={elementProps.rowHeight || ''}
+                                   onChange={(e) => setElementProps((p: any) => ({...p, rowHeight: e.target.value ? Number(e.target.value) : undefined}))}
+                                 />
+                                 <span className="text-[10px] text-gray-400">px</span>
+                              </div>
+                           </div>
+                           <div className="space-y-1">
+                              <span className="text-[10px] text-gray-400">列宽 (默认)</span>
+                              <div className="flex items-center bg-gray-50 px-2 py-1.5 rounded-lg border border-transparent hover:border-black/10">
+                                 <input 
+                                   type="number" 
+                                   placeholder="自适应"
+                                   className="w-full bg-transparent text-xs outline-none"
+                                   value={elementProps.defaultColWidth || ''}
+                                   onChange={(e) => setElementProps((p: any) => ({...p, defaultColWidth: e.target.value ? Number(e.target.value) : undefined}))}
+                                 />
+                                 <span className="text-[10px] text-gray-400">px</span>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+
+                     {/* Borders */}
+                     <div className="space-y-2">
+                        <div className="text-[10px] font-medium text-gray-400">边框设置</div>
+                        <div className="flex items-center gap-2">
+                           <div className="flex-1 bg-gray-50 px-2 py-1.5 rounded-lg flex items-center gap-2 border border-transparent hover:border-black/10">
+                              <span className="text-xs text-gray-500">宽度</span>
+                              <input 
+                                type="number" 
+                                min="0"
+                                className="w-full bg-transparent text-right text-xs outline-none"
+                                value={elementProps.borderWidth || 1}
+                                onChange={(e) => setElementProps((p: any) => ({...p, borderWidth: Number(e.target.value)}))}
+                              />
+                              <span className="text-[10px] text-gray-400">px</span>
+                           </div>
+                           <input 
+                              type="color" 
+                              value={elementProps.borderColor || '#000000'} 
+                              onChange={(e) => setElementProps((p: any) => ({...p, borderColor: e.target.value}))}
+                              className="w-8 h-8 rounded border-0 p-0 cursor-pointer" 
+                           />
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={elementProps.borderOuter !== false}
+                                onChange={(e) => setElementProps((p: any) => ({...p, borderOuter: e.target.checked}))}
+                                className="rounded border-gray-300 text-black focus:ring-black/5"
+                              />
+                              <span className="text-xs text-gray-600">外部边框</span>
+                           </div>
+                           <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={elementProps.borderInner !== false}
+                                onChange={(e) => setElementProps((p: any) => ({...p, borderInner: e.target.checked}))}
+                                className="rounded border-gray-300 text-black focus:ring-black/5"
+                              />
+                              <span className="text-xs text-gray-600">内部边框</span>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                           <span className="text-xs text-gray-500 w-12">圆角</span>
+                           <input 
+                             type="range" 
+                             min="0" 
+                             max="50" 
+                             value={elementProps.radius || 0}
+                             onChange={(e) => setElementProps((p: any) => ({...p, radius: Number(e.target.value)}))}
+                             className="flex-1 accent-black h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                           />
+                           <span className="text-xs text-gray-500 w-6 text-right">{elementProps.radius || 0}</span>
+                        </div>
+                     </div>
+
+                     {/* Header Style */}
+                     {elementProps.showHead && (
+                        <div className="space-y-2">
+                           <div className="text-[10px] font-medium text-gray-400">表头样式</div>
+                           <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1">
+                                 <span className="text-[10px] text-gray-400">背景色</span>
+                                 <div className="flex items-center gap-2">
+                                    <input 
+                                       type="color" 
+                                       value={elementProps.headerBg || '#f3f4f6'} 
+                                       onChange={(e) => setElementProps((p: any) => ({...p, headerBg: e.target.value}))}
+                                       className="w-full h-6 rounded border-0 p-0 cursor-pointer" 
+                                    />
+                                 </div>
+                              </div>
+                              <div className="space-y-1">
+                                 <span className="text-[10px] text-gray-400">文字色</span>
+                                 <div className="flex items-center gap-2">
+                                    <input 
+                                       type="color" 
+                                       value={elementProps.headerColor || '#000000'} 
+                                       onChange={(e) => setElementProps((p: any) => ({...p, headerColor: e.target.value}))}
+                                       className="w-full h-6 rounded border-0 p-0 cursor-pointer" 
+                                    />
+                                 </div>
+                              </div>
+                           </div>
+                        </div>
+                     )}
+
+                     {/* Cell Style */}
+                     <div className="space-y-2">
+                        <div className="text-[10px] font-medium text-gray-400">单元格样式</div>
+                        <div className="grid grid-cols-2 gap-2">
+                           <div className="space-y-1">
+                              <span className="text-[10px] text-gray-400">背景色</span>
+                              <input 
+                                 type="color" 
+                                 value={elementProps.cellBg || '#ffffff'} 
+                                 onChange={(e) => setElementProps((p: any) => ({...p, cellBg: e.target.value}))}
+                                 className="w-full h-6 rounded border-0 p-0 cursor-pointer" 
+                              />
+                           </div>
+                           <div className="space-y-1">
+                              <span className="text-[10px] text-gray-400">文字色</span>
+                              <input 
+                                 type="color" 
+                                 value={elementProps.cellColor || '#000000'} 
+                                 onChange={(e) => setElementProps((p: any) => ({...p, cellColor: e.target.value}))}
+                                 className="w-full h-6 rounded border-0 p-0 cursor-pointer" 
+                              />
+                           </div>
+                        </div>
+                        
+                        {/* Alignment */}
+                        <div className="space-y-1 mt-2">
+                           <span className="text-[10px] text-gray-400">对齐方式</span>
+                           <div className="flex items-center justify-between bg-gray-50 rounded-lg p-1">
+                              <button onClick={() => setElementProps((p: any) => ({...p, textAlign: 'left'}))} className={clsx("flex-1 p-1.5 rounded transition-colors flex justify-center", elementProps.textAlign === 'left' ? "bg-white shadow-sm text-black" : "text-gray-500 hover:text-black")}><AlignLeft size={14} /></button>
+                              <button onClick={() => setElementProps((p: any) => ({...p, textAlign: 'center'}))} className={clsx("flex-1 p-1.5 rounded transition-colors flex justify-center", elementProps.textAlign === 'center' ? "bg-white shadow-sm text-black" : "text-gray-500 hover:text-black")}><AlignCenter size={14} /></button>
+                              <button onClick={() => setElementProps((p: any) => ({...p, textAlign: 'right'}))} className={clsx("flex-1 p-1.5 rounded transition-colors flex justify-center", elementProps.textAlign === 'right' ? "bg-white shadow-sm text-black" : "text-gray-500 hover:text-black")}><AlignRight size={14} /></button>
+                           </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-2">
+                           <div className="flex items-center gap-2">
+                              <input 
+                                type="checkbox" 
+                                checked={elementProps.zebra || false}
+                                onChange={(e) => setElementProps((p: any) => ({...p, zebra: e.target.checked}))}
+                                className="rounded border-gray-300 text-black focus:ring-black/5"
+                              />
+                              <span className="text-xs text-gray-600">斑马纹</span>
+                           </div>
+                           {elementProps.zebra && (
+                              <input 
+                                 type="color" 
+                                 value={elementProps.alternateBg || '#f9fafb'} 
+                                 onChange={(e) => setElementProps((p: any) => ({...p, alternateBg: e.target.value}))}
+                                 className="w-6 h-6 rounded border-0 p-0 cursor-pointer" 
+                              />
+                           )}
+                        </div>
                      </div>
                   </div>
                 )}
