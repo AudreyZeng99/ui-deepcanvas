@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-d
 import Sidebar from './components/layout/Sidebar';
 import Home from './pages/Home';
 import Editor from './pages/Editor';
+import MaterialEditor from './pages/MaterialEditor';
 import Gallery from './pages/Gallery';
 import DesignSystem from './pages/DesignSystem';
 import Inspiration from './pages/Inspiration';
@@ -46,6 +47,7 @@ function Layout() {
           <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/editor" element={<Editor />} />
+          <Route path="/material-editor" element={<MaterialEditor />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/design-system" element={<DesignSystem />} />
           <Route path="/inspiration" element={<Inspiration />} />

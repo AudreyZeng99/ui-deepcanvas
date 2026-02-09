@@ -182,10 +182,11 @@ export default function Home() {
 
           {/* Banking (Minor Level) */}
           <BentoCard 
-            className="col-span-1 md:col-span-1 bg-minor border border-minor-border text-minor-foreground group"
+            className="col-span-1 md:col-span-1 bg-minor border border-minor-border text-minor-foreground group cursor-pointer"
             title="流量投放素材设计"
             description="金融业务场景专属模版库"
             icon={Smartphone}
+            onClick={() => navigate('/material-editor')}
           >
             <div className="mt-4">
                <div className="text-3xl font-bold">4</div>
