@@ -59,25 +59,25 @@ export default function Home() {
       <div className="w-full max-w-[1150px] h-[750px] flex flex-col gap-6">
         <header className="flex justify-between items-end flex-shrink-0">
           <div>
-            <h1 className="text-5xl font-black relative inline-block mb-2">
+            <h1 className="text-5xl font-black relative inline-block mb-2 whitespace-nowrap">
               <span className="relative z-10">Deepcanvas, 让设计更简单</span>
               <svg className="absolute -bottom-2 right-0 w-32 h-4 z-0 text-accent-secondary" viewBox="0 0 100 10" preserveAspectRatio="none">
                 <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" className="opacity-50" />
               </svg>
               <span className="absolute -top-4 -right-8 text-4xl animate-bounce">✨</span>
             </h1>
-            <p className="text-gray-500">What will you create today?</p>
+            <p className="text-gray-500 whitespace-nowrap">What will you create today?</p>
           </div>
           <div className="flex items-center gap-3">
-            <Link to="/projects" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm">
+            <Link to="/projects" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
               <Folder size={16} />
               我的项目
             </Link>
-            <Link to="/gallery" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm">
+            <Link to="/gallery" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
               <LayoutGrid size={16} />
               资产
             </Link>
-            <Link to="/design-system" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm">
+            <Link to="/design-system" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
               <Palette size={16} />
               UI设计逻辑
             </Link>
@@ -97,7 +97,7 @@ export default function Home() {
                <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center text-black">
                  <UserCircle size={18} />
                </div>
-               <span className="text-sm font-medium">管理员</span>
+               <span className="text-sm font-medium whitespace-nowrap">管理员</span>
             </button>
           </div>
         </header>

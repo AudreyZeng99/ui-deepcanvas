@@ -4,7 +4,7 @@ import {
   Wand2, 
   Image as ImageIcon, 
   Download, 
-  Share2, 
+  Scissors, 
   Edit3, 
   RefreshCw,
   Sparkles,
@@ -37,7 +37,8 @@ export default function TextToImage() {
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
   const [activeSource, setActiveSource] = useState<'original' | 'optimized'>('original');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<string[]>([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   
   // Settings
@@ -291,10 +292,28 @@ export default function TextToImage() {
           </div>
         </div>
         
-        <div className="flex-1 flex items-center justify-center bg-[#F5F5F7] rounded-2xl border border-black/5 relative overflow-hidden">
+        <div className="flex-1 flex items-center justify-center bg-[#F5F5F7] rounded-2xl border border-black/5 relative overflow-hidden p-4">
           {/* Placeholder or Generated Image */}
-          {generatedImage ? (
-            <img src={generatedImage} alt="Generated" className="w-full h-full object-contain" />
+          {generatedImages.length > 0 ? (
+            <div className="grid grid-cols-2 grid-rows-2 gap-4 w-full h-full">
+              {generatedImages.map((img, index) => (
+                <div 
+                  key={index} 
+                  className={clsx(
+                    "relative rounded-xl overflow-hidden cursor-pointer transition-all border-2",
+                    selectedImageIndex === index ? "border-accent-primary shadow-lg scale-[1.02]" : "border-transparent hover:border-black/10"
+                  )}
+                  onClick={() => setSelectedImageIndex(index)}
+                >
+                  <img src={img} alt={`Generated ${index + 1}`} className="w-full h-full object-cover" />
+                  {selectedImageIndex === index && (
+                    <div className="absolute top-2 right-2 bg-accent-primary text-white rounded-full p-1 shadow-sm">
+                      <CheckCircle2 size={16} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="text-center opacity-30">
               <Sparkles size={64} className="mx-auto mb-4" />
@@ -303,9 +322,9 @@ export default function TextToImage() {
             </div>
           )}
           
-          {generatedImage && (
-            <div className="absolute bottom-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button className="p-3 bg-white shadow-lg rounded-xl hover:bg-gray-50 transition-colors" title="查看大图">
+          {selectedImageIndex !== null && generatedImages.length > 0 && (
+            <div className="absolute bottom-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <button className="p-3 bg-white shadow-lg rounded-xl hover:bg-gray-50 transition-colors pointer-events-auto" title="查看大图">
                 <Maximize2 size={20} />
               </button>
             </div>
@@ -316,29 +335,39 @@ export default function TextToImage() {
         <div className="mt-6 flex justify-between items-center">
           <div className="flex gap-2">
             <button 
-              onClick={() => navigate('/editor')}
-              className="btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm"
+              onClick={() => {
+                if (selectedImageIndex === null) return;
+                navigate('/editor');
+              }}
+              className={clsx(
+                "btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm",
+                selectedImageIndex === null && "opacity-50 cursor-not-allowed"
+              )}
             >
               <Edit3 size={16} />
               去编辑
             </button>
           </div>
           <div className="flex gap-2">
-            <button className="btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm">
-              <Share2 size={16} />
-              分享
+            <button 
+              className={clsx(
+                "btn-secondary py-2.5 px-5 flex items-center gap-2 text-sm",
+                selectedImageIndex === null && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <Scissors size={16} />
+              一键抠图
             </button>
             <button 
               onClick={() => {
-                if (!generatedImage) {
-                  // alert('请先生成图片'); // Optional: show toast
+                if (selectedImageIndex === null) {
                   return;
                 }
                 setIsExportModalOpen(true);
               }}
               className={clsx(
                 "btn-primary py-2.5 px-5 flex items-center gap-2 text-sm",
-                !generatedImage && "opacity-50 cursor-not-allowed"
+                selectedImageIndex === null && "opacity-50 cursor-not-allowed"
               )}
             >
               <Download size={16} />
@@ -442,10 +471,23 @@ export default function TextToImage() {
             )}
             onClick={() => {
               if (isGenerating) return;
+              
+              // If optimized prompt is empty, automatically optimize the original prompt
+              if (!optimizedPrompt.trim()) {
+                handleOptimize();
+              }
+
               setIsGenerating(true);
+              setGeneratedImages([]);
+              setSelectedImageIndex(null);
               setTimeout(() => {
                 setIsGenerating(false);
-                setGeneratedImage('https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80');
+                setGeneratedImages([
+                  'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80',
+                  'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80',
+                  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
+                  'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80'
+                ]);
               }, 2000);
             }}
           >
@@ -468,7 +510,7 @@ export default function TextToImage() {
       <ExportModal
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
-        previewImage={generatedImage || ''}
+        previewImage={selectedImageIndex !== null ? generatedImages[selectedImageIndex] : ''}
         onExport={(settings) => {
           console.log('Exporting with settings:', settings);
           setIsExportModalOpen(false);

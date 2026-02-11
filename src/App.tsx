@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { HashRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import Sidebar from './components/layout/Sidebar';
 import Home from './pages/Home';
@@ -21,26 +20,23 @@ import PPTGen from './pages/tools/PPTGen';
 import IDPhoto from './pages/tools/IDPhoto';
 import OldPhotoRestore from './pages/tools/OldPhotoRestore';
 import clsx from 'clsx';
+import Feedback from './pages/Feedback';
 
 function Layout() {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const isToolPage = location.pathname.startsWith('/tools/');
   const showSidebar = !isHome && !isToolPage;
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
       {showSidebar && (
-        <Sidebar 
-          isCollapsed={isSidebarCollapsed} 
-          toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)} 
-        />
+        <Sidebar />
       )}
       <main 
         className={clsx(
           "flex-1 transition-all duration-300 relative", 
-          showSidebar ? (isSidebarCollapsed ? "ml-20" : "ml-64") : ""
+          showSidebar ? "ml-20" : ""
         )}
       >
         <Routes>
@@ -54,6 +50,7 @@ function Layout() {
           <Route path="/text-to-image" element={<TextToImage />} />
           <Route path="/templates" element={<Templates />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/feedback" element={<Feedback />} />
           
           {/* Tool Pages */}
           <Route path="/tools/ai-edit" element={<AIEdit />} />
