@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BookOpen, HelpCircle, Save, Send, AlertCircle } from 'lucide-react';
+import { BookOpen, HelpCircle, Send, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Feedback() {
@@ -142,16 +142,9 @@ export default function Feedback() {
                 />
               </div>
 
-              <div className="flex items-center gap-4 pt-4">
+              <div className="flex justify-center pt-4">
                 <button 
-                  className="flex-1 py-3 px-6 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
-                  onClick={() => alert('已保存草稿')}
-                >
-                  <Save size={18} />
-                  保存草稿
-                </button>
-                <button 
-                  className="flex-[2] py-3 px-6 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-6 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                   onClick={() => {
                     if (!issuePage || !issueDescription) {
                       alert('请填写完整信息');
