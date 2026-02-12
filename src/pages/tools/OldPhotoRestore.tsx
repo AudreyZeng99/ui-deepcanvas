@@ -12,40 +12,7 @@ export default function OldPhotoRestore() {
   const [developingProgress, setDevelopingProgress] = useState(0);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
 
-  // Retro Logs Data
-  const [logs, setLogs] = useState<string[]>([]);
-  const LOG_MESSAGES = [
-    "INITIALIZING SYSTEM CORE...",
-    "LOADING RETRO_VISION_MODULE_V1.0...",
-    "CHECKING MEMORY BANKS... OK",
-    "CALIBRATING LENS OPTICS...",
-    "DETECTING VINTAGE ARTIFACTS...",
-    "ANALYZING CHROMATIC ABERRATION...",
-    "LOADING SEPIA TONE MATRIX...",
-    "WARMING UP VACUUM TUBES...",
-    "SYNCHRONIZING TIME CRYSTALS...",
-    "BYPASSING FLUX CAPACITOR...",
-    "OPTIMIZING GRAIN ALGORITHMS...",
-    "FETCHING NEURAL WEIGHTS...",
-    "ESTABLISHING TEMPORAL LINK...",
-    "BUFFERING IMAGE DATA...",
-    "READY FOR INPUT STREAM...",
-    "WAITING FOR USER COMMAND...",
-    "SYSTEM READY."
-  ];
-
-  useEffect(() => {
-    let currentIndex = 0;
-    const interval = setInterval(() => {
-      if (currentIndex < LOG_MESSAGES.length) {
-        setLogs(prev => [...prev, LOG_MESSAGES[currentIndex]]);
-        currentIndex++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 150);
-    return () => clearInterval(interval);
-  }, []);
+  // Retro Logs Data - Removed as per request
 
   // Simulate the "developing" process of a polaroid
   useEffect(() => {
@@ -244,87 +211,74 @@ export default function OldPhotoRestore() {
             </div>
 
             {/* Right Side: Output / Animation Area */}
-            <div className="w-full md:w-2/3 h-[550px] bg-[#151515] rounded-xl border-8 border-[#222] shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] relative flex items-center justify-center overflow-hidden">
-              
-              {/* Retro Logs Display (Overlay) */}
-              <div className="absolute top-4 left-4 z-10 pointer-events-none opacity-50">
-                <div className="font-mono text-[10px] leading-relaxed text-[#0f0] shadow-black drop-shadow-md" style={{ fontFamily: '"Courier New", monospace' }}>
-                  {logs.map((log, i) => (
-                    <div key={i} className="animate-fade-in whitespace-nowrap overflow-hidden">
-                      <span className="mr-2 opacity-50">[{String(i + 1).padStart(2, '0')}]</span>
-                      {log}
+            <div className="w-full md:w-2/3 flex flex-col items-center gap-6">
+              <div className="w-full h-[550px] bg-[#151515] rounded-xl border-8 border-[#222] shadow-[inset_0_0_100px_rgba(0,0,0,0.9)] relative flex items-center justify-center overflow-hidden">
+                
+                {/* Darkroom Red Light Effect */}
+                <div className="absolute inset-0 bg-red-900/10 pointer-events-none mix-blend-overlay z-20" />
+                <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-20" />
+
+                {/* Default State / Placeholder */}
+                {!isRestoring && !restoredUrl && (
+                  <div className="text-center opacity-20 flex flex-col items-center">
+                    <div className="w-24 h-24 border-4 border-dashed border-white rounded-full flex items-center justify-center mb-4">
+                      <ImageIcon size={48} className="text-white" />
                     </div>
-                  ))}
-                  {logs.length === 17 && (
-                    <div className="animate-pulse mt-1">_</div>
+                    <p className="text-white font-mono tracking-widest text-sm">WAITING FOR INPUT...</p>
+                  </div>
+                )}
+
+                {/* Printing Animation Container */}
+                {(isRestoring || restoredUrl) && (
+                  <div className={clsx(
+                    "relative bg-white p-4 pb-16 shadow-2xl transition-all duration-[3000ms] ease-[cubic-bezier(0.25,1,0.5,1)] transform z-30",
+                    isRestoring ? "translate-y-[-120%]" : "translate-y-0",
+                    developingProgress > 0 && developingProgress < 100 && "translate-y-0"
                   )}
-                </div>
+                  style={{
+                    width: '340px',
+                    height: '440px',
+                    animation: isRestoring ? 'slideDown 3s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
+                  }}>
+                    {/* The Photo Paper */}
+                    <div className="w-full h-full bg-[#111] relative overflow-hidden ring-1 ring-black/10">
+                      <img 
+                        src={previewUrl!} 
+                        alt="Restoring" 
+                        className="w-full h-full object-cover transition-all duration-[3000ms] ease-in-out"
+                        style={{
+                          filter: `grayscale(${100 - developingProgress}%) brightness(${developingProgress * 1.1}%) contrast(${80 + developingProgress * 0.4}%) blur(${Math.max(0, (100 - developingProgress) / 8)}px)`
+                        }}
+                      />
+                      
+                      {/* Developing liquid effect overlay */}
+                      <div 
+                        className="absolute inset-0 pointer-events-none mix-blend-color-dodge transition-opacity duration-[3000ms]"
+                        style={{
+                          background: `radial-gradient(circle at center, transparent ${developingProgress}%, #000 150%)`,
+                          opacity: (100 - developingProgress) / 100
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Polaroid Bottom Text Area */}
+                    <div className="absolute bottom-4 left-0 right-0 text-center">
+                       <div className="flex items-center justify-center gap-2">
+                         {developingProgress < 100 && (
+                           <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
+                         )}
+                         <p className="font-mono text-gray-500 text-xs tracking-widest uppercase">
+                           {developingProgress < 100 ? `Developing ${developingProgress}%` : 'RESTORED • 2024'}
+                         </p>
+                       </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Darkroom Red Light Effect */}
-              <div className="absolute inset-0 bg-red-900/10 pointer-events-none mix-blend-overlay z-20" />
-              <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-white/5 to-transparent pointer-events-none z-20" />
-
-              {/* Default State / Placeholder */}
-              {!isRestoring && !restoredUrl && (
-                <div className="text-center opacity-20 flex flex-col items-center">
-                  <div className="w-24 h-24 border-4 border-dashed border-white rounded-full flex items-center justify-center mb-4">
-                    <ImageIcon size={48} className="text-white" />
-                  </div>
-                  <p className="text-white font-mono tracking-widest text-sm">WAITING FOR INPUT...</p>
-                </div>
-              )}
-
-              {/* Printing Animation Container */}
-              {(isRestoring || restoredUrl) && (
-                <div className={clsx(
-                  "relative bg-white p-4 pb-16 shadow-2xl transition-all duration-[3000ms] ease-[cubic-bezier(0.25,1,0.5,1)] transform z-30",
-                  isRestoring ? "translate-y-[-120%]" : "translate-y-0",
-                  developingProgress > 0 && developingProgress < 100 && "translate-y-0"
-                )}
-                style={{
-                  width: '340px',
-                  height: '440px',
-                  animation: isRestoring ? 'slideDown 3s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
-                }}>
-                  {/* The Photo Paper */}
-                  <div className="w-full h-full bg-[#111] relative overflow-hidden ring-1 ring-black/10">
-                    <img 
-                      src={previewUrl!} 
-                      alt="Restoring" 
-                      className="w-full h-full object-cover transition-all duration-[3000ms] ease-in-out"
-                      style={{
-                        filter: `grayscale(${100 - developingProgress}%) brightness(${developingProgress * 1.1}%) contrast(${80 + developingProgress * 0.4}%) blur(${Math.max(0, (100 - developingProgress) / 8)}px)`
-                      }}
-                    />
-                    
-                    {/* Developing liquid effect overlay */}
-                    <div 
-                      className="absolute inset-0 pointer-events-none mix-blend-color-dodge transition-opacity duration-[3000ms]"
-                      style={{
-                        background: `radial-gradient(circle at center, transparent ${developingProgress}%, #000 150%)`,
-                        opacity: (100 - developingProgress) / 100
-                      }}
-                    />
-                  </div>
-                  
-                  {/* Polaroid Bottom Text Area */}
-                  <div className="absolute bottom-4 left-0 right-0 text-center">
-                     <div className="flex items-center justify-center gap-2">
-                       {developingProgress < 100 && (
-                         <div className="w-2 h-2 bg-red-500 rounded-full animate-ping" />
-                       )}
-                       <p className="font-mono text-gray-500 text-xs tracking-widest uppercase">
-                         {developingProgress < 100 ? `Developing ${developingProgress}%` : 'RESTORED • 2024'}
-                       </p>
-                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Success Actions (Overlay when done) */}
+              {/* Success Actions (Moved below screen) */}
               {restoredUrl && !isRestoring && (
-                <div className="absolute bottom-8 right-8 flex gap-4 animate-fade-in z-40">
+                <div className="flex gap-4 animate-fade-in z-40">
                   <button
                     onClick={() => setIsExportModalOpen(true)}
                     className="bg-[#e8dfd1] text-[#3d2b1f] px-6 py-3 rounded-full font-bold shadow-lg hover:bg-white hover:scale-105 transition-all flex items-center gap-2 border-2 border-[#3d2b1f]"
