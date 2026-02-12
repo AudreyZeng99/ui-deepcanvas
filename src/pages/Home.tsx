@@ -21,7 +21,8 @@ import {
   FileText,
   Presentation,
   ScanFace,
-  History
+  History,
+  MoreHorizontal
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -209,7 +210,7 @@ export default function Home() {
             </div>
             
             {/* Tool Grid */}
-            <div className="grid grid-cols-4 gap-3 mt-4 relative z-10">
+            <div className="grid grid-cols-5 gap-3 mt-4 relative z-10">
               <ToolIcon icon={Wand2} label="AI 改图" className={toolIconClass} onClick={() => navigate('/tools/ai-edit')} />
               <ToolIcon icon={Eraser} label="AI 擦除" className={toolIconClass} onClick={() => navigate('/tools/ai-erase')} />
               <ToolIcon icon={Scissors} label="AI 抠图" className={toolIconClass} onClick={() => navigate('/tools/ai-matting')} />
@@ -218,6 +219,8 @@ export default function Home() {
               <ToolIcon icon={Presentation} label="PPT 生成" className={toolIconClass} onClick={() => navigate('/tools/ppt-gen')} />
               <ToolIcon icon={ScanFace} label="证件照生成" className={toolIconClass} onClick={() => navigate('/tools/id-photo')} />
               <ToolIcon icon={History} label="老照片修复" className={toolIconClass} onClick={() => navigate('/tools/old-photo')} />
+              <ToolIcon icon={LayoutTemplate} label="结构化海报" className={toolIconClass} onClick={() => alert('结构化海报功能开发中...')} />
+              <ToolIcon icon={MoreHorizontal} label="敬请期待" className={toolIconClass} onClick={() => {}} />
             </div>
           </BentoCard>
         </div>
