@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { 
+  Wand2,
   MousePointer2, 
   Hand, 
   Type, 
@@ -155,6 +156,8 @@ export default function MaterialEditor() {
   // AI Generation Modal State
   const [showAIGenModal, setShowAIGenModal] = useState(false);
   const [aiGenPrompt, setAiGenPrompt] = useState('');
+  const [aiGenOptimizedPrompt, setAiGenOptimizedPrompt] = useState('');
+  const [aiGenActiveSource, setAiGenActiveSource] = useState<'original' | 'optimized'>('original');
   const [aiGenInspirationCategory, setAiGenInspirationCategory] = useState('通用');
   const [aiGenHistory, setAiGenHistory] = useState<string[]>([]);
   const [aiGenPreview, setAiGenPreview] = useState<string | null>(null);
@@ -247,6 +250,13 @@ export default function MaterialEditor() {
   const [brushType, setBrushType] = useState('solid');
   const [brushColor] = useState('#000000');
   const [brushWidth] = useState(5);
+
+  const handleAiGenOptimize = () => {
+    // Mock optimization logic
+    const enhancements = "，细节丰富，8k分辨率，电影级光效，真实感，艺术站热门，杰作，清晰聚焦";
+    setAiGenOptimizedPrompt((aiGenPrompt || "绝美场景") + enhancements);
+    setAiGenActiveSource('optimized');
+  };
 
   // Drag & Resize State
   const [dragState, setDragState] = useState<{
@@ -3196,22 +3206,90 @@ export default function MaterialEditor() {
 
                   {/* Prompt Input */}
                   <div className="space-y-3 h-full flex flex-col">
-                     <label className="text-sm font-medium text-gray-700 flex items-center justify-between">
-                        提示词
-                     </label>
-                     <textarea 
-                       className="w-full h-32 p-4 rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-black/5 bg-white text-sm leading-relaxed shadow-sm transition-shadow"
-                       placeholder="描述你想要生成的画面，例如：一个在海边看日落的女孩，唯美，高画质..."
-                       value={aiGenPrompt}
-                       onChange={(e) => setAiGenPrompt(e.target.value)}
-                     />
-                     <div className="flex gap-3 pt-2">
-                        <button className="flex-1 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2 group">
-                           <Sparkles size={16} className="text-purple-500 group-hover:scale-110 transition-transform" />
-                           优化提示词
-                        </button>
+                     <div className="flex items-center gap-2 mb-1">
+                        <Wand2 size={20} className="text-accent-primary" />
+                        <h3 className="font-bold text-lg">提示词工程</h3>
+                     </div>
+
+                     {/* Original Prompt */}
+                     <div 
+                        className={clsx(
+                           "rounded-2xl border-2 transition-all p-4 relative group flex-1 min-h-[120px]",
+                           aiGenActiveSource === 'original' ? "border-accent-primary bg-accent-primary/5" : "border-transparent bg-white hover:border-black/5"
+                        )}
+                        onClick={() => setAiGenActiveSource('original')}
+                     >
+                        <div className="flex justify-between items-center mb-3">
+                           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">原始提示词</label>
+                           <div className={clsx(
+                              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                              aiGenActiveSource === 'original' ? "border-accent-primary bg-accent-primary text-white" : "border-gray-300 text-transparent"
+                           )}>
+                              <CheckCircle2 size={14} />
+                           </div>
+                        </div>
+                        <textarea 
+                           className="w-full h-[calc(100%-2rem)] bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
+                           placeholder="描述你想要生成的画面，例如：一个在海边看日落的女孩，唯美，高画质..."
+                           value={aiGenPrompt}
+                           onChange={(e) => setAiGenPrompt(e.target.value)}
+                           maxLength={1500}
+                        />
+                        <div className="absolute bottom-4 right-4 text-xs text-gray-400">{aiGenPrompt.length}/1500</div>
+                     </div>
+
+                     {/* Optimization Action */}
+                     <div className="relative h-4 flex items-center justify-center -my-2 z-10">
+                        <div className="absolute inset-0 flex items-center">
+                           <div className="w-full border-t border-black/5"></div>
+                        </div>
+                        <Tooltip content="AI 优化提示词">
+                           <button 
+                              onClick={handleAiGenOptimize}
+                              className="relative bg-white border border-black/10 shadow-sm text-purple-500 hover:text-white hover:bg-purple-500 hover:border-purple-500 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
+                           >
+                              <Sparkles size={12} />
+                              AI 优化
+                           </button>
+                        </Tooltip>
+                     </div>
+
+                     {/* Optimized Prompt */}
+                     <div 
+                        className={clsx(
+                           "rounded-2xl border-2 transition-all p-4 relative flex-1 min-h-[120px]",
+                           aiGenActiveSource === 'optimized' ? "border-purple-500 bg-purple-50" : "border-transparent bg-white hover:border-black/5",
+                           !aiGenOptimizedPrompt && "opacity-50"
+                        )}
+                        onClick={() => aiGenOptimizedPrompt && setAiGenActiveSource('optimized')}
+                     >
+                        <div className="flex justify-between items-center mb-3">
+                           <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">AI 优化提示词</label>
+                           <div className={clsx(
+                              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+                              aiGenActiveSource === 'optimized' ? "border-purple-500 bg-purple-500 text-white" : "border-gray-300 text-transparent"
+                           )}>
+                              <CheckCircle2 size={14} />
+                           </div>
+                        </div>
+                        <textarea 
+                           value={aiGenOptimizedPrompt}
+                           onChange={(e) => setAiGenOptimizedPrompt(e.target.value)}
+                           placeholder="AI 优化后的提示词将出现在这里..."
+                           maxLength={1500}
+                           disabled={!aiGenOptimizedPrompt && aiGenActiveSource !== 'optimized'}
+                           className="w-full h-[calc(100%-2rem)] bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
+                        />
+                        <div className="absolute bottom-4 right-4 text-xs text-gray-400">{aiGenOptimizedPrompt.length}/1500</div>
+                     </div>
+
+                     <div className="pt-2">
                         <button 
                           onClick={() => {
+                            // Determine effective prompt
+                            const effectivePrompt = aiGenActiveSource === 'optimized' ? aiGenOptimizedPrompt : aiGenPrompt;
+                            console.log('Generating with:', effectivePrompt);
+                            
                             // Mock generation
                             const mockImages = [
                                'https://images.unsplash.com/photo-1620641788427-b9f4dbd0b50d?q=80&w=2000&auto=format&fit=crop',
@@ -3223,7 +3301,7 @@ export default function MaterialEditor() {
                             setAiGenPreview(randomImg);
                             setAiGenHistory(prev => [randomImg, ...prev]);
                           }}
-                          className="flex-[1.5] py-2.5 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                          className="w-full py-3 bg-black text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 active:scale-95"
                         >
                            立即生成
                            <ArrowRight size={16} />
