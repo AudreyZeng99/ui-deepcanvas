@@ -79,50 +79,54 @@ export default function MaterialsModal({
     switch (activeTab) {
       case 'personal':
         return (
-          <div className="grid grid-cols-4 gap-4 animate-in fade-in duration-300">
-            {/* Upload Button */}
-            <label className="aspect-square flex flex-col items-center justify-center gap-2 bg-gray-50 border border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 hover:border-accent-primary transition-all text-gray-500 hover:text-accent-primary group">
-              <div className="p-3 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
-                <Upload size={24} />
+          <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Upload Banner */}
+            <label className="w-full flex items-center justify-center gap-3 p-4 bg-gray-50 border border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 hover:border-accent-primary transition-all text-gray-500 hover:text-accent-primary group">
+              <div className="p-2 bg-white rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                <Upload size={20} />
               </div>
-              <span className="text-xs font-medium">上传素材</span>
+              <span className="text-sm font-medium">点击上传本地素材</span>
               <input type="file" accept="image/*" className="hidden" onChange={onUpload} />
             </label>
             
-            {/* Personal Items */}
-            {personalMaterials.map((url, i) => (
-              <button 
-                key={i} 
-                onClick={() => onAddElement('image', 'personal', { src: url })} 
-                className="aspect-square bg-gray-50 rounded-xl overflow-hidden border border-gray-100 relative group cursor-pointer hover:border-accent-primary hover:shadow-md hover:scale-105 transition-all"
-              >
-                <img src={url} alt="Personal" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                <div className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white" onClick={(e) => { e.stopPropagation(); /* Add delete handler here if needed */ }}>
-                  <X size={14} />
-                </div>
-              </button>
-            ))}
-            
-            {personalMaterials.length === 0 && (
-              <div className="col-span-3 flex flex-col items-center justify-center text-gray-400 py-10">
-                <FolderOpen size={48} className="mb-2 opacity-20" />
-                <p className="text-sm">暂无个人素材，点击左上角上传</p>
+            {/* Personal Items Grid */}
+            {personalMaterials.length > 0 ? (
+              <div className="grid grid-cols-4 gap-4">
+                {personalMaterials.map((url, i) => (
+                  <button 
+                    key={i} 
+                    onClick={() => onAddElement('image', 'personal', { src: url })} 
+                    className="aspect-square bg-gray-50 rounded-xl overflow-hidden border border-gray-100 relative group cursor-pointer hover:border-accent-primary hover:shadow-md hover:scale-105 transition-all"
+                  >
+                    <img src={url} alt="Personal" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                    <div className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full text-red-500 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white" onClick={(e) => { e.stopPropagation(); /* Add delete handler here if needed */ }}>
+                      <X size={14} />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center text-gray-400 py-12 bg-gray-50/50 rounded-xl border border-gray-100 border-dashed">
+                <FolderOpen size={48} className="mb-3 opacity-20" />
+                <p className="text-sm">暂无个人素材</p>
+                <p className="text-xs text-gray-400 mt-1">支持 JPG, PNG, GIF 格式</p>
               </div>
             )}
           </div>
         );
 
       case 'official':
-        const totalPages = Math.ceil(officialItems.length / ITEMS_PER_PAGE);
+        const OFFICIAL_ITEMS_PER_PAGE = 32;
+        const totalPages = Math.ceil(officialItems.length / OFFICIAL_ITEMS_PER_PAGE);
         const currentOfficialItems = officialItems.slice(
-          (currentPage - 1) * ITEMS_PER_PAGE,
-          currentPage * ITEMS_PER_PAGE
+          (currentPage - 1) * OFFICIAL_ITEMS_PER_PAGE,
+          currentPage * OFFICIAL_ITEMS_PER_PAGE
         );
 
         return (
-          <div className="space-y-4 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between mb-2">
+          <div className="space-y-4 animate-in fade-in duration-300 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-2 shrink-0">
               <h3 className="text-sm font-medium text-gray-500">小福鹿系列 ({officialItems.length})</h3>
               {totalPages > 1 && (
                 <div className="flex items-center gap-2">
@@ -145,17 +149,18 @@ export default function MaterialsModal({
               )}
             </div>
             
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-8 gap-3 content-start">
               {currentOfficialItems.map((item) => (
                 <button 
                   key={item.id} 
                   onClick={() => onAddElement('bocom', item.id)} 
-                  className={clsx("aspect-square rounded-xl flex items-center justify-center text-xs font-bold border hover:shadow-md hover:scale-105 transition-all", item.color)}
+                  className={clsx("aspect-square rounded-lg flex items-center justify-center text-[10px] font-bold border hover:shadow-sm hover:scale-105 transition-all p-1", item.color)}
                 >
-                  {item.label}
+                  <span className="truncate w-full text-center">{item.label}</span>
                 </button>
               ))}
             </div>
+            <div className="flex-1" />
           </div>
         );
 
