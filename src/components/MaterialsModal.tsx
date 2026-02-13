@@ -44,7 +44,8 @@ export default function MaterialsModal({
   // Combine for "Official" pagination demo
   const officialItems = [...deer1Items, ...deer2Items];
   
-  const logoItems = [
+  // Mock Data for Logos - Expanded for pagination demo
+  const baseLogoItems = [
      { id: 'logo-1', label: 'Bank of Comm.', color: 'bg-blue-50 text-blue-700 border-blue-100' },
      { id: 'logo-2', label: 'Icon Only', color: 'bg-white text-gray-500 border-gray-200' },
      { id: 'logo-3', label: 'White Logo', color: 'bg-gray-800 text-white border-gray-700' },
@@ -52,8 +53,14 @@ export default function MaterialsModal({
      { id: 'logo-5', label: 'Black Logo', color: 'bg-gray-100 text-gray-800 border-gray-200' },
      { id: 'logo-6', label: 'Outline Logo', color: 'bg-transparent text-gray-600 border-gray-400 border-dashed' },
   ];
+  const logoItems = Array.from({ length: 24 }).map((_, i) => ({
+    ...baseLogoItems[i % baseLogoItems.length],
+    id: `logo-${i}`,
+    label: `${baseLogoItems[i % baseLogoItems.length].label} ${i + 1}`
+  }));
   
-  const backgroundItems = [
+  // Mock Data for Backgrounds - Expanded for pagination demo
+  const baseBackgroundItems = [
     'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80',
     'https://images.unsplash.com/photo-1557683316-973673baf926?w=400&q=80',
     'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=400&q=80',
@@ -67,6 +74,7 @@ export default function MaterialsModal({
     'https://images.unsplash.com/photo-1533135096725-51053efc6f29?w=400&q=80',
     'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?w=400&q=80',
   ];
+  const backgroundItems = [...baseBackgroundItems, ...baseBackgroundItems, ...baseBackgroundItems]; // 36 items
 
   const ITEMS_PER_PAGE = 12;
 
@@ -165,17 +173,50 @@ export default function MaterialsModal({
         );
 
       case 'logo':
+        const LOGO_ITEMS_PER_PAGE = 15;
+        const logoTotalPages = Math.ceil(logoItems.length / LOGO_ITEMS_PER_PAGE);
+        const currentLogoItems = logoItems.slice(
+          (currentPage - 1) * LOGO_ITEMS_PER_PAGE,
+          currentPage * LOGO_ITEMS_PER_PAGE
+        );
+
         return (
-          <div className="grid grid-cols-3 gap-4 animate-in fade-in duration-300">
-            {logoItems.map((item) => (
-              <button 
-                key={item.id} 
-                onClick={() => onAddElement('bocom', item.id)} 
-                className={clsx("h-24 rounded-xl flex items-center justify-center text-sm font-bold border hover:shadow-md hover:scale-105 transition-all p-4", item.color)}
-              >
-                {item.label}
-              </button>
-            ))}
+          <div className="space-y-4 animate-in fade-in duration-300 flex flex-col h-full">
+             <div className="flex items-center justify-between mb-2 shrink-0">
+               <h3 className="text-sm font-medium text-gray-500">品牌标识 ({logoItems.length})</h3>
+               {logoTotalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className="text-xs font-medium text-gray-600">{currentPage} / {logoTotalPages}</span>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(logoTotalPages, p + 1))}
+                      disabled={currentPage === logoTotalPages}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+             </div>
+
+            <div className="grid grid-cols-3 gap-4 content-start">
+              {currentLogoItems.map((item) => (
+                <button 
+                  key={item.id} 
+                  onClick={() => onAddElement('bocom', item.id)} 
+                  className={clsx("h-24 rounded-xl flex items-center justify-center text-sm font-bold border hover:shadow-md hover:scale-105 transition-all p-4", item.color)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex-1" />
           </div>
         );
 
@@ -187,27 +228,30 @@ export default function MaterialsModal({
         );
 
         return (
-          <div className="space-y-4 animate-in fade-in duration-300">
-             {bgTotalPages > 1 && (
-                <div className="flex items-center justify-end gap-2 mb-2">
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="text-xs font-medium text-gray-600">{currentPage} / {bgTotalPages}</span>
-                  <button 
-                    onClick={() => setCurrentPage(p => Math.min(bgTotalPages, p + 1))}
-                    disabled={currentPage === bgTotalPages}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-              )}
-            <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-4 animate-in fade-in duration-300 flex flex-col h-full">
+            <div className="flex items-center justify-between mb-2 shrink-0">
+               <h3 className="text-sm font-medium text-gray-500">背景素材 ({backgroundItems.length})</h3>
+               {bgTotalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronLeft size={16} />
+                    </button>
+                    <span className="text-xs font-medium text-gray-600">{currentPage} / {bgTotalPages}</span>
+                    <button 
+                      onClick={() => setCurrentPage(p => Math.min(bgTotalPages, p + 1))}
+                      disabled={currentPage === bgTotalPages}
+                      className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <ChevronRight size={16} />
+                    </button>
+                  </div>
+                )}
+             </div>
+            <div className="grid grid-cols-3 gap-4 content-start">
               {currentBgItems.map((url, i) => (
                 <div 
                   key={i} 
@@ -222,6 +266,7 @@ export default function MaterialsModal({
                 </div>
               ))}
             </div>
+            <div className="flex-1" />
           </div>
         );
       
