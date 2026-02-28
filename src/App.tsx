@@ -22,11 +22,14 @@ import OldPhotoRestore from './pages/tools/OldPhotoRestore';
 import clsx from 'clsx';
 import Feedback from './pages/Feedback';
 
+import MaterialManagement from './pages/MaterialManagement';
+
 function Layout() {
   const location = useLocation();
   const isHome = location.pathname === '/';
   const isToolPage = location.pathname.startsWith('/tools/');
-  const showSidebar = !isHome && !isToolPage;
+  const isMaterialManagement = location.pathname === '/material-management';
+  const showSidebar = !isHome && !isToolPage && !isMaterialManagement;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
@@ -44,6 +47,7 @@ function Layout() {
           <Route path="/projects" element={<Projects />} />
           <Route path="/editor" element={<Editor />} />
           <Route path="/material-editor" element={<MaterialEditor />} />
+          <Route path="/material-management" element={<MaterialManagement />} />
           <Route path="/gallery" element={<Gallery />} />
           <Route path="/design-system" element={<DesignSystem />} />
           <Route path="/inspiration" element={<Inspiration />} />

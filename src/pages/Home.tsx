@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   Sparkles, 
@@ -22,7 +22,9 @@ import {
   Presentation,
   ScanFace,
   History,
-  MoreHorizontal
+  MoreHorizontal,
+  LogOut,
+  User
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -34,6 +36,20 @@ export default function Home() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
+  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
+  const adminMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target as Node)) {
+        setIsAdminMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   const isGlass = theme.id.includes('glass');
   const isOutlined = theme.id.includes('outlined');
@@ -94,12 +110,55 @@ export default function Home() {
                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white border-2 border-white">3</span>
               </button>
             </Tooltip>
-            <button className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm group">
-               <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center text-black">
-                 <UserCircle size={18} />
-               </div>
-               <span className="text-sm font-medium whitespace-nowrap">管理员</span>
-            </button>
+            <div className="relative" ref={adminMenuRef}>
+              <button 
+                onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
+                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm group"
+              >
+                 <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center text-black">
+                   <UserCircle size={18} />
+                 </div>
+                 <span className="text-sm font-medium whitespace-nowrap">管理员</span>
+              </button>
+              
+              {isAdminMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50 mb-1">
+                    <p className="text-sm font-bold text-gray-900">管理员</p>
+                    <p className="text-xs text-gray-500 truncate">admin@deepcanvas.com</p>
+                  </div>
+                  <div className="p-1 space-y-1">
+                    <button 
+                      onClick={() => navigate('/material-management')}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <Folder size={16} />
+                      </div>
+                      <div>
+                        <div className="text-gray-900">素材管理</div>
+                        <div className="text-[10px] text-gray-400 font-normal">管理全站素材与反馈</div>
+                      </div>
+                    </button>
+                    <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left group">
+                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                        <User size={16} />
+                      </div>
+                      <div>
+                        <div className="text-gray-900">个人中心</div>
+                        <div className="text-[10px] text-gray-400 font-normal">账号设置与偏好</div>
+                      </div>
+                    </button>
+                  </div>
+                  <div className="border-t border-gray-100 mt-1 p-1">
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left">
+                      <LogOut size={16} />
+                      退出登录
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </header>
 
