@@ -3,7 +3,7 @@ import { BookOpen, HelpCircle, Send, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Feedback() {
-  const [issuePage, setIssuePage] = useState('');
+  const [issueTitle, setIssueTitle] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'manual' | 'faq' | 'new-issue'>('new-issue');
 
@@ -121,12 +121,12 @@ export default function Feedback() {
 
             <div className="space-y-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">问题所在页面</label>
+                <label className="text-sm font-medium text-gray-700">问题标题</label>
                 <input
                   type="text"
-                  value={issuePage}
-                  onChange={(e) => setIssuePage(e.target.value)}
-                  placeholder="例如：AI生图编辑器、首页..."
+                  value={issueTitle}
+                  onChange={(e) => setIssueTitle(e.target.value)}
+                  placeholder="简要描述问题，如：AI生成图片失败"
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-black focus:ring-1 focus:ring-black outline-none transition-all"
                 />
               </div>
@@ -146,14 +146,14 @@ export default function Feedback() {
                 <button 
                   className="w-full py-3 px-6 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                   onClick={() => {
-                    if (!issuePage || !issueDescription) {
-                      alert('请填写完整信息');
-                      return;
-                    }
-                    alert('提交成功！感谢您的反馈。');
-                    setIssuePage('');
-                    setIssueDescription('');
-                  }}
+                  if (!issueTitle || !issueDescription) {
+                    alert('请填写完整信息');
+                    return;
+                  }
+                  alert('提交成功！感谢您的反馈。');
+                  setIssueTitle('');
+                  setIssueDescription('');
+                }}
                 >
                   <Send size={18} />
                   提交反馈
