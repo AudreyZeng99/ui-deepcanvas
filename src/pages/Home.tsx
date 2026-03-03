@@ -256,12 +256,12 @@ export default function Home() {
 
           {/* Playground (Promotion Level) */}
           <BentoCard 
-            className={clsx("col-span-1 md:col-span-2 bg-promotion border border-promotion-border text-promotion-foreground group cursor-pointer", glassCardClasses)}
+            className={clsx("col-span-1 md:col-span-2 bg-promotion border border-promotion-border text-promotion-foreground group cursor-default", glassCardClasses)}
             title="玩转AI"
             description="前沿AI模型与实验工具集"
             icon={FlaskConical}
             accentColor="text-current"
-            onClick={() => navigate('/playground')}
+            onClick={undefined}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">

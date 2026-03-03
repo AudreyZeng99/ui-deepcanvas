@@ -172,7 +172,7 @@ export default function AIEdit() {
   };
 
   return (
-    <ToolLayout title="AI 创意改图">
+    <ToolLayout title="AI 创意改图 ✨">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 min-h-[600px]">
         {/* Left: Canvas Area */}
         <div className="lg:col-span-2 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 flex items-center justify-center relative overflow-hidden group">
