@@ -10,8 +10,7 @@ import {
   Wand2, 
   Play, 
   RefreshCw, 
-  Check,
-  Undo2
+  Check
 } from 'lucide-react';
 import clsx from 'clsx';
 
