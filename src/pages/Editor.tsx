@@ -1277,6 +1277,7 @@ export default function Editor() {
                 {leftPanelContent === 'draw' && '画笔工具'}
                 {leftPanelContent === 'table' && '表格工具'}
                 {leftPanelContent === 'ai' && 'AI 助手'}
+                {leftPanelContent === 'ai-resize' && 'AI 改尺寸'}
               </span>
               <button onClick={() => setShowLeftPanel(false)} className="p-1 hover:bg-black/5 rounded">
                 <X size={16} />
@@ -1883,6 +1884,67 @@ export default function Editor() {
                    </div>
                 </div>
               )}
+
+              {leftPanelContent === 'ai-resize' && (
+                <div className="space-y-4">
+                  <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-100 text-[11px] text-yellow-800 leading-relaxed">
+                    文生图来源已绑定提示词，可直接配置目标尺寸并编辑提示词。
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500">目标画布尺寸</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {aiResizePresets.map((preset) => (
+                        <button
+                          key={`${preset.width}-${preset.height}`}
+                          onClick={() => setTargetCanvasSize({ width: preset.width, height: preset.height })}
+                          className={clsx(
+                            "p-2 rounded-lg border text-xs text-left transition-all",
+                            targetCanvasSize.width === preset.width && targetCanvasSize.height === preset.height
+                              ? "bg-accent-primary text-white border-accent-primary"
+                              : "bg-gray-50 text-gray-700 border-transparent hover:border-black/10"
+                          )}
+                        >
+                          <div className="font-medium">{preset.label}</div>
+                          <div className="text-[10px] opacity-80">{preset.width} x {preset.height}</div>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={targetCanvasSize.width}
+                        onChange={(e) => setTargetCanvasSize(prev => ({ ...prev, width: Number(e.target.value) }))}
+                        className="w-full px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-xs outline-none focus:border-accent-primary"
+                        min={1}
+                      />
+                      <span className="text-gray-400 text-xs">×</span>
+                      <input
+                        type="number"
+                        value={targetCanvasSize.height}
+                        onChange={(e) => setTargetCanvasSize(prev => ({ ...prev, height: Number(e.target.value) }))}
+                        className="w-full px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-xs outline-none focus:border-accent-primary"
+                        min={1}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500">默认提示词（可编辑）</div>
+                    <textarea
+                      value={aiResizePrompt}
+                      onChange={(e) => setAiResizePrompt(e.target.value)}
+                      placeholder="输入 AI 改尺寸的提示词"
+                      className="w-full h-28 p-2.5 bg-gray-50 rounded-lg text-xs resize-none outline-none focus:ring-1 focus:ring-accent-primary border border-gray-200 transition-all"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSaveAiResizeConfig}
+                    disabled={!aiResizePrompt.trim()}
+                    className="w-full py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    保存改尺寸参数
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -2176,6 +2238,24 @@ export default function Editor() {
               </div>
             </div>
           </div>
+
+          {showCanvasQuickActions && (
+            <div className="absolute right-6 bottom-6 z-40 flex items-center gap-2">
+              <button
+                onClick={handleOpenAiResizePanel}
+                className="h-10 px-4 rounded-xl bg-black text-white text-sm font-medium shadow-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
+              >
+                <Sparkles size={14} />
+                AI改尺寸
+              </button>
+              <button
+                onClick={() => setShowCanvasQuickActions(false)}
+                className="h-10 w-10 rounded-xl bg-white text-gray-600 border border-black/10 shadow-lg hover:bg-gray-50 transition-colors inline-flex items-center justify-center"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
 
           {/* Toolbar (Bottom Center) */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-black/5 z-30">
