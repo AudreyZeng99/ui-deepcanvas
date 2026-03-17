@@ -14,13 +14,32 @@ export interface Team {
   id: string;
   name: string;
   projectIds: string[];
+  materials: MaterialAsset[];
   createdAt: number;
+}
+
+export interface MaterialAsset {
+  id: string;
+  url: string;
+  name?: string;
+  fromProjectId?: string;
+  createdAt: number;
+}
+
+export interface SpaceImageRecord {
+  id: string;
+  url: string;
+  projectId: string;
+  projectName: string;
+  projectLastModified: number;
 }
 
 interface ProjectContextType {
     currentProject: Project | null;
     projects: Project[];
     teams: Team[];
+    personalImages: SpaceImageRecord[];
+    personalMaterials: MaterialAsset[];
     isDirty: boolean;
     createProject: (width: number, height: number, customName?: string) => void;
     updateProject: (data: Partial<Project>) => void;
@@ -29,7 +48,15 @@ interface ProjectContextType {
     loadProject: (id: string) => void;
     deleteProject: (id: string) => void;
     createTeam: (name: string) => Team;
+    joinTeam: (name: string) => Team;
     shareProjectToTeam: (projectId: string, teamId: string) => void;
+    getTeamImages: (teamId: string) => SpaceImageRecord[];
+    addImagesToPersonalLibrary: (images: SpaceImageRecord[]) => void;
+    addUrlToPersonalLibrary: (url: string, name?: string) => void;
+    removePersonalMaterial: (materialId: string) => void;
+    addImagesToTeamLibrary: (teamId: string, images: SpaceImageRecord[]) => void;
+    addUrlToTeamLibrary: (teamId: string, url: string, name?: string) => void;
+    removeTeamMaterial: (teamId: string, materialId: string) => void;
     markAsDirty: () => void;
   }
 
@@ -37,12 +64,41 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'trae_deepcanvas_projects';
 const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams';
+const PERSONAL_MATERIALS_STORAGE_KEY = 'trae_deepcanvas_personal_materials';
+
+function extractImageUrlsFromElements(elements: any[] | undefined): string[] {
+  if (!Array.isArray(elements)) return [];
+  const urls = new Set<string>();
+  elements.forEach((el) => {
+    if (!el || typeof el !== 'object') return;
+    if (typeof el.src === 'string' && el.src.trim()) urls.add(el.src.trim());
+    if (el.props && typeof el.props.src === 'string' && el.props.src.trim()) urls.add(el.props.src.trim());
+  });
+  return Array.from(urls);
+}
+
+function buildImageRecords(projects: Project[]): SpaceImageRecord[] {
+  const records: SpaceImageRecord[] = [];
+  projects.forEach((project) => {
+    const urls = extractImageUrlsFromElements(project.elements);
+    urls.forEach((url, index) => {
+      records.push({
+        id: `${project.id}::${index}::${url.slice(0, 32)}`,
+        url,
+        projectId: project.id,
+        projectName: project.name,
+        projectLastModified: project.lastModified,
+      });
+    });
+  });
+  return records.sort((a, b) => b.projectLastModified - a.projectLastModified);
+}
 
 function getDefaultTeams(): Team[] {
   return [
-    { id: 'team-1', name: '团队1', projectIds: [], createdAt: Date.now() - 3 },
-    { id: 'team-2', name: '团队2', projectIds: [], createdAt: Date.now() - 2 },
-    { id: 'team-3', name: '团队3', projectIds: [], createdAt: Date.now() - 1 },
+    { id: 'team-1', name: '团队1', projectIds: [], materials: [], createdAt: Date.now() - 3 },
+    { id: 'team-2', name: '团队2', projectIds: [], materials: [], createdAt: Date.now() - 2 },
+    { id: 'team-3', name: '团队3', projectIds: [], materials: [], createdAt: Date.now() - 1 },
   ];
 }
 
@@ -64,6 +120,17 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           id: t.id,
           name: t.name,
           projectIds: Array.isArray(t.projectIds) ? t.projectIds.filter((id: any) => typeof id === 'string') : [],
+          materials: Array.isArray(t.materials)
+            ? t.materials
+                .filter((m: any) => m && typeof m.id === 'string' && typeof m.url === 'string')
+                .map((m: any) => ({
+                  id: m.id,
+                  url: m.url,
+                  name: typeof m.name === 'string' ? m.name : undefined,
+                  fromProjectId: typeof m.fromProjectId === 'string' ? m.fromProjectId : undefined,
+                  createdAt: typeof m.createdAt === 'number' ? m.createdAt : Date.now(),
+                }))
+            : [],
           createdAt: typeof t.createdAt === 'number' ? t.createdAt : Date.now(),
         }));
       return normalized.length > 0 ? normalized : getDefaultTeams();
@@ -72,8 +139,29 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
+  const [personalMaterials, setPersonalMaterials] = useState<MaterialAsset[]>(() => {
+    const saved = localStorage.getItem(PERSONAL_MATERIALS_STORAGE_KEY);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((m: any) => m && typeof m.id === 'string' && typeof m.url === 'string')
+        .map((m: any) => ({
+          id: m.id,
+          url: m.url,
+          name: typeof m.name === 'string' ? m.name : undefined,
+          fromProjectId: typeof m.fromProjectId === 'string' ? m.fromProjectId : undefined,
+          createdAt: typeof m.createdAt === 'number' ? m.createdAt : Date.now(),
+        }));
+    } catch {
+      return [];
+    }
+  });
+
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const personalImages = buildImageRecords(projects);
 
   // Persist projects whenever they change
   useEffect(() => {
@@ -83,6 +171,10 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(teams));
   }, [teams]);
+
+  useEffect(() => {
+    localStorage.setItem(PERSONAL_MATERIALS_STORAGE_KEY, JSON.stringify(personalMaterials));
+  }, [personalMaterials]);
 
   const createProject = (width: number, height: number, customName?: string) => {
     const newProject: Project = {
@@ -109,12 +201,19 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
 
   const saveProject = (data?: Partial<Project>) => {
     if (!currentProject) return;
-    
+
     const updatedProject = {
       ...currentProject,
       ...(data || {}),
       lastModified: Date.now(),
     };
+
+    if (!updatedProject.thumbnail) {
+      const urls = extractImageUrlsFromElements(updatedProject.elements);
+      if (urls.length > 0) {
+        updatedProject.thumbnail = urls[0];
+      }
+    }
 
     setProjects(prev => {
       const exists = prev.find(p => p.id === updatedProject.id);
@@ -179,10 +278,19 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       id: crypto.randomUUID(),
       name: finalName,
       projectIds: [],
+      materials: [],
       createdAt: Date.now(),
     };
     setTeams(prev => [newTeam, ...prev]);
     return newTeam;
+  };
+
+  const joinTeam = (name: string) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return createTeam('新建团队');
+    const existing = teams.find(t => t.name === trimmedName);
+    if (existing) return existing;
+    return createTeam(trimmedName);
   };
 
   const shareProjectToTeam = (projectId: string, teamId: string) => {
@@ -193,11 +301,103 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  const getTeamImages = (teamId: string) => {
+    const team = teams.find(t => t.id === teamId);
+    if (!team) return [];
+    const idSet = new Set(team.projectIds);
+    return personalImages.filter(image => idSet.has(image.projectId));
+  };
+
+  const addImagesToPersonalLibrary = (images: SpaceImageRecord[]) => {
+    if (images.length === 0) return;
+    setPersonalMaterials(prev => {
+      const existingUrls = new Set(prev.map(item => item.url));
+      const additions: MaterialAsset[] = [];
+      images.forEach((img) => {
+        if (existingUrls.has(img.url)) return;
+        existingUrls.add(img.url);
+        additions.push({
+          id: crypto.randomUUID(),
+          url: img.url,
+          name: `${img.projectName} 素材`,
+          fromProjectId: img.projectId,
+          createdAt: Date.now(),
+        });
+      });
+      return [...additions, ...prev];
+    });
+  };
+
+  const removePersonalMaterial = (materialId: string) => {
+    setPersonalMaterials(prev => prev.filter(m => m.id !== materialId));
+  };
+
+  const addUrlToPersonalLibrary = (url: string, name?: string) => {
+    const normalized = url.trim();
+    if (!normalized) return;
+    setPersonalMaterials(prev => {
+      if (prev.some(item => item.url === normalized)) return prev;
+      const created: MaterialAsset = {
+        id: crypto.randomUUID(),
+        url: normalized,
+        name: name?.trim() || '个人素材',
+        createdAt: Date.now(),
+      };
+      return [created, ...prev];
+    });
+  };
+
+  const addImagesToTeamLibrary = (teamId: string, images: SpaceImageRecord[]) => {
+    if (images.length === 0) return;
+    setTeams(prev => prev.map(team => {
+      if (team.id !== teamId) return team;
+      const existingUrls = new Set(team.materials.map(item => item.url));
+      const additions: MaterialAsset[] = [];
+      images.forEach((img) => {
+        if (existingUrls.has(img.url)) return;
+        existingUrls.add(img.url);
+        additions.push({
+          id: crypto.randomUUID(),
+          url: img.url,
+          name: `${img.projectName} 团队素材`,
+          fromProjectId: img.projectId,
+          createdAt: Date.now(),
+        });
+      });
+      return { ...team, materials: [...additions, ...team.materials] };
+    }));
+  };
+
+  const removeTeamMaterial = (teamId: string, materialId: string) => {
+    setTeams(prev => prev.map(team => {
+      if (team.id !== teamId) return team;
+      return { ...team, materials: team.materials.filter(m => m.id !== materialId) };
+    }));
+  };
+
+  const addUrlToTeamLibrary = (teamId: string, url: string, name?: string) => {
+    const normalized = url.trim();
+    if (!normalized) return;
+    setTeams(prev => prev.map(team => {
+      if (team.id !== teamId) return team;
+      if (team.materials.some(item => item.url === normalized)) return team;
+      const created: MaterialAsset = {
+        id: crypto.randomUUID(),
+        url: normalized,
+        name: name?.trim() || `${team.name} 素材`,
+        createdAt: Date.now(),
+      };
+      return { ...team, materials: [created, ...team.materials] };
+    }));
+  };
+
   return (
     <ProjectContext.Provider value={{
       currentProject,
       projects,
       teams,
+      personalImages,
+      personalMaterials,
       isDirty,
       createProject,
       updateProject,
@@ -206,7 +406,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       loadProject,
       deleteProject,
       createTeam,
+      joinTeam,
       shareProjectToTeam,
+      getTeamImages,
+      addImagesToPersonalLibrary,
+      addUrlToPersonalLibrary,
+      removePersonalMaterial,
+      addImagesToTeamLibrary,
+      addUrlToTeamLibrary,
+      removeTeamMaterial,
       markAsDirty
     }}>
       {children}

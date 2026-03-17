@@ -7,7 +7,7 @@ import {
   Settings,
   FolderOpen,
   MessageSquare,
-  Users
+  Building2
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
@@ -26,9 +26,9 @@ const menuGroups = [
     ]
   },
   {
-    title: '我的',
+    title: '空间',
     items: [
-      { icon: FolderOpen, label: '我的项目', path: '/projects' },
+      { icon: FolderOpen, label: '个人空间', path: '/projects' },
       { icon: LayoutGrid, label: '资产管理', path: '/gallery' },
     ]
   }
@@ -83,22 +83,35 @@ export default function Sidebar() {
         {teams.length > 0 && (
           <div className="flex flex-col gap-3 items-center w-full">
             <div className="w-8 h-px bg-gray-100 mt-2" />
+            <Tooltip content="团队入口" position="right">
+              <NavLink
+                to="/projects"
+                className={({ isActive }) =>
+                  clsx(
+                    "p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center",
+                    isActive ? "bg-black text-white shadow-lg shadow-black/20" : "text-gray-400 hover:bg-gray-100 hover:text-black"
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <Building2 size={22} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+                )}
+              </NavLink>
+            </Tooltip>
             {teams.map((team) => (
               <Tooltip key={team.id} content={team.name} position="right">
                 <NavLink
                   to={`/teams/${team.id}`}
                   className={({ isActive }) =>
                     clsx(
-                      "p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center",
+                      "w-12 h-12 rounded-xl transition-all duration-200 group relative flex items-center justify-center text-xs font-bold",
                       isActive 
                         ? "bg-black text-white shadow-lg shadow-black/20"
                         : "text-gray-400 hover:bg-gray-100 hover:text-black"
                     )
                   }
                 >
-                  {({ isActive }) => (
-                    <Users size={22} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-                  )}
+                  <span>{team.name.slice(0, 1)}</span>
                 </NavLink>
               </Tooltip>
             ))}

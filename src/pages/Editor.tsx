@@ -116,7 +116,7 @@ import { useProject } from '../context/ProjectContext';
 import { useEffect, useRef } from 'react';
 
 export default function Editor() {
-  const { currentProject, createProject, saveProject, markAsDirty, isDirty, validateSave, updateProject } = useProject();
+  const { currentProject, createProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Element Management
@@ -132,11 +132,15 @@ export default function Editor() {
     groupId?: string;
   }
   const [elements, setElements] = useState<CanvasElement[]>([]);
+  const elementsRef = useRef<CanvasElement[]>([]);
   const isUpdatingSelection = useRef(false);
+  const handleSaveWrapperRef = useRef<() => void>(() => {});
 
   const isFirstRender = useRef(true);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [renameModalMode, setRenameModalMode] = useState<'first_save' | 'duplicate'>('first_save');
+  const [isSaveLogicVisible, setIsSaveLogicVisible] = useState(false);
   const [activeTool, setActiveTool] = useState('select');
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
   const [showRulers, setShowRulers] = useState(true);
@@ -304,6 +308,10 @@ export default function Editor() {
     }
   }, []);
 
+  useEffect(() => {
+    elementsRef.current = elements;
+  }, [elements]);
+
   // Track changes to element properties to mark as dirty
   useEffect(() => {
     if (isFirstRender.current) {
@@ -327,88 +335,64 @@ export default function Editor() {
 
   const handleSaveWrapper = () => {
     if (!currentProject) return;
+    const existsInPersonalSpace = projects.some(p => p.id === currentProject.id);
     const status = validateSave(currentProject.name);
-    
+
+    if (existsInPersonalSpace) {
+      if (status === 'duplicate_name') {
+        setRenameModalMode('duplicate');
+        setRenameValue(currentProject.name);
+        setShowRenameModal(true);
+        return;
+      }
+
+      saveProject({ elements: elementsRef.current });
+      return;
+    }
+
+    if (projects.length >= 5) {
+      alert('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
+      return;
+    }
+
+    setRenameModalMode('first_save');
+    setRenameValue(currentProject.name === 'Untitled Project' ? '' : currentProject.name);
+    setShowRenameModal(true);
+  };
+
+  const handleRenameSave = () => {
+    const nextName = renameValue.trim();
+    if (!nextName) return;
+
+    const status = validateSave(nextName);
     if (status === 'limit_reached') {
       alert('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
       return;
     }
-    
-    if (status === 'duplicate_name') {
-      setRenameValue(currentProject.name);
-      setShowRenameModal(true);
-      return;
-    }
-    
-    saveProject({ elements });
-  };
-
-  const handleRenameSave = () => {
-    if (!renameValue.trim()) return;
-    
-    const status = validateSave(renameValue);
     if (status === 'duplicate_name') {
       alert('文件名已存在，请使用其他名称');
       return;
     }
-    
-    updateProject({ name: renameValue });
-    // After renaming, we can try saving again. 
-    // Since we just updated the name, we need to wait for state update or pass new name to save.
-    // However, saveProject uses currentProject from context. 
-    // Let's assume updateProject updates immediately or we need to delay.
-    // Actually, updateProject updates state, but saveProject reads from state. 
-    // We might need to manually trigger save after update.
-    // But since state update is async, we can't do it synchronously.
-    // A better way is to update and save in one go or just update here and let user click save again?
-    // User expectation: Click "Save" -> Modal -> "Confirm" -> Saved.
-    
-    // We can directly modify the current project in save logic if we had parameters, 
-    // but here we must update first.
-    // Let's rely on effect or just call save with a timeout? No that's hacky.
-    // Let's just update and close modal, and then call saveProject? 
-    // But saveProject will use the OLD state if called immediately in same closure unless we use a ref or updated object.
-    
-    // Better approach: updateProject updates the context state.
-    // We can't guarantee it's updated for saveProject call immediately.
-    // BUT, we can manually save the updated object if we had access to the setter.
-    // Since we don't, we'll update the name, close modal, and show a message "Name updated, please click save again" or similar?
-    // No, that's bad UX.
-    
-    // Workaround: We will update the project and then call saveProject in a useEffect or use a temporary approach.
-    // Actually, let's just update the name in the context and trust React to update.
-    // Wait, updateProject sets state.
-    // If we call saveProject immediately, it uses `currentProject` from closure? 
-    // `saveProject` uses `currentProject` from state in `ProjectContext`. 
-    // `handleRenameSave` is in `Editor`.
-    
-    // Let's just update the project and close the modal. The user can click save again or we can trigger it.
-    // To trigger it automatically, we can use a flag `shouldSaveAfterRename`.
-    
-    updateProject({ name: renameValue });
+
+    saveProject({ name: nextName, elements: elementsRef.current });
     setShowRenameModal(false);
-    setTimeout(() => {
-        // A small delay to allow context to update
-        // This is not ideal but might work for now. 
-        // A better solution requires refactoring saveProject to accept data.
-        // For now, let's just update the name and let the user know they can save now?
-        // Or just force a save logic here locally?
-        // Let's try calling saveProject after a short timeout.
-        const btn = document.getElementById('hidden-save-trigger');
-        if (btn) btn.click();
-    }, 100);
+    setRenameModalMode('first_save');
   };
+
+  useEffect(() => {
+    handleSaveWrapperRef.current = handleSaveWrapper;
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        handleSaveWrapper();
+        handleSaveWrapperRef.current();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [saveProject, currentProject, validateSave]); // Added deps
+  }, []);
 
   const handleBorderRadiusChange = (val: number) => {
     setBorderRadius(val);
@@ -835,6 +819,17 @@ export default function Editor() {
         onClose={() => setIsCanvasModalOpen(false)} 
       />
 
+      {isSaveLogicVisible && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
+          <div className="w-full max-w-2xl mx-6 rounded-3xl bg-yellow-200/60 backdrop-blur-md border border-yellow-300/70 shadow-2xl shadow-yellow-500/10 p-6 text-gray-900">
+            <div className="text-sm font-black mb-2">Save 按钮触发逻辑</div>
+            <div className="text-sm leading-relaxed whitespace-pre-line">
+              若该项目的名称已经在“个人空间”中存在了，则直接触发类似 Ctrl/Cmd + S 的逻辑；若该项目在“个人空间”中并没有存在，则提醒用户修改项目名称，并保存到个人空间中。
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Rename Modal */}
       {showRenameModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -842,7 +837,7 @@ export default function Editor() {
             <div className="h-12 border-b border-black/5 flex items-center justify-between px-4 bg-gray-50">
               <span className="font-semibold text-sm flex items-center gap-2">
                 <AlertTriangle size={16} className="text-amber-500" />
-                文件名重复
+                {renameModalMode === 'duplicate' ? '文件名重复' : '保存到个人空间'}
               </span>
               <button onClick={() => setShowRenameModal(false)} className="p-1 hover:bg-black/5 rounded">
                 <X size={16} />
@@ -850,11 +845,13 @@ export default function Editor() {
             </div>
             <div className="p-6">
               <p className="text-sm text-gray-600 mb-4">
-                当前文件名 "{currentProject?.name}" 已存在。请为您的设计输入一个新的名称。
+                {renameModalMode === 'duplicate'
+                  ? `当前文件名 "${currentProject?.name}" 已存在。请为您的设计输入一个新的名称。`
+                  : '首次保存需要为项目设置名称，保存后会出现在个人空间中。'}
               </p>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">新文件名</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">项目名称</label>
                   <input 
                     type="text" 
                     value={renameValue}
@@ -874,7 +871,7 @@ export default function Editor() {
                     onClick={handleRenameSave}
                     className="px-4 py-2 text-sm text-white bg-accent-primary hover:bg-accent-primary/90 rounded-lg transition-colors"
                   >
-                    保存并重命名
+                    {renameModalMode === 'duplicate' ? '保存并重命名' : '保存到个人空间'}
                   </button>
                 </div>
               </div>
@@ -995,22 +992,28 @@ export default function Editor() {
           <div className="h-5 w-px bg-black/10 mr-2" />
 
           <Tooltip content={isDirty ? "保存 (Ctrl+S)" : "已保存"} position="bottom">
-            <button 
-              onClick={handleSaveWrapper}
-              disabled={!isDirty}
-              className={clsx(
-                "py-1.5 px-3 text-sm flex items-center gap-2 rounded-lg transition-colors",
-                isDirty 
-                  ? "btn-primary" 
-                  : "bg-gray-100 text-gray-400 cursor-default"
-              )}
+            <div
+              className="inline-flex"
+              onMouseEnter={() => setIsSaveLogicVisible(true)}
+              onMouseLeave={() => setIsSaveLogicVisible(false)}
             >
-              <Save size={16} />
-              {isDirty ? 'Save' : 'Saved'}
-            </button>
+              <button 
+                onClick={handleSaveWrapper}
+                disabled={!isDirty}
+                onFocus={() => setIsSaveLogicVisible(true)}
+                onBlur={() => setIsSaveLogicVisible(false)}
+                className={clsx(
+                  "py-1.5 px-3 text-sm flex items-center gap-2 rounded-lg transition-colors",
+                  isDirty 
+                    ? "btn-primary" 
+                    : "bg-gray-100 text-gray-400 cursor-default"
+                )}
+              >
+                <Save size={16} />
+                {isDirty ? 'Save' : 'Saved'}
+              </button>
+            </div>
           </Tooltip>
-          {/* Hidden button to trigger save from timeout */}
-          <button id="hidden-save-trigger" className="hidden" onClick={() => saveProject({ elements })} />
         </div>
       </header>
 
