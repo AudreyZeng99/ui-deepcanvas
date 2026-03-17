@@ -13,7 +13,6 @@ import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
 import { Tooltip } from '../Tooltip';
-import { useProject } from '../../context/ProjectContext';
 
 const menuGroups = [
   {
@@ -29,14 +28,13 @@ const menuGroups = [
     title: '空间',
     items: [
       { icon: FolderOpen, label: '个人空间', path: '/projects' },
+      { icon: Building2, label: '公共空间', path: '/public' },
       { icon: LayoutGrid, label: '资产管理', path: '/gallery' },
     ]
   }
 ];
 
 export default function Sidebar() {
-  const { teams } = useProject();
-
   return (
     <aside 
       className="fixed left-0 top-0 h-screen flex flex-col py-6 bg-white border-r border-gray-100 z-50 w-20 items-center transition-all duration-300 ease-in-out"
@@ -79,44 +77,6 @@ export default function Sidebar() {
             )}
           </div>
         ))}
-
-        {teams.length > 0 && (
-          <div className="flex flex-col gap-3 items-center w-full">
-            <div className="w-8 h-px bg-gray-100 mt-2" />
-            <Tooltip content="团队入口" position="right">
-              <NavLink
-                to="/projects"
-                className={({ isActive }) =>
-                  clsx(
-                    "p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center",
-                    isActive ? "bg-black text-white shadow-lg shadow-black/20" : "text-gray-400 hover:bg-gray-100 hover:text-black"
-                  )
-                }
-              >
-                {({ isActive }) => (
-                  <Building2 size={22} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-                )}
-              </NavLink>
-            </Tooltip>
-            {teams.map((team) => (
-              <Tooltip key={team.id} content={team.name} position="right">
-                <NavLink
-                  to={`/teams/${team.id}`}
-                  className={({ isActive }) =>
-                    clsx(
-                      "w-12 h-12 rounded-xl transition-all duration-200 group relative flex items-center justify-center text-xs font-bold",
-                      isActive 
-                        ? "bg-black text-white shadow-lg shadow-black/20"
-                        : "text-gray-400 hover:bg-gray-100 hover:text-black"
-                    )
-                  }
-                >
-                  <span>{team.name.slice(0, 1)}</span>
-                </NavLink>
-              </Tooltip>
-            ))}
-          </div>
-        )}
       </nav>
 
       {/* Footer / Settings / Feedback */}

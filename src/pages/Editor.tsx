@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   MousePointer2, 
   Hand, 
@@ -111,7 +111,6 @@ import MaterialsModal from '../components/MaterialsModal';
 import ExportModal from '../components/ExportModal';
 import { Tooltip } from '../components/Tooltip';
 import { useProject } from '../context/ProjectContext';
-import { useEffect, useRef } from 'react';
 
 export default function Editor() {
   const { currentProject, createProject, updateProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
@@ -176,8 +175,6 @@ export default function Editor() {
   // const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Removed multi-select mode state
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
-  const [showCanvasQuickActions, setShowCanvasQuickActions] = useState(false);
-  const [isCanvasBackgroundActive, setIsCanvasBackgroundActive] = useState(false);
   const [isAiResizeRunning, setIsAiResizeRunning] = useState(false);
   const [aiResizePrompt, setAiResizePrompt] = useState('');
   const [targetCanvasSize, setTargetCanvasSize] = useState({ width: 1920, height: 1080 });
@@ -199,7 +196,7 @@ export default function Editor() {
   });
   
   // AI Assistant State
-  const [aiMode, setAiMode] = useState<'blend' | 'edit' | 'erase'>('blend');
+  const [aiMode, setAiMode] = useState<'blend' | 'edit' | 'erase' | 'resize'>('blend');
   const [aiChatHistory, setAiChatHistory] = useState<{id: string, role: 'user' | 'ai', type: 'text' | 'image', content: string}[]>([
     { id: 'welcome', role: 'ai', type: 'text', content: '你好！我是你的 AI 设计助手。\n\n1. AI修改只针对背景图。\n2. AI溶图：最多融合2张图片。\n3. AI改图：不框选是改整张图，框选则是修改选定区域。\n4. AI擦除：请注意框选颜色与背景色不要高度重合。使用框选后，提示词请说明框的颜色（如：请帮我擦除红色框中的内容）。\n\n提示：目前版本只支持单轮对话，多轮对话功能敬请期待。' }
   ]);
@@ -430,8 +427,6 @@ export default function Editor() {
 
   const handleElementMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    setIsCanvasBackgroundActive(false);
-    setShowCanvasQuickActions(false);
     
     // Selection Logic
     isUpdatingSelection.current = true;
@@ -505,8 +500,6 @@ export default function Editor() {
     setSelectedElement(null);
     setSelectedElementIds([]);
     setActiveTool('select');
-    setIsCanvasBackgroundActive(true);
-    setShowCanvasQuickActions(true);
   };
 
   const aiResizePresets = [
@@ -518,21 +511,17 @@ export default function Editor() {
     { label: '海报', width: 1200, height: 1600 }
   ];
 
-  const handleOpenAiResizePanel = () => {
-    if (!currentProject || currentProject.sourceType !== 'text-to-image' || !currentProject.aiResizeBinding) {
-      alert('当前画布不是文生图来源，暂不支持 AI 改尺寸。');
-      return;
-    }
-    setAiResizePrompt(
-      currentProject.aiResizeBinding.defaultPrompt ||
-      currentProject.aiResizeBinding.optimizedPrompt ||
-      currentProject.aiResizeBinding.originalPrompt
-    );
+  const handleSwitchToAiResizeMode = () => {
+    setAiMode('resize');
+    if (!currentProject) return;
     setTargetCanvasSize({ width: currentProject.width, height: currentProject.height });
-    setShowCanvasQuickActions(false);
-    setIsCanvasBackgroundActive(false);
-    setShowLeftPanel(true);
-    setLeftPanelContent('ai-resize');
+    if (currentProject.sourceType === 'text-to-image' && currentProject.aiResizeBinding) {
+      setAiResizePrompt(
+        currentProject.aiResizeBinding.defaultPrompt ||
+        currentProject.aiResizeBinding.optimizedPrompt ||
+        currentProject.aiResizeBinding.originalPrompt
+      );
+    }
   };
 
   const handleStartAiResize = () => {
@@ -546,8 +535,6 @@ export default function Editor() {
       alert('目标尺寸必须大于 0。');
       return;
     }
-    setShowCanvasQuickActions(false);
-    setIsCanvasBackgroundActive(false);
     setIsAiResizeRunning(true);
     aiResizeTimerRef.current = window.setTimeout(() => {
       updateProject({
@@ -573,6 +560,12 @@ export default function Editor() {
   ]);
   const [gradientAngle, setGradientAngle] = useState(90);
   const [backgroundView, setBackgroundView] = useState<'main' | 'public' | 'traffic'>('main');
+  const [materialFavoriteUrls, setMaterialFavoriteUrls] = useState<Set<string>>(
+    () => new Set([
+      'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=700&q=80',
+      'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=700&q=80',
+    ])
+  );
 
   const backgroundLibraryItems = [
     { id: 'public', icon: Globe, label: '公共背景库', bgClass: 'bg-blue-100', textClass: 'text-blue-600' },
@@ -604,6 +597,55 @@ export default function Editor() {
     'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?w=400&q=80',
   ];
 
+  const defaultPersonalMaterialItems = [
+    'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=700&q=80',
+    'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=700&q=80',
+    'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=700&q=80',
+    'https://images.unsplash.com/photo-1557683316-973673baf926?w=700&q=80',
+    'https://upload.wikimedia.org/wikipedia/commons/8/84/Example.svg',
+  ];
+
+  const bocomLogoItems = [
+    'https://images.unsplash.com/photo-1633409361618-c73427e4e206?w=700&q=80',
+    'https://images.unsplash.com/photo-1618005198919-d3d4b5a92eee?w=700&q=80',
+    'https://images.unsplash.com/photo-1626785774573-4b799315345d?w=700&q=80',
+    'https://images.unsplash.com/photo-1636956111619-0b9b3e3d5c9c?w=700&q=80',
+  ];
+
+  const ipMaterialItems = [
+    'https://images.unsplash.com/photo-1544717305-2782549b5136?w=700&q=80',
+    'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?w=700&q=80',
+    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=700&q=80',
+    'https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=700&q=80',
+  ];
+
+  const mergedPersonalMaterials = useMemo(
+    () => Array.from(new Set([...personalMaterials, ...defaultPersonalMaterialItems])),
+    [personalMaterials]
+  );
+
+  const favoriteMaterialList = useMemo(() => {
+    const pool = [...mergedPersonalMaterials, ...bocomLogoItems, ...ipMaterialItems];
+    const uniquePool = Array.from(new Set(pool));
+    return uniquePool.filter(url => materialFavoriteUrls.has(url));
+  }, [mergedPersonalMaterials, materialFavoriteUrls]);
+
+  const addMaterialToCanvas = (url: string, subType = 'personal') => {
+    handleAddElement('image', subType, { src: url, w: 300, h: 200 });
+  };
+
+  const toggleMaterialFavorite = (url: string) => {
+    setMaterialFavoriteUrls(prev => {
+      const next = new Set(prev);
+      if (next.has(url)) {
+        next.delete(url);
+      } else {
+        next.add(url);
+      }
+      return next;
+    });
+  };
+
   const applyGradient = () => {
     const stopsStr = gradientStops
       .sort((a, b) => a.position - b.position)
@@ -614,6 +656,7 @@ export default function Editor() {
 
   // --- Actions ---
   const handleAddElement = (type: CanvasElement['type'], subType: string | undefined, specificProps: any = {}, content: string = '') => {
+    const { src, ...restSpecificProps } = specificProps || {};
     const newId = `${type}-${Date.now()}`;
     const newEl: CanvasElement = {
       id: newId,
@@ -623,8 +666,9 @@ export default function Editor() {
         ...elementProps, 
         x: 100 + elements.length * 20, 
         y: 100 + elements.length * 20, 
-        ...specificProps
+        ...restSpecificProps
       },
+      src: type === 'image' && typeof src === 'string' ? src : undefined,
       content
     };
     setElements(prev => [...prev, newEl]);
@@ -640,8 +684,6 @@ export default function Editor() {
 
   const handleToolClick = (tool: string) => {
     setActiveTool(tool);
-    setIsCanvasBackgroundActive(false);
-    setShowCanvasQuickActions(false);
     
     // Close cursor menu if a different tool is selected (not select/pan)
     if (tool !== 'select' && tool !== 'pan') {
@@ -650,7 +692,7 @@ export default function Editor() {
       setSelectedElementIds([]);
     }
 
-    const panelTools = ['text', 'shape', 'image', 'background', 'draw', 'table'];
+    const panelTools = ['text', 'shape', 'image', 'background', 'draw', 'table', 'materials'];
     if (panelTools.includes(tool)) {
       setShowLeftPanel(true);
       setLeftPanelContent(tool);
@@ -1127,12 +1169,7 @@ export default function Editor() {
                </button>
              </Tooltip>
              <Tooltip content="素材百宝箱" position="bottom">
-               <button 
-                 className={clsx("p-1.5 rounded-lg transition-colors", isMaterialsModalOpen ? "bg-black/5" : "hover:bg-black/5")}
-                 onClick={() => setIsMaterialsModalOpen(true)}
-               >
-                 <Package size={18} />
-               </button>
+               <span className="hidden" />
              </Tooltip>
              <div className="flex items-center gap-0.5 ml-1">
                 <Tooltip content="置顶图层" position="bottom"><button className="p-1.5 hover:bg-black/5 rounded-lg"><MoveUp size={16} className="rotate-0" /></button></Tooltip>
@@ -1346,7 +1383,6 @@ export default function Editor() {
                 {leftPanelContent === 'draw' && '画笔工具'}
                 {leftPanelContent === 'table' && '表格工具'}
                 {leftPanelContent === 'ai' && 'AI 助手'}
-                {leftPanelContent === 'ai-resize' && 'AI 改尺寸'}
               </span>
               <button onClick={() => setShowLeftPanel(false)} className="p-1 hover:bg-black/5 rounded">
                 <X size={16} />
@@ -1559,7 +1595,113 @@ export default function Editor() {
                 </div>
               )}
 
-              {/* Material Panel moved to Modal */}
+              {leftPanelContent === 'materials' && (
+                <div className="space-y-5 pb-4">
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500">我的素材</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {mergedPersonalMaterials.slice(0, 6).map((url, index) => (
+                        <button
+                          key={`${url}-${index}`}
+                          onClick={() => addMaterialToCanvas(url, 'personal')}
+                          className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50 hover:border-black/20 transition-colors"
+                        >
+                          <img src={url} alt="我的素材" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-gray-500">收藏素材</div>
+                      <span className="text-[10px] text-gray-400">{favoriteMaterialList.length} 项</span>
+                    </div>
+                    {favoriteMaterialList.length === 0 ? (
+                      <div className="h-20 rounded-xl border border-dashed border-gray-200 text-xs text-gray-400 flex items-center justify-center">
+                        先收藏你常用的素材
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {favoriteMaterialList.slice(0, 4).map((url, index) => (
+                          <button
+                            key={`${url}-${index}`}
+                            onClick={() => addMaterialToCanvas(url)}
+                            className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50 hover:border-black/20 transition-colors"
+                          >
+                            <img src={url} alt="收藏素材" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500">交行Logo</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {bocomLogoItems.map((url, index) => {
+                        const favored = materialFavoriteUrls.has(url);
+                        return (
+                          <div key={`${url}-${index}`} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                            <button
+                              onClick={() => addMaterialToCanvas(url, 'public-logo')}
+                              className="absolute inset-0"
+                            >
+                              <img src={url} alt="交行logo素材" className="w-full h-full object-cover" />
+                            </button>
+                            <button
+                              onClick={() => toggleMaterialFavorite(url)}
+                              className={clsx(
+                                "absolute top-1.5 right-1.5 w-6 h-6 rounded-full text-xs flex items-center justify-center transition-colors",
+                                favored ? "bg-red-500 text-white" : "bg-white/90 text-gray-500 hover:text-red-500"
+                              )}
+                            >
+                              ♥
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-gray-500">IP素材</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {ipMaterialItems.map((url, index) => {
+                        const favored = materialFavoriteUrls.has(url);
+                        return (
+                          <div key={`${url}-${index}`} className="group relative aspect-square overflow-hidden rounded-xl border border-gray-100 bg-gray-50">
+                            <button
+                              onClick={() => addMaterialToCanvas(url, 'public-ip')}
+                              className="absolute inset-0"
+                            >
+                              <img src={url} alt="IP素材" className="w-full h-full object-cover" />
+                            </button>
+                            <button
+                              onClick={() => toggleMaterialFavorite(url)}
+                              className={clsx(
+                                "absolute top-1.5 right-1.5 w-6 h-6 rounded-full text-xs flex items-center justify-center transition-colors",
+                                favored ? "bg-red-500 text-white" : "bg-white/90 text-gray-500 hover:text-red-500"
+                              )}
+                            >
+                              ♥
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setIsMaterialsModalOpen(true)}
+                    className="w-full py-2.5 rounded-xl border border-dashed border-gray-300 text-sm font-medium text-gray-700 hover:border-black hover:bg-gray-50 transition-colors"
+                  >
+                    查看更多
+                  </button>
+                </div>
+              )}
 
               {leftPanelContent === 'image' && (
                 <div className="space-y-4">
@@ -1954,66 +2096,6 @@ export default function Editor() {
                 </div>
               )}
 
-              {leftPanelContent === 'ai-resize' && (
-                <div className="space-y-4">
-                  <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-100 text-[11px] text-yellow-800 leading-relaxed">
-                    文生图来源已绑定提示词，可直接配置目标尺寸并编辑提示词。
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500">目标画布尺寸</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {aiResizePresets.map((preset) => (
-                        <button
-                          key={`${preset.width}-${preset.height}`}
-                          onClick={() => setTargetCanvasSize({ width: preset.width, height: preset.height })}
-                          className={clsx(
-                            "p-2 rounded-lg border text-xs text-left transition-all",
-                            targetCanvasSize.width === preset.width && targetCanvasSize.height === preset.height
-                              ? "bg-accent-primary text-white border-accent-primary"
-                              : "bg-gray-50 text-gray-700 border-transparent hover:border-black/10"
-                          )}
-                        >
-                          <div className="font-medium">{preset.label}</div>
-                          <div className="text-[10px] opacity-80">{preset.width} x {preset.height}</div>
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        value={targetCanvasSize.width}
-                        onChange={(e) => setTargetCanvasSize(prev => ({ ...prev, width: Number(e.target.value) }))}
-                        className="w-full px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-xs outline-none focus:border-accent-primary"
-                        min={1}
-                      />
-                      <span className="text-gray-400 text-xs">×</span>
-                      <input
-                        type="number"
-                        value={targetCanvasSize.height}
-                        onChange={(e) => setTargetCanvasSize(prev => ({ ...prev, height: Number(e.target.value) }))}
-                        className="w-full px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-xs outline-none focus:border-accent-primary"
-                        min={1}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500">默认提示词（可编辑）</div>
-                    <textarea
-                      value={aiResizePrompt}
-                      onChange={(e) => setAiResizePrompt(e.target.value)}
-                      placeholder="输入 AI 改尺寸的提示词"
-                      className="w-full h-28 p-2.5 bg-gray-50 rounded-lg text-xs resize-none outline-none focus:ring-1 focus:ring-accent-primary border border-gray-200 transition-all"
-                    />
-                  </div>
-                  <button
-                    onClick={handleStartAiResize}
-                    disabled={!aiResizePrompt.trim() || isAiResizeRunning}
-                    className="w-full py-2 bg-white text-accent-promotion border border-accent-promotion/40 rounded-lg text-xs font-medium hover:bg-accent-promotion/5 hover:border-accent-promotion transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-accent-promotion/40"
-                  >
-                    {isAiResizeRunning ? 'AI改尺寸处理中...' : '开始AI改尺寸'}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -2065,10 +2147,7 @@ export default function Editor() {
 
             <div className="min-w-full min-h-full flex items-center justify-center">
               <div 
-                className={clsx(
-                  "shadow-2xl transition-all duration-300 relative group",
-                  isCanvasBackgroundActive && "ring-2 ring-blue-400 ring-offset-2 ring-offset-white"
-                )}
+                className="shadow-2xl transition-all duration-300 relative group"
                 style={{ 
                   width: `${renderedCanvasWidth}px`, 
                   height: `${renderedCanvasHeight}px`,
@@ -2317,31 +2396,6 @@ export default function Editor() {
                    );
                  })}
 
-                 {showCanvasQuickActions && (
-                  <div className="absolute right-0 top-0 -translate-y-[calc(100%+10px)] z-40 flex items-center gap-2">
-                     <button
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         handleOpenAiResizePanel();
-                       }}
-                      className="h-9 px-5 rounded-full bg-white text-accent-promotion border border-accent-promotion text-sm font-semibold hover:bg-accent-promotion/5 transition-colors inline-flex items-center gap-2"
-                      style={{ boxShadow: '0 0 0 1px var(--accent-promotion), 0 0 14px var(--accent-promotion)' }}
-                     >
-                       <Sparkles size={14} />
-                       AI改尺寸
-                     </button>
-                     <button
-                       onClick={(e) => {
-                         e.stopPropagation();
-                         setShowCanvasQuickActions(false);
-                         setIsCanvasBackgroundActive(false);
-                       }}
-                       className="h-10 w-10 rounded-xl bg-white text-accent-primary border border-accent-primary/30 shadow-sm hover:bg-accent-primary/5 hover:border-accent-primary transition-colors inline-flex items-center justify-center"
-                     >
-                       <X size={16} />
-                     </button>
-                   </div>
-                 )}
               </div>
             </div>
           </div>
@@ -2440,6 +2494,12 @@ export default function Editor() {
               onClick={() => handleToolClick('table')} 
             />
             <ToolButton 
+              icon={Package} 
+              label="素材百宝箱" 
+              isActive={activeTool === 'materials'} 
+              onClick={() => handleToolClick('materials')} 
+            />
+            <ToolButton 
               icon={Sparkles} 
               label="AI" 
               isActive={activeTool === 'ai'} 
@@ -2508,8 +2568,83 @@ export default function Editor() {
                          <Eraser size={14} />
                          AI 擦除
                        </button>
+                       <button 
+                         onClick={handleSwitchToAiResizeMode}
+                         className={clsx(
+                           "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                           aiMode === 'resize' ? "bg-amber-100 text-amber-700 shadow-sm ring-1 ring-amber-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                         )}
+                       >
+                         <RotateCw size={14} />
+                         AI 改尺寸
+                       </button>
                     </div>
 
+                    {aiMode === 'resize' && (
+                      <div className="p-3 border-b border-gray-100 bg-gray-50/40 space-y-3">
+                        <div className="p-3 rounded-xl bg-yellow-50 border border-yellow-100 text-[11px] text-yellow-800 leading-relaxed">
+                          {currentProject?.sourceType === 'text-to-image' && currentProject.aiResizeBinding
+                            ? '文生图来源已绑定提示词，可直接配置目标尺寸并编辑提示词。'
+                            : '当前画布不是文生图来源，可先设置尺寸；AI 改尺寸将不可执行。'}
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-gray-500">目标画布尺寸</div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {aiResizePresets.map((preset) => (
+                              <button
+                                key={`${preset.width}-${preset.height}`}
+                                onClick={() => setTargetCanvasSize({ width: preset.width, height: preset.height })}
+                                className={clsx(
+                                  "p-2 rounded-lg border text-xs text-left transition-all",
+                                  targetCanvasSize.width === preset.width && targetCanvasSize.height === preset.height
+                                    ? "bg-accent-primary text-white border-accent-primary"
+                                    : "bg-white text-gray-700 border-transparent hover:border-black/10"
+                                )}
+                              >
+                                <div className="font-medium">{preset.label}</div>
+                                <div className="text-[10px] opacity-80">{preset.width} x {preset.height}</div>
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              value={targetCanvasSize.width}
+                              onChange={(e) => setTargetCanvasSize(prev => ({ ...prev, width: Number(e.target.value) }))}
+                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-xs outline-none focus:border-accent-primary"
+                              min={1}
+                            />
+                            <span className="text-gray-400 text-xs">×</span>
+                            <input
+                              type="number"
+                              value={targetCanvasSize.height}
+                              onChange={(e) => setTargetCanvasSize(prev => ({ ...prev, height: Number(e.target.value) }))}
+                              className="w-full px-2 py-1.5 rounded-lg border border-gray-200 bg-white text-xs outline-none focus:border-accent-primary"
+                              min={1}
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <div className="text-xs font-medium text-gray-500">默认提示词（可编辑）</div>
+                          <textarea
+                            value={aiResizePrompt}
+                            onChange={(e) => setAiResizePrompt(e.target.value)}
+                            placeholder="输入 AI 改尺寸的提示词"
+                            className="w-full h-20 p-2.5 bg-white rounded-lg text-xs resize-none outline-none focus:ring-1 focus:ring-accent-primary border border-gray-200 transition-all"
+                          />
+                        </div>
+                        <button
+                          onClick={handleStartAiResize}
+                          disabled={!aiResizePrompt.trim() || isAiResizeRunning || !(currentProject?.sourceType === 'text-to-image' && currentProject.aiResizeBinding)}
+                          className="w-full py-2 bg-white text-accent-promotion border border-accent-promotion/40 rounded-lg text-xs font-medium hover:bg-accent-promotion/5 hover:border-accent-promotion transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-accent-promotion/40"
+                        >
+                          {isAiResizeRunning ? 'AI改尺寸处理中...' : '开始AI改尺寸'}
+                        </button>
+                      </div>
+                    )}
+
+                    {aiMode !== 'resize' && (
+                    <>
                     {/* Chat Area */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
                        {aiChatHistory.map((msg, idx) => (
@@ -2688,6 +2823,8 @@ export default function Editor() {
                           </button>
                        </div>
                     </div>
+                    </>
+                    )}
                  </div>
               ) : (
               <div className="flex-1 p-4 overflow-y-auto space-y-6">

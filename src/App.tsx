@@ -45,7 +45,7 @@ function Layout() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
-          <Route path="/teams/:teamId" element={<Projects />} />
+          <Route path="/public" element={<Projects />} />
           <Route path="/editor" element={<Editor />} />
           <Route path="/material-editor" element={<MaterialEditor />} />
           <Route path="/material-management" element={<MaterialManagement />} />
