@@ -177,6 +177,8 @@ export default function Editor() {
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
   const [showCanvasQuickActions, setShowCanvasQuickActions] = useState(false);
+  const [isCanvasBackgroundActive, setIsCanvasBackgroundActive] = useState(false);
+  const [isAiResizeRunning, setIsAiResizeRunning] = useState(false);
   const [aiResizePrompt, setAiResizePrompt] = useState('');
   const [targetCanvasSize, setTargetCanvasSize] = useState({ width: 1920, height: 1080 });
   const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
@@ -185,6 +187,7 @@ export default function Editor() {
   const [selectedElementIds, setSelectedElementIds] = useState<string[]>([]);
   const [showEffectsModal, setShowEffectsModal] = useState(false);
   const [isCursorMenuOpen, setIsCursorMenuOpen] = useState(false);
+  const [panState, setPanState] = useState<{ startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({}); // Default false = limited to 10
   const [effects, setEffects] = useState({
     stroke: false,
@@ -206,6 +209,8 @@ export default function Editor() {
   const [aiSelectionBox, setAiSelectionBox] = useState<{x: number, y: number, w: number, h: number} | null>(null);
   const [aiBoxStart, setAiBoxStart] = useState<{x: number, y: number} | null>(null);
   const aiFileInputRef = useRef<HTMLInputElement>(null);
+  const canvasViewportRef = useRef<HTMLDivElement>(null);
+  const aiResizeTimerRef = useRef<number | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   // Drawing State
@@ -313,7 +318,15 @@ export default function Editor() {
     if (!currentProject) return;
     setTargetCanvasSize({ width: currentProject.width, height: currentProject.height });
     setAiResizePrompt(currentProject.aiResizeBinding?.defaultPrompt || '');
-  }, [currentProject?.id]);
+  }, [currentProject?.id, currentProject?.width, currentProject?.height, currentProject?.aiResizeBinding?.defaultPrompt]);
+
+  useEffect(() => {
+    return () => {
+      if (aiResizeTimerRef.current) {
+        window.clearTimeout(aiResizeTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     elementsRef.current = elements;
@@ -417,6 +430,8 @@ export default function Editor() {
 
   const handleElementMouseDown = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    setIsCanvasBackgroundActive(false);
+    setShowCanvasQuickActions(false);
     
     // Selection Logic
     isUpdatingSelection.current = true;
@@ -486,9 +501,11 @@ export default function Editor() {
   };
 
   const handleCanvasClick = () => {
+    if (activeTool === 'pan') return;
     setSelectedElement(null);
     setSelectedElementIds([]);
     setActiveTool('select');
+    setIsCanvasBackgroundActive(true);
     setShowCanvasQuickActions(true);
   };
 
@@ -512,21 +529,38 @@ export default function Editor() {
       currentProject.aiResizeBinding.originalPrompt
     );
     setTargetCanvasSize({ width: currentProject.width, height: currentProject.height });
+    setShowCanvasQuickActions(false);
+    setIsCanvasBackgroundActive(false);
     setShowLeftPanel(true);
     setLeftPanelContent('ai-resize');
   };
 
-  const handleSaveAiResizeConfig = () => {
+  const handleStartAiResize = () => {
     if (!currentProject || !currentProject.aiResizeBinding) return;
-    updateProject({
-      width: targetCanvasSize.width,
-      height: targetCanvasSize.height,
-      aiResizeBinding: {
-        ...currentProject.aiResizeBinding,
-        defaultPrompt: aiResizePrompt.trim()
-      }
-    });
-    alert('AI 改尺寸参数已保存，后端可按当前参数执行转换。');
+    if (isAiResizeRunning) return;
+    if (!aiResizePrompt.trim()) {
+      alert('请先输入提示词再保存。');
+      return;
+    }
+    if (targetCanvasSize.width <= 0 || targetCanvasSize.height <= 0) {
+      alert('目标尺寸必须大于 0。');
+      return;
+    }
+    setShowCanvasQuickActions(false);
+    setIsCanvasBackgroundActive(false);
+    setIsAiResizeRunning(true);
+    aiResizeTimerRef.current = window.setTimeout(() => {
+      updateProject({
+        width: targetCanvasSize.width,
+        height: targetCanvasSize.height,
+        aiResizeBinding: {
+          ...currentProject.aiResizeBinding!,
+          defaultPrompt: aiResizePrompt.trim()
+        }
+      });
+      setIsAiResizeRunning(false);
+      aiResizeTimerRef.current = null;
+    }, 1800);
   };
 
   const [canvasBackground, setCanvasBackground] = useState('#FFFFFF');
@@ -606,6 +640,8 @@ export default function Editor() {
 
   const handleToolClick = (tool: string) => {
     setActiveTool(tool);
+    setIsCanvasBackgroundActive(false);
+    setShowCanvasQuickActions(false);
     
     // Close cursor menu if a different tool is selected (not select/pan)
     if (tool !== 'select' && tool !== 'pan') {
@@ -710,6 +746,18 @@ export default function Editor() {
 
   // Drawing Handlers
   const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    if (activeTool === 'pan') {
+      const viewport = canvasViewportRef.current;
+      if (!viewport) return;
+      setPanState({
+        startX: e.clientX,
+        startY: e.clientY,
+        scrollLeft: viewport.scrollLeft,
+        scrollTop: viewport.scrollTop
+      });
+      return;
+    }
+
     if ((activeTool as string) === 'ai-box-select') {
        const rect = e.currentTarget.getBoundingClientRect();
        const x = (e.clientX - rect.left) / (zoom / 100);
@@ -729,6 +777,16 @@ export default function Editor() {
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent) => {
+    if (activeTool === 'pan' && panState) {
+      const viewport = canvasViewportRef.current;
+      if (!viewport) return;
+      const deltaX = e.clientX - panState.startX;
+      const deltaY = e.clientY - panState.startY;
+      viewport.scrollLeft = panState.scrollLeft - deltaX;
+      viewport.scrollTop = panState.scrollTop - deltaY;
+      return;
+    }
+
     if ((activeTool as string) === 'ai-box-select' && aiBoxStart) {
        const rect = e.currentTarget.getBoundingClientRect();
        const x = (e.clientX - rect.left) / (zoom / 100);
@@ -755,6 +813,11 @@ export default function Editor() {
   };
 
   const handleCanvasMouseUp = () => {
+    if (activeTool === 'pan') {
+      setPanState(null);
+      return;
+    }
+
     if ((activeTool as string) === 'ai-box-select') {
         setAiBoxStart(null);
         setActiveTool('ai'); 
@@ -856,6 +919,12 @@ export default function Editor() {
   const handleLocalImageClick = () => {
     fileInputRef.current?.click();
   };
+
+  const projectCanvasWidth = currentProject?.width || 1920;
+  const projectCanvasHeight = currentProject?.height || 1080;
+  const canvasFitScale = Math.min(800 / projectCanvasWidth, 600 / projectCanvasHeight);
+  const renderedCanvasWidth = Math.max(280, Math.round(projectCanvasWidth * canvasFitScale));
+  const renderedCanvasHeight = Math.max(180, Math.round(projectCanvasHeight * canvasFitScale));
 
   return (
     <div className="h-screen relative bg-white overflow-hidden flex flex-col">
@@ -1937,11 +2006,11 @@ export default function Editor() {
                     />
                   </div>
                   <button
-                    onClick={handleSaveAiResizeConfig}
-                    disabled={!aiResizePrompt.trim()}
-                    className="w-full py-2 bg-black text-white rounded-lg text-xs font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={handleStartAiResize}
+                    disabled={!aiResizePrompt.trim() || isAiResizeRunning}
+                    className="w-full py-2 bg-white text-accent-promotion border border-accent-promotion/40 rounded-lg text-xs font-medium hover:bg-accent-promotion/5 hover:border-accent-promotion transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-accent-promotion/40"
                   >
-                    保存改尺寸参数
+                    {isAiResizeRunning ? 'AI改尺寸处理中...' : '开始AI改尺寸'}
                   </button>
                 </div>
               )}
@@ -1987,6 +2056,7 @@ export default function Editor() {
           <div 
             className={clsx("flex-1 relative overflow-auto custom-scrollbar p-12", showRulers && "pt-12 pl-14")}
             onClick={handleCanvasClick}
+            ref={canvasViewportRef}
           >
             {/* Dot Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
@@ -1995,14 +2065,17 @@ export default function Editor() {
 
             <div className="min-w-full min-h-full flex items-center justify-center">
               <div 
-                className="shadow-2xl transition-all duration-300 relative group"
+                className={clsx(
+                  "shadow-2xl transition-all duration-300 relative group",
+                  isCanvasBackgroundActive && "ring-2 ring-blue-400 ring-offset-2 ring-offset-white"
+                )}
                 style={{ 
-                  width: '800px', 
-                  height: '600px',
+                  width: `${renderedCanvasWidth}px`, 
+                  height: `${renderedCanvasHeight}px`,
                   backgroundColor: canvasBackground,
                   transform: `scale(${zoom / 100})`,
                   borderRadius: `${borderRadius}px`,
-                  cursor: activeTool === 'draw' ? 'crosshair' : 'default'
+                  cursor: activeTool === 'draw' ? 'crosshair' : activeTool === 'pan' ? (panState ? 'grabbing' : 'grab') : 'default'
                 }}
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleCanvasMouseMove}
@@ -2044,9 +2117,17 @@ export default function Editor() {
                     </div>
                  )}
 
+                 {isAiResizeRunning && (
+                   <div className="absolute inset-0 z-[60] bg-white/75 backdrop-blur-[1px] flex flex-col items-center justify-center gap-3">
+                     <RotateCw size={24} className="text-accent-promotion animate-spin" />
+                     <div className="text-sm font-semibold text-accent-promotion">AI 正在改尺寸...</div>
+                     <div className="text-xs text-gray-600">{targetCanvasSize.width} x {targetCanvasSize.height}</div>
+                   </div>
+                 )}
+
                  <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 pointer-events-none">
                     <ImageIcon size={64} className="mb-4 opacity-20" />
-                    <p className="text-lg font-medium">1920 x 1080</p>
+                    <p className="text-lg font-medium">{projectCanvasWidth} x {projectCanvasHeight}</p>
                     <p className="text-sm">Drag assets here</p>
                  </div>
                  
@@ -2235,27 +2316,35 @@ export default function Editor() {
                     </div>
                    );
                  })}
+
+                 {showCanvasQuickActions && (
+                  <div className="absolute right-0 top-0 -translate-y-[calc(100%+10px)] z-40 flex items-center gap-2">
+                     <button
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         handleOpenAiResizePanel();
+                       }}
+                      className="h-9 px-5 rounded-full bg-white text-accent-promotion border border-accent-promotion text-sm font-semibold hover:bg-accent-promotion/5 transition-colors inline-flex items-center gap-2"
+                      style={{ boxShadow: '0 0 0 1px var(--accent-promotion), 0 0 14px var(--accent-promotion)' }}
+                     >
+                       <Sparkles size={14} />
+                       AI改尺寸
+                     </button>
+                     <button
+                       onClick={(e) => {
+                         e.stopPropagation();
+                         setShowCanvasQuickActions(false);
+                         setIsCanvasBackgroundActive(false);
+                       }}
+                       className="h-10 w-10 rounded-xl bg-white text-accent-primary border border-accent-primary/30 shadow-sm hover:bg-accent-primary/5 hover:border-accent-primary transition-colors inline-flex items-center justify-center"
+                     >
+                       <X size={16} />
+                     </button>
+                   </div>
+                 )}
               </div>
             </div>
           </div>
-
-          {showCanvasQuickActions && (
-            <div className="absolute right-6 bottom-6 z-40 flex items-center gap-2">
-              <button
-                onClick={handleOpenAiResizePanel}
-                className="h-10 px-4 rounded-xl bg-black text-white text-sm font-medium shadow-lg hover:bg-gray-800 transition-colors inline-flex items-center gap-2"
-              >
-                <Sparkles size={14} />
-                AI改尺寸
-              </button>
-              <button
-                onClick={() => setShowCanvasQuickActions(false)}
-                className="h-10 w-10 rounded-xl bg-white text-gray-600 border border-black/10 shadow-lg hover:bg-gray-50 transition-colors inline-flex items-center justify-center"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
 
           {/* Toolbar (Bottom Center) */}
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white p-2 rounded-2xl shadow-xl border border-black/5 z-30">
