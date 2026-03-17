@@ -40,8 +40,6 @@ import {
   Italic,
   Underline,
   Strikethrough,
-  ShieldCheck,
-  ScanEye,
   Table,
   Sparkles,
   Download,
@@ -116,7 +114,7 @@ import { useProject } from '../context/ProjectContext';
 import { useEffect, useRef } from 'react';
 
 export default function Editor() {
-  const { currentProject, createProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
+  const { currentProject, createProject, updateProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Element Management
@@ -178,6 +176,9 @@ export default function Editor() {
   // const [isMultiSelectMode, setIsMultiSelectMode] = useState(false); // Removed multi-select mode state
   const [showLeftPanel, setShowLeftPanel] = useState(false);
   const [leftPanelContent, setLeftPanelContent] = useState<string | null>(null);
+  const [showCanvasQuickActions, setShowCanvasQuickActions] = useState(false);
+  const [aiResizePrompt, setAiResizePrompt] = useState('');
+  const [targetCanvasSize, setTargetCanvasSize] = useState({ width: 1920, height: 1080 });
   const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
   const [isMaterialsModalOpen, setIsMaterialsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -307,6 +308,12 @@ export default function Editor() {
       createProject(1920, 1080);
     }
   }, []);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    setTargetCanvasSize({ width: currentProject.width, height: currentProject.height });
+    setAiResizePrompt(currentProject.aiResizeBinding?.defaultPrompt || '');
+  }, [currentProject?.id]);
 
   useEffect(() => {
     elementsRef.current = elements;
@@ -482,6 +489,44 @@ export default function Editor() {
     setSelectedElement(null);
     setSelectedElementIds([]);
     setActiveTool('select');
+    setShowCanvasQuickActions(true);
+  };
+
+  const aiResizePresets = [
+    { label: '桌面端', width: 1920, height: 1080 },
+    { label: '移动端', width: 1080, height: 1920 },
+    { label: '方形', width: 1080, height: 1080 },
+    { label: '信息流', width: 1200, height: 628 },
+    { label: '轮播图', width: 600, height: 600 },
+    { label: '海报', width: 1200, height: 1600 }
+  ];
+
+  const handleOpenAiResizePanel = () => {
+    if (!currentProject || currentProject.sourceType !== 'text-to-image' || !currentProject.aiResizeBinding) {
+      alert('当前画布不是文生图来源，暂不支持 AI 改尺寸。');
+      return;
+    }
+    setAiResizePrompt(
+      currentProject.aiResizeBinding.defaultPrompt ||
+      currentProject.aiResizeBinding.optimizedPrompt ||
+      currentProject.aiResizeBinding.originalPrompt
+    );
+    setTargetCanvasSize({ width: currentProject.width, height: currentProject.height });
+    setShowLeftPanel(true);
+    setLeftPanelContent('ai-resize');
+  };
+
+  const handleSaveAiResizeConfig = () => {
+    if (!currentProject || !currentProject.aiResizeBinding) return;
+    updateProject({
+      width: targetCanvasSize.width,
+      height: targetCanvasSize.height,
+      aiResizeBinding: {
+        ...currentProject.aiResizeBinding,
+        defaultPrompt: aiResizePrompt.trim()
+      }
+    });
+    alert('AI 改尺寸参数已保存，后端可按当前参数执行转换。');
   };
 
   const [canvasBackground, setCanvasBackground] = useState('#FFFFFF');
@@ -973,24 +1018,6 @@ export default function Editor() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Audit Buttons */}
-          <div className="flex items-center gap-1 mr-2">
-            <Tooltip content="检查设计是否符合消费者权益保护规范" position="bottom">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors">
-                <ShieldCheck size={14} />
-                消保审核
-              </button>
-            </Tooltip>
-            <Tooltip content="检查用户体验与交互规范" position="bottom">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-primary bg-accent-primary/10 hover:bg-accent-primary/20 border border-accent-primary/20 rounded-lg transition-colors">
-                <ScanEye size={14} />
-                体验审核
-              </button>
-            </Tooltip>
-          </div>
-
-          <div className="h-5 w-px bg-black/10 mr-2" />
-
           <Tooltip content={isDirty ? "保存 (Ctrl+S)" : "已保存"} position="bottom">
             <div
               className="inline-flex"
@@ -2214,6 +2241,12 @@ export default function Editor() {
 
             <div className="w-px h-8 bg-black/5 mx-1" />
             <ToolButton 
+              icon={Wallpaper} 
+              label="背景" 
+              isActive={activeTool === 'background'} 
+              onClick={() => handleToolClick('background')} 
+            />
+            <ToolButton 
               icon={ShapesIcon} 
               label="形状" 
               isActive={activeTool === 'shape'} 
@@ -2224,12 +2257,6 @@ export default function Editor() {
               label="文本 (T)" 
               isActive={activeTool === 'text'} 
               onClick={() => handleToolClick('text')} 
-            />
-            <ToolButton 
-              icon={Wallpaper} 
-              label="背景" 
-              isActive={activeTool === 'background'} 
-              onClick={() => handleToolClick('background')} 
             />
             <ToolButton 
               icon={PenTool} 

@@ -7,6 +7,15 @@ export interface Project {
   height: number;
   lastModified: number;
   thumbnail?: string;
+  sourceType?: 'manual' | 'text-to-image';
+  aiResizeBinding?: {
+    defaultPrompt: string;
+    originalPrompt: string;
+    optimizedPrompt: string;
+    generatedImage?: string;
+    sourceWidth: number;
+    sourceHeight: number;
+  };
   elements: any[]; // Placeholder for canvas elements
 }
 
@@ -41,7 +50,7 @@ interface ProjectContextType {
     personalImages: SpaceImageRecord[];
     personalMaterials: MaterialAsset[];
     isDirty: boolean;
-    createProject: (width: number, height: number, customName?: string) => void;
+    createProject: (width: number, height: number, customName?: string, initialData?: Partial<Project>) => void;
     updateProject: (data: Partial<Project>) => void;
     saveProject: (data?: Partial<Project>) => void;
     validateSave: (name: string) => 'ok' | 'limit_reached' | 'duplicate_name';
@@ -176,14 +185,16 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(PERSONAL_MATERIALS_STORAGE_KEY, JSON.stringify(personalMaterials));
   }, [personalMaterials]);
 
-  const createProject = (width: number, height: number, customName?: string) => {
+  const createProject = (width: number, height: number, customName?: string, initialData?: Partial<Project>) => {
     const newProject: Project = {
       id: crypto.randomUUID(),
       name: customName || 'Untitled Project',
       width,
       height,
       lastModified: Date.now(),
+      sourceType: 'manual',
       elements: [],
+      ...(initialData || {}),
     };
     setCurrentProject(newProject);
     setIsDirty(false); // New empty project is not dirty initially

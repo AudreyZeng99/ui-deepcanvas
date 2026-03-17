@@ -16,6 +16,12 @@ export default function MaterialsModal({
   onUpload, 
   personalMaterials 
 }: MaterialsModalProps) {
+  type MaterialSource = 'personal' | 'public-logo' | 'public-ip' | 'public-campaign' | 'public-cutout' | 'traffic-banner';
+  type MaterialEntry = {
+    url: string;
+    source: MaterialSource;
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'personal' | 'public-logo' | 'public-ip' | 'public-campaign' | 'public-cutout' | 'traffic-banner'>('personal');
   const [expandedFolders, setExpandedFolders] = useState({
@@ -30,6 +36,7 @@ export default function MaterialsModal({
     ])
   );
   const [deletedUrls, setDeletedUrls] = useState<Set<string>>(new Set());
+  const [hoverLogicText, setHoverLogicText] = useState<string | null>(null);
   const [favoritePage, setFavoritePage] = useState(1);
   const [personalPage, setPersonalPage] = useState(1);
   const [libraryPage, setLibraryPage] = useState(1);
@@ -117,12 +124,40 @@ export default function MaterialsModal({
     });
   }, [rawPersonalList, deletedUrls, searchQuery]);
 
+  const allVisibleMaterials = useMemo<MaterialEntry[]>(() => {
+    const sourceBuckets: MaterialEntry[] = [
+      ...personalList.map((url) => ({ url, source: 'personal' as const })),
+      ...publicLogoItems.map((url) => ({ url, source: 'public-logo' as const })),
+      ...ipCharacterItems.map((url) => ({ url, source: 'public-ip' as const })),
+      ...campaignItems.map((url) => ({ url, source: 'public-campaign' as const })),
+      ...cutoutItems.map((url) => ({ url, source: 'public-cutout' as const })),
+      ...trafficBannerItems.map((url) => ({ url, source: 'traffic-banner' as const })),
+    ];
+    const seen = new Set<string>();
+    return sourceBuckets.filter(({ url }) => {
+      if (deletedUrls.has(url)) return false;
+      if (searchQuery && !url.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    });
+  }, [
+    personalList,
+    publicLogoItems,
+    ipCharacterItems,
+    campaignItems,
+    cutoutItems,
+    trafficBannerItems,
+    deletedUrls,
+    searchQuery,
+  ]);
+
   const favoriteList = useMemo(
-    () => personalList.filter(url => favoriteUrls.has(url)),
-    [personalList, favoriteUrls]
+    () => allVisibleMaterials.filter(({ url }) => favoriteUrls.has(url)),
+    [allVisibleMaterials, favoriteUrls]
   );
 
-  const paginate = (items: string[], page: number, size: number) => {
+  const paginate = <T,>(items: T[], page: number, size: number) => {
     const totalPages = Math.max(1, Math.ceil(items.length / size));
     const safePage = Math.min(page, totalPages);
     const start = (safePage - 1) * size;
@@ -177,7 +212,7 @@ export default function MaterialsModal({
     </div>
   );
 
-  const renderMaterialCard = (url: string, subType?: string) => {
+  const renderMaterialCard = (url: string, subType?: string, canDelete = true) => {
     const isFavorite = favoriteUrls.has(url);
     return (
       <div
@@ -189,6 +224,8 @@ export default function MaterialsModal({
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
           <button
             onClick={() => onAddElement('image', subType, { src: url })}
+            onMouseEnter={() => setHoverLogicText('点击后会将当前素材即时添加到画布中，保留原图比例。')}
+            onMouseLeave={() => setHoverLogicText(null)}
             className="px-2 py-1 text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] hover:text-white hover:scale-110 transition-all flex items-center justify-center pointer-events-auto"
           >
             <span className="text-[26px] leading-none font-normal">+</span>
@@ -197,22 +234,28 @@ export default function MaterialsModal({
         <div className="absolute right-2 bottom-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
           <button
             onClick={() => toggleFavorite(url)}
+            onMouseEnter={() => setHoverLogicText(isFavorite ? '点击后会从收藏列表中移除该素材。' : '点击后会将该素材加入收藏列表。')}
+            onMouseLeave={() => setHoverLogicText(null)}
             className="px-1 py-0.5 text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] hover:text-white hover:scale-110 transition-all flex items-center justify-center pointer-events-auto"
           >
             <span className={clsx("text-[18px] leading-none", isFavorite ? "text-red-500" : "text-white")}>
               {isFavorite ? '♥' : '♡'}
             </span>
           </button>
-          <button
-            onClick={() => confirmDeleteMaterial(url)}
-            className="px-1 py-0.5 text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] hover:text-red-300 hover:scale-110 transition-all flex items-center justify-center pointer-events-auto"
-          >
-            <span className="relative w-[17px] h-[17px] block">
-              <span className="absolute left-1/2 -translate-x-1/2 top-[1px] w-[5px] h-[1px] rounded bg-current" />
-              <span className="absolute left-1/2 -translate-x-1/2 top-[3px] w-[11px] h-[1.5px] rounded bg-current" />
-              <span className="absolute left-1/2 -translate-x-1/2 top-[5px] w-[9px] h-[10px] rounded-[2px] border-[1.4px] border-current" />
-            </span>
-          </button>
+          {canDelete && (
+            <button
+              onClick={() => confirmDeleteMaterial(url)}
+              onMouseEnter={() => setHoverLogicText('点击后会删除该个人素材，并自动从收藏列表移除。')}
+              onMouseLeave={() => setHoverLogicText(null)}
+              className="px-1 py-0.5 text-white/95 drop-shadow-[0_2px_6px_rgba(0,0,0,0.8)] hover:text-red-300 hover:scale-110 transition-all flex items-center justify-center pointer-events-auto"
+            >
+              <span className="relative w-[17px] h-[17px] block">
+                <span className="absolute left-1/2 -translate-x-1/2 top-[1px] w-[5px] h-[1px] rounded bg-current" />
+                <span className="absolute left-1/2 -translate-x-1/2 top-[3px] w-[11px] h-[1.5px] rounded bg-current" />
+                <span className="absolute left-1/2 -translate-x-1/2 top-[5px] w-[9px] h-[10px] rounded-[2px] border-[1.4px] border-current" />
+              </span>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -238,11 +281,13 @@ export default function MaterialsModal({
           </div>
           {favoriteList.length === 0 ? (
             <div className="flex items-center justify-center h-32 rounded-xl border border-dashed border-gray-200 text-sm text-gray-400">
-              暂无收藏素材，请在个人素材列表中点击收藏
+              暂无收藏素材，请在任意素材列表中点击收藏
             </div>
           ) : (
             <div className="grid grid-cols-5 gap-3">
-              {favoritePagination.data.map((url) => renderMaterialCard(url, 'personal'))}
+              {favoritePagination.data.map(({ url, source }) => (
+                renderMaterialCard(url, source === 'personal' ? 'personal' : undefined, source === 'personal')
+              ))}
             </div>
           )}
         </section>
@@ -409,6 +454,13 @@ export default function MaterialsModal({
           </div>
         </div>
       </div>
+      {hoverLogicText && (
+        <div className="fixed inset-0 z-[60] pointer-events-none flex items-center justify-center px-6">
+          <div className="max-w-xl rounded-xl border border-yellow-300/70 bg-yellow-100/80 text-yellow-950 shadow-lg backdrop-blur-sm px-5 py-4 text-sm font-medium leading-6 text-center">
+            {hoverLogicText}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

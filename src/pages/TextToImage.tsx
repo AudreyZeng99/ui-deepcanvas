@@ -15,6 +15,7 @@ import {
   Sliders
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useProject } from '../context/ProjectContext';
 
 const STYLES = [
   { id: 'none', label: '无风格' },
@@ -33,6 +34,7 @@ import ExportModal from '../components/ExportModal';
 export default function TextToImage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { createProject } = useProject();
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
   const [activeSource, setActiveSource] = useState<'original' | 'optimized'>('original');
@@ -337,6 +339,20 @@ export default function TextToImage() {
             <button 
               onClick={() => {
                 if (selectedImageIndex === null) return;
+                const selectedPrompt = activeSource === 'optimized' && optimizedPrompt.trim()
+                  ? optimizedPrompt.trim()
+                  : originalPrompt.trim();
+                createProject(dimensions.width, dimensions.height, 'AI 文生图项目', {
+                  sourceType: 'text-to-image',
+                  aiResizeBinding: {
+                    defaultPrompt: selectedPrompt,
+                    originalPrompt: originalPrompt.trim(),
+                    optimizedPrompt: optimizedPrompt.trim(),
+                    generatedImage: generatedImages[selectedImageIndex],
+                    sourceWidth: dimensions.width,
+                    sourceHeight: dimensions.height
+                  }
+                });
                 navigate('/editor');
               }}
               className={clsx(

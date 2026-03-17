@@ -41,7 +41,6 @@ import {
   Italic,
   Underline,
   Strikethrough,
-  ShieldCheck,
   ScanEye,
   Table,
   Sparkles,
@@ -1021,24 +1020,6 @@ export default function MaterialEditor() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Audit Buttons */}
-          <div className="flex items-center gap-1 mr-2">
-            <Tooltip content="检查设计是否符合消费者权益保护规范" position="bottom">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-colors">
-                <ShieldCheck size={14} />
-                消保审核
-              </button>
-            </Tooltip>
-            <Tooltip content="检查用户体验与交互规范" position="bottom">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-primary bg-accent-primary/10 hover:bg-accent-primary/20 border border-accent-primary/20 rounded-lg transition-colors">
-                <ScanEye size={14} />
-                体验审核
-              </button>
-            </Tooltip>
-          </div>
-
-          <div className="h-5 w-px bg-black/10 mr-2" />
-
           <Tooltip content={isDirty ? "保存 (Ctrl+S)" : "已保存"} position="bottom">
             <div
               className="inline-flex"
@@ -2295,6 +2276,12 @@ export default function MaterialEditor() {
 
             <div className="w-px h-8 bg-black/5 mx-1" />
             <ToolButton 
+              icon={Wallpaper} 
+              label="背景" 
+              isActive={activeTool === 'background'} 
+              onClick={() => handleToolClick('background')} 
+            />
+            <ToolButton 
               icon={ShapesIcon} 
               label="形状" 
               isActive={activeTool === 'shape'} 
@@ -2305,12 +2292,6 @@ export default function MaterialEditor() {
               label="文本 (T)" 
               isActive={activeTool === 'text'} 
               onClick={() => handleToolClick('text')} 
-            />
-            <ToolButton 
-              icon={Wallpaper} 
-              label="背景" 
-              isActive={activeTool === 'background'} 
-              onClick={() => handleToolClick('background')} 
             />
             <ToolButton 
               icon={PenTool} 
