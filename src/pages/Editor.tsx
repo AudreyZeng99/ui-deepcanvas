@@ -85,11 +85,11 @@ import {
   User,
   Users,
   Settings,
+  LayoutGrid,
   Search,
   Home,
   Menu,
   Globe,
-  Megaphone,
   RotateCw,
   Palette,
   ChevronLeft,
@@ -178,6 +178,14 @@ export default function Editor() {
   const [isAiResizeRunning, setIsAiResizeRunning] = useState(false);
   const [aiResizePrompt, setAiResizePrompt] = useState('');
   const [targetCanvasSize, setTargetCanvasSize] = useState({ width: 1920, height: 1080 });
+  const [aiResizePendingResult, setAiResizePendingResult] = useState<{
+    width: number;
+    height: number;
+    prompt: string;
+    fromWidth: number;
+    fromHeight: number;
+  } | null>(null);
+  const [isAiResizePreviewOpen, setIsAiResizePreviewOpen] = useState(false);
   const [personalMaterials, setPersonalMaterials] = useState<string[]>([]);
   const [isMaterialsModalOpen, setIsMaterialsModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -535,22 +543,83 @@ export default function Editor() {
       alert('目标尺寸必须大于 0。');
       return;
     }
+    const pendingPrompt = aiResizePrompt.trim();
+    const fromWidth = currentProject.width;
+    const fromHeight = currentProject.height;
+    const toWidth = targetCanvasSize.width;
+    const toHeight = targetCanvasSize.height;
     setIsAiResizeRunning(true);
     aiResizeTimerRef.current = window.setTimeout(() => {
-      updateProject({
-        width: targetCanvasSize.width,
-        height: targetCanvasSize.height,
-        aiResizeBinding: {
-          ...currentProject.aiResizeBinding!,
-          defaultPrompt: aiResizePrompt.trim()
-        }
+      setAiResizePendingResult({
+        width: toWidth,
+        height: toHeight,
+        prompt: pendingPrompt,
+        fromWidth,
+        fromHeight
       });
+      setIsAiResizePreviewOpen(true);
       setIsAiResizeRunning(false);
       aiResizeTimerRef.current = null;
     }, 1800);
   };
 
+  const handleApplyAiResizeResult = () => {
+    if (!currentProject || !currentProject.aiResizeBinding || !aiResizePendingResult) return;
+    updateProject({
+      width: aiResizePendingResult.width,
+      height: aiResizePendingResult.height,
+      aiResizeBinding: {
+        ...currentProject.aiResizeBinding,
+        defaultPrompt: aiResizePendingResult.prompt
+      }
+    });
+    setIsAiResizePreviewOpen(false);
+    setAiResizePendingResult(null);
+  };
+
+  const handleCancelAiResizePreview = () => {
+    setIsAiResizePreviewOpen(false);
+    setAiResizePendingResult(null);
+  };
+
   const [canvasBackground, setCanvasBackground] = useState('#FFFFFF');
+  const aiResizePreviewImage = useMemo(() => {
+    const matched = canvasBackground.match(/url\((['"]?)(.*?)\1\)/);
+    return matched?.[2] || null;
+  }, [canvasBackground]);
+  const aiResizePreviewStyle = useMemo(() => {
+    if (aiResizePreviewImage) {
+      return {
+        backgroundImage: `url(${aiResizePreviewImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      };
+    }
+    return {
+      background: canvasBackground,
+    };
+  }, [aiResizePreviewImage, canvasBackground]);
+  const aiResizePreviewBox = useMemo(() => {
+    const pending = aiResizePendingResult;
+    const maxWidth = 560;
+    const maxHeight = 260;
+    if (!pending || pending.width <= 0 || pending.height <= 0) {
+      return { width: Math.min(maxWidth, 520), height: Math.min(maxHeight, 260) };
+    }
+    const ratio = pending.width / pending.height;
+    let width = Math.min(maxWidth, maxHeight * ratio);
+    let height = width / ratio;
+    if (height > maxHeight) {
+      height = maxHeight;
+      width = height * ratio;
+    }
+    if (width > maxWidth) {
+      width = maxWidth;
+      height = width / ratio;
+    }
+    return { width: Math.max(220, Math.round(width)), height: Math.max(140, Math.round(height)) };
+  }, [aiResizePendingResult]);
 
   // Background Panel State
   const [customColor, setCustomColor] = useState('#ffffff');
@@ -560,6 +629,9 @@ export default function Editor() {
   ]);
   const [gradientAngle, setGradientAngle] = useState(90);
   const [backgroundView, setBackgroundView] = useState<'main' | 'public' | 'traffic'>('main');
+  const [publicBackgroundCategory, setPublicBackgroundCategory] = useState<
+    'xiaofulu' | 'shaanxi-xiaofulu' | 'bocom' | 'center-promo' | 'cutout'
+  >('xiaofulu');
   const [materialFavoriteUrls, setMaterialFavoriteUrls] = useState<Set<string>>(
     () => new Set([
       'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=700&q=80',
@@ -569,7 +641,6 @@ export default function Editor() {
 
   const backgroundLibraryItems = [
     { id: 'public', icon: Globe, label: '公共背景库', bgClass: 'bg-blue-100', textClass: 'text-blue-600' },
-    { id: 'traffic', icon: Megaphone, label: '流量投放素材', bgClass: 'bg-purple-100', textClass: 'text-purple-600' },
   ];
 
   // Mock Data for Background Libraries
@@ -585,6 +656,22 @@ export default function Editor() {
     'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400&q=80',
     'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=400&q=80',
   ];
+  const publicBackgroundCategories = useMemo(
+    () => [
+      { id: 'xiaofulu' as const, label: '小福鹿', items: publicBackgrounds.slice(0, 2) },
+      { id: 'shaanxi-xiaofulu' as const, label: '陕西分行特色小福鹿', items: publicBackgrounds.slice(2, 4) },
+      { id: 'bocom' as const, label: '交通银行', items: publicBackgrounds.slice(4, 6) },
+      { id: 'center-promo' as const, label: '中心宣传', items: publicBackgrounds.slice(6, 8) },
+      { id: 'cutout' as const, label: '免抠元素', items: publicBackgrounds.slice(8) },
+    ],
+    [publicBackgrounds]
+  );
+  const visiblePublicBackgrounds = useMemo(() => {
+    return (
+      publicBackgroundCategories.find(category => category.id === publicBackgroundCategory)?.items ||
+      publicBackgrounds
+    );
+  }, [publicBackgroundCategories, publicBackgroundCategory, publicBackgrounds]);
 
   const trafficBackgrounds = [
     'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=400&q=80',
@@ -1598,7 +1685,17 @@ export default function Editor() {
               {leftPanelContent === 'materials' && (
                 <div className="space-y-5 pb-4">
                   <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500">我的素材</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-gray-500">我的素材</div>
+                      <Tooltip content="查看全部" position="top">
+                        <button
+                          onClick={() => setIsMaterialsModalOpen(true)}
+                          className="w-7 h-7 rounded-lg border border-transparent text-gray-500 hover:text-gray-800 hover:bg-black/5 transition-colors flex items-center justify-center"
+                        >
+                          <LayoutGrid size={14} />
+                        </button>
+                      </Tooltip>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {mergedPersonalMaterials.slice(0, 6).map((url, index) => (
                         <button
@@ -1616,7 +1713,17 @@ export default function Editor() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-medium text-gray-500">收藏素材</div>
-                      <span className="text-[10px] text-gray-400">{favoriteMaterialList.length} 项</span>
+                      <div className="flex items-center gap-2">
+                        <Tooltip content="查看全部" position="top">
+                          <button
+                            onClick={() => setIsMaterialsModalOpen(true)}
+                            className="w-7 h-7 rounded-lg border border-transparent text-gray-500 hover:text-gray-800 hover:bg-black/5 transition-colors flex items-center justify-center"
+                          >
+                            <LayoutGrid size={14} />
+                          </button>
+                        </Tooltip>
+                        <span className="text-[10px] text-gray-400">{favoriteMaterialList.length} 项</span>
+                      </div>
                     </div>
                     {favoriteMaterialList.length === 0 ? (
                       <div className="h-20 rounded-xl border border-dashed border-gray-200 text-xs text-gray-400 flex items-center justify-center">
@@ -1639,7 +1746,17 @@ export default function Editor() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500">交行Logo</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-gray-500">交行Logo</div>
+                      <Tooltip content="查看全部" position="top">
+                        <button
+                          onClick={() => setIsMaterialsModalOpen(true)}
+                          className="w-7 h-7 rounded-lg border border-transparent text-gray-500 hover:text-gray-800 hover:bg-black/5 transition-colors flex items-center justify-center"
+                        >
+                          <LayoutGrid size={14} />
+                        </button>
+                      </Tooltip>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {bocomLogoItems.map((url, index) => {
                         const favored = materialFavoriteUrls.has(url);
@@ -1667,7 +1784,17 @@ export default function Editor() {
                   </div>
 
                   <div className="space-y-2">
-                    <div className="text-xs font-medium text-gray-500">IP素材</div>
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-gray-500">IP素材</div>
+                      <Tooltip content="查看全部" position="top">
+                        <button
+                          onClick={() => setIsMaterialsModalOpen(true)}
+                          className="w-7 h-7 rounded-lg border border-transparent text-gray-500 hover:text-gray-800 hover:bg-black/5 transition-colors flex items-center justify-center"
+                        >
+                          <LayoutGrid size={14} />
+                        </button>
+                      </Tooltip>
+                    </div>
                     <div className="grid grid-cols-2 gap-2">
                       {ipMaterialItems.map((url, index) => {
                         const favored = materialFavoriteUrls.has(url);
@@ -1916,8 +2043,26 @@ export default function Editor() {
                       
                       {/* Grid Content with Scroll */}
                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {backgroundView === 'public' && (
+                          <div className="flex items-center gap-2 pb-3 overflow-x-auto custom-scrollbar">
+                            {publicBackgroundCategories.map((category) => (
+                              <button
+                                key={category.id}
+                                onClick={() => setPublicBackgroundCategory(category.id)}
+                                className={clsx(
+                                  "shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-colors",
+                                  publicBackgroundCategory === category.id
+                                    ? "bg-accent-primary text-white border-accent-primary"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                )}
+                              >
+                                {category.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-3 pb-4">
-                          {(backgroundView === 'public' ? publicBackgrounds : trafficBackgrounds).map((url, i) => (
+                          {(backgroundView === 'public' ? visiblePublicBackgrounds : trafficBackgrounds).map((url, i) => (
                             <div 
                               key={i}
                               className="group relative aspect-[3/4] rounded-lg overflow-hidden border border-black/5 cursor-pointer hover:shadow-md transition-all"
@@ -3406,6 +3551,69 @@ export default function Editor() {
                onClick={(e) => e.stopPropagation()}
              />
            </div>
+        )}
+
+        {isAiResizePreviewOpen && aiResizePendingResult && (
+          <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-6">
+            <div className="w-full max-w-2xl rounded-2xl bg-white border border-black/10 shadow-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-black/5 flex items-center justify-between">
+                <div className="font-semibold text-base text-gray-900">AI改尺寸预览</div>
+                <button
+                  onClick={handleCancelAiResizePreview}
+                  className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                    <div className="text-xs text-gray-500 mb-1">当前画布</div>
+                    <div className="text-lg font-semibold text-gray-900">{aiResizePendingResult.fromWidth} × {aiResizePendingResult.fromHeight}</div>
+                  </div>
+                  <div className="rounded-xl border border-accent-promotion/30 bg-accent-promotion/5 p-4">
+                    <div className="text-xs text-accent-promotion mb-1">AI改尺寸结果</div>
+                    <div className="text-lg font-semibold text-accent-promotion">{aiResizePendingResult.width} × {aiResizePendingResult.height}</div>
+                  </div>
+                </div>
+                <div className="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 leading-relaxed">
+                  应用后不可回退至上一个画布，请确认无误后再应用到画布。
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white p-3">
+                  <div className="text-xs text-gray-500 mb-2">改后图片预览</div>
+                  <div className="w-full rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center p-3 overflow-hidden">
+                    <div
+                      className="rounded-md overflow-hidden border border-black/10 shadow-sm"
+                      style={{
+                        width: aiResizePreviewBox.width,
+                        height: aiResizePreviewBox.height,
+                        maxWidth: '100%',
+                        ...aiResizePreviewStyle,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-gray-200 bg-white p-3">
+                  <div className="text-xs text-gray-500 mb-1">改尺寸提示词预览</div>
+                  <div className="text-sm text-gray-800 whitespace-pre-wrap break-words">{aiResizePendingResult.prompt}</div>
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-black/5 flex items-center justify-end gap-3">
+                <button
+                  onClick={handleCancelAiResizePreview}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                >
+                  暂不应用
+                </button>
+                <button
+                  onClick={handleApplyAiResizeResult}
+                  className="px-4 py-2 rounded-lg bg-accent-promotion text-white hover:opacity-90 transition-opacity text-sm font-medium"
+                >
+                  确认应用到画布
+                </button>
+              </div>
+            </div>
+          </div>
         )}
         
         {/* Materials Modal */}

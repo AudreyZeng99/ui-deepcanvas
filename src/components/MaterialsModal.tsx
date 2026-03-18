@@ -419,34 +419,25 @@ export default function MaterialsModal({
               {expandedFolders.public && (
                 <div className="space-y-1 pl-2">
                   <button onClick={() => handleTabChange('public-logo')} className={menuButtonClass(activeTab === 'public-logo')}>
-                    官方logo
+                    交通银行
                   </button>
                   <button onClick={() => handleTabChange('public-ip')} className={menuButtonClass(activeTab === 'public-ip')}>
-                    IP人物
+                    小福鹿
                   </button>
                   <button onClick={() => handleTabChange('public-campaign')} className={menuButtonClass(activeTab === 'public-campaign')}>
-                    中心宣传
+                    陕西分行特色小福鹿
                   </button>
                   <button onClick={() => handleTabChange('public-cutout')} className={menuButtonClass(activeTab === 'public-cutout')}>
+                    中心素材
+                  </button>
+                  <button onClick={() => handleTabChange('public-logo')} className={menuButtonClass(activeTab === 'public-logo')}>
                     免抠素材
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="space-y-1">
-              <button onClick={() => toggleFolder('traffic')} className={folderTitleClass}>
-                <span>流量投放素材库</span>
-                <span className={clsx("transition-transform inline-block", !expandedFolders.traffic && "-rotate-90")}>⌄</span>
-              </button>
-              {expandedFolders.traffic && (
-                <div className="pl-2">
-                  <button onClick={() => handleTabChange('traffic-banner')} className={menuButtonClass(activeTab === 'traffic-banner')}>
-                    通用运营入口banner背景图
-                  </button>
-                </div>
-              )}
-            </div>
+            
           </div>
 
           <div className="flex-1 bg-white p-6 overflow-y-auto custom-scrollbar">

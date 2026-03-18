@@ -91,7 +91,6 @@ import {
   Home,
   Menu,
   Globe,
-  Megaphone,
   RotateCw,
   Palette,
   ChevronLeft,
@@ -541,10 +540,12 @@ export default function MaterialEditor() {
   ]);
   const [gradientAngle, setGradientAngle] = useState(90);
   const [backgroundView, setBackgroundView] = useState<'main' | 'public' | 'traffic'>('main');
+  const [publicBackgroundCategory, setPublicBackgroundCategory] = useState<
+    'xiaofulu' | 'shaanxi-xiaofulu' | 'bocom' | 'center-promo' | 'cutout'
+  >('xiaofulu');
 
   const backgroundLibraryItems = [
     { id: 'public', icon: Globe, label: '公共背景库', bgClass: 'bg-blue-100', textClass: 'text-blue-600' },
-    { id: 'traffic', icon: Megaphone, label: '流量投放素材', bgClass: 'bg-purple-100', textClass: 'text-purple-600' },
   ];
 
   // Mock Data for Background Libraries
@@ -560,6 +561,15 @@ export default function MaterialEditor() {
     'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=400&q=80',
     'https://images.unsplash.com/photo-1502082553048-f009c37129b9?w=400&q=80',
   ];
+  const publicBackgroundCategories = [
+    { id: 'xiaofulu' as const, label: '小福鹿', items: publicBackgrounds.slice(0, 2) },
+    { id: 'shaanxi-xiaofulu' as const, label: '陕西分行特色小福鹿', items: publicBackgrounds.slice(2, 4) },
+    { id: 'bocom' as const, label: '交通银行', items: publicBackgrounds.slice(4, 6) },
+    { id: 'center-promo' as const, label: '中心宣传', items: publicBackgrounds.slice(6, 8) },
+    { id: 'cutout' as const, label: '免抠元素', items: publicBackgrounds.slice(8) },
+  ];
+  const visiblePublicBackgrounds =
+    publicBackgroundCategories.find(category => category.id === publicBackgroundCategory)?.items || publicBackgrounds;
 
   const trafficBackgrounds = [
     'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=400&q=80',
@@ -1706,8 +1716,26 @@ export default function MaterialEditor() {
                       
                       {/* Grid Content with Scroll */}
                       <div className="flex-1 overflow-y-auto custom-scrollbar pr-1">
+                        {backgroundView === 'public' && (
+                          <div className="flex items-center gap-2 pb-3 overflow-x-auto custom-scrollbar">
+                            {publicBackgroundCategories.map((category) => (
+                              <button
+                                key={category.id}
+                                onClick={() => setPublicBackgroundCategory(category.id)}
+                                className={clsx(
+                                  "shrink-0 px-3 py-1.5 rounded-full text-[11px] font-medium border transition-colors",
+                                  publicBackgroundCategory === category.id
+                                    ? "bg-accent-primary text-white border-accent-primary"
+                                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                                )}
+                              >
+                                {category.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-3 pb-4">
-                          {(backgroundView === 'public' ? publicBackgrounds : trafficBackgrounds).map((url, i) => (
+                          {(backgroundView === 'public' ? visiblePublicBackgrounds : trafficBackgrounds).map((url, i) => (
                             <div 
                               key={i}
                               className="group relative aspect-[3/4] rounded-lg overflow-hidden border border-black/5 cursor-pointer hover:shadow-md transition-all"
