@@ -16,18 +16,25 @@ export default function MaterialsModal({
   onUpload, 
   personalMaterials 
 }: MaterialsModalProps) {
-  type MaterialSource = 'personal' | 'public-logo' | 'public-ip' | 'public-campaign' | 'public-cutout' | 'traffic-banner';
+  type MaterialTabId =
+    | 'personal'
+    | 'public-bocom'
+    | 'public-xiaofulu'
+    | 'public-shanxi-xiaofulu'
+    | 'public-center'
+    | 'public-normal';
+
+  type MaterialSource = MaterialTabId;
   type MaterialEntry = {
     url: string;
     source: MaterialSource;
   };
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'personal' | 'public-logo' | 'public-ip' | 'public-campaign' | 'public-cutout' | 'traffic-banner'>('personal');
+  const [activeTab, setActiveTab] = useState<MaterialTabId>('personal');
   const [expandedFolders, setExpandedFolders] = useState({
     personal: true,
-    public: true,
-    traffic: true,
+    public: true
   });
   const [favoriteUrls, setFavoriteUrls] = useState<Set<string>>(
     () => new Set([
@@ -88,7 +95,7 @@ export default function MaterialsModal({
     'https://images.unsplash.com/photo-1521119989659-a83eee488004?w=700&q=80',
   ];
 
-  const trafficBannerItems = [
+  const normalItems = [
     'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=400&q=80',
     'https://images.unsplash.com/photo-1557683316-973673baf926?w=400&q=80',
     'https://images.unsplash.com/photo-1558591710-4b4a1ae0f04d?w=400&q=80',
@@ -104,7 +111,7 @@ export default function MaterialsModal({
     setLibraryPage(1);
   };
 
-  const toggleFolder = (folder: 'personal' | 'public' | 'traffic') => {
+  const toggleFolder = (folder: 'personal' | 'public') => {
     setExpandedFolders(prev => ({ ...prev, [folder]: !prev[folder] }));
   };
 
@@ -127,11 +134,11 @@ export default function MaterialsModal({
   const allVisibleMaterials = useMemo<MaterialEntry[]>(() => {
     const sourceBuckets: MaterialEntry[] = [
       ...personalList.map((url) => ({ url, source: 'personal' as const })),
-      ...publicLogoItems.map((url) => ({ url, source: 'public-logo' as const })),
-      ...ipCharacterItems.map((url) => ({ url, source: 'public-ip' as const })),
-      ...campaignItems.map((url) => ({ url, source: 'public-campaign' as const })),
-      ...cutoutItems.map((url) => ({ url, source: 'public-cutout' as const })),
-      ...trafficBannerItems.map((url) => ({ url, source: 'traffic-banner' as const })),
+      ...publicLogoItems.map((url) => ({ url, source: 'public-bocom' as const })),
+      ...ipCharacterItems.map((url) => ({ url, source: 'public-xiaofulu' as const })),
+      ...campaignItems.map((url) => ({ url, source: 'public-shanxi-xiaofulu' as const })),
+      ...cutoutItems.map((url) => ({ url, source: 'public-center' as const })),
+      ...normalItems.map((url) => ({ url, source: 'public-normal' as const })),
     ];
     const seen = new Set<string>();
     return sourceBuckets.filter(({ url }) => {
@@ -147,7 +154,7 @@ export default function MaterialsModal({
     ipCharacterItems,
     campaignItems,
     cutoutItems,
-    trafficBannerItems,
+    normalItems,
     deletedUrls,
     searchQuery,
   ]);
@@ -212,7 +219,7 @@ export default function MaterialsModal({
     </div>
   );
 
-  const renderMaterialCard = (url: string, subType?: string, canDelete = true) => {
+  const renderMaterialCard = (url: string, subType?: string, canDelete = false) => {
     const isFavorite = favoriteUrls.has(url);
     return (
       <div
@@ -306,7 +313,7 @@ export default function MaterialsModal({
             </div>
           ) : (
             <div className="grid grid-cols-5 gap-3">
-              {personalPagination.data.map((url) => renderMaterialCard(url, 'personal'))}
+              {personalPagination.data.map((url) => renderMaterialCard(url, 'personal', true))}
             </div>
           )}
         </section>
@@ -314,7 +321,7 @@ export default function MaterialsModal({
     );
   };
 
-  const renderLibraryContent = (title: string, source: string[]) => {
+  const renderLibraryContent = (title: string, source: string[], subType: string) => {
     const filtered = source.filter((url) =>
       !deletedUrls.has(url) && (searchQuery ? url.toLowerCase().includes(searchQuery.toLowerCase()) : true)
     );
@@ -331,7 +338,7 @@ export default function MaterialsModal({
           </div>
         ) : (
           <div className="grid grid-cols-5 gap-3">
-            {pagination.data.map((url) => renderMaterialCard(url))}
+            {pagination.data.map((url) => renderMaterialCard(url, subType))}
           </div>
         )}
       </div>
@@ -342,19 +349,22 @@ export default function MaterialsModal({
     if (activeTab === 'personal') {
       return renderPersonalContent();
     }
-    if (activeTab === 'public-logo') {
-      return renderLibraryContent('官方logo', publicLogoItems);
+    if (activeTab === 'public-bocom') {
+      return renderLibraryContent('交通银行', publicLogoItems, 'public-bocom');
     }
-    if (activeTab === 'public-ip') {
-      return renderLibraryContent('IP人物', ipCharacterItems);
+    if (activeTab === 'public-xiaofulu') {
+      return renderLibraryContent('小福鹿', ipCharacterItems, 'public-xiaofulu');
     }
-    if (activeTab === 'public-campaign') {
-      return renderLibraryContent('中心宣传', campaignItems);
+    if (activeTab === 'public-shanxi-xiaofulu') {
+      return renderLibraryContent('陕西分行特色小福鹿', campaignItems, 'public-shanxi-xiaofulu');
     }
-    if (activeTab === 'public-cutout') {
-      return renderLibraryContent('免抠素材', cutoutItems);
+    if (activeTab === 'public-center') {
+      return renderLibraryContent('中心宣传', cutoutItems, 'public-center');
     }
-    return renderLibraryContent('通用运营入口banner背景图', trafficBannerItems);
+    if (activeTab === 'public-normal') {
+      return renderLibraryContent('免抠素材', normalItems, 'public-normal');
+    }
+    return null;
   };
 
   const menuButtonClass = (isActive: boolean) =>
@@ -418,19 +428,19 @@ export default function MaterialsModal({
               </button>
               {expandedFolders.public && (
                 <div className="space-y-1 pl-2">
-                  <button onClick={() => handleTabChange('public-logo')} className={menuButtonClass(activeTab === 'public-logo')}>
+                  <button onClick={() => handleTabChange('public-bocom')} className={menuButtonClass(activeTab === 'public-bocom')}>
                     交通银行
                   </button>
-                  <button onClick={() => handleTabChange('public-ip')} className={menuButtonClass(activeTab === 'public-ip')}>
+                  <button onClick={() => handleTabChange('public-xiaofulu')} className={menuButtonClass(activeTab === 'public-xiaofulu')}>
                     小福鹿
                   </button>
-                  <button onClick={() => handleTabChange('public-campaign')} className={menuButtonClass(activeTab === 'public-campaign')}>
+                  <button onClick={() => handleTabChange('public-shanxi-xiaofulu')} className={menuButtonClass(activeTab === 'public-shanxi-xiaofulu')}>
                     陕西分行特色小福鹿
                   </button>
-                  <button onClick={() => handleTabChange('public-cutout')} className={menuButtonClass(activeTab === 'public-cutout')}>
-                    中心素材
+                  <button onClick={() => handleTabChange('public-center')} className={menuButtonClass(activeTab === 'public-center')}>
+                    中心宣传
                   </button>
-                  <button onClick={() => handleTabChange('public-logo')} className={menuButtonClass(activeTab === 'public-logo')}>
+                  <button onClick={() => handleTabChange('public-normal')} className={menuButtonClass(activeTab === 'public-normal')}>
                     免抠素材
                   </button>
                 </div>
