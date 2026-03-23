@@ -23,6 +23,7 @@ import clsx from 'clsx';
 import Feedback from './pages/Feedback';
 
 import MaterialManagement from './pages/MaterialManagement';
+import { ToastProvider } from './components/ToastProvider';
 
 function Layout() {
   const location = useLocation();
@@ -75,9 +76,11 @@ function Layout() {
 function App() {
   return (
     <ProjectProvider>
-      <Router>
-        <Layout />
-      </Router>
+      <ToastProvider>
+        <Router>
+          <Layout />
+        </Router>
+      </ToastProvider>
     </ProjectProvider>
   );
 }

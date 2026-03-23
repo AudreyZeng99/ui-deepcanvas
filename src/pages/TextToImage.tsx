@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useProject } from '../context/ProjectContext';
+import { useToast } from '../components/ToastProvider';
 
 const STYLES = [
   { id: 'none', label: '无风格' },
@@ -34,6 +35,7 @@ import ExportModal from '../components/ExportModal';
 export default function TextToImage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const { createProject } = useProject();
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
@@ -530,8 +532,7 @@ export default function TextToImage() {
         onExport={(settings) => {
           console.log('Exporting with settings:', settings);
           setIsExportModalOpen(false);
-          // Show toast or alert
-          alert('导出成功！');
+          toast.success('导出成功');
         }}
       />
     </div>

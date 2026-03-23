@@ -111,9 +111,11 @@ import MaterialsModal from '../components/MaterialsModal';
 import ExportModal from '../components/ExportModal';
 import { Tooltip } from '../components/Tooltip';
 import { useProject } from '../context/ProjectContext';
+import { useToast } from '../components/ToastProvider';
 
 export default function Editor() {
   const { currentProject, createProject, updateProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
+  const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Element Management
@@ -326,6 +328,15 @@ export default function Editor() {
   }, [currentProject?.id, currentProject?.width, currentProject?.height, currentProject?.aiResizeBinding?.defaultPrompt]);
 
   useEffect(() => {
+    if (!currentProject) return;
+    const nextElements = Array.isArray(currentProject.elements) ? (currentProject.elements as any[]) : [];
+    setElements(nextElements as any);
+    setSelectedElement(null);
+    setSelectedElementIds([]);
+    setSelectedContent('');
+  }, [currentProject?.id, currentProject?.elements]);
+
+  useEffect(() => {
     return () => {
       if (aiResizeTimerRef.current) {
         window.clearTimeout(aiResizeTimerRef.current);
@@ -376,7 +387,7 @@ export default function Editor() {
     }
 
     if (projects.length >= 5) {
-      alert('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
+      toast.show('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
       return;
     }
 
@@ -391,11 +402,11 @@ export default function Editor() {
 
     const status = validateSave(nextName);
     if (status === 'limit_reached') {
-      alert('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
+      toast.show('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
       return;
     }
     if (status === 'duplicate_name') {
-      alert('文件名已存在，请使用其他名称');
+      toast.show('文件名已存在，请使用其他名称');
       return;
     }
 
@@ -536,11 +547,11 @@ export default function Editor() {
     if (!currentProject || !currentProject.aiResizeBinding) return;
     if (isAiResizeRunning) return;
     if (!aiResizePrompt.trim()) {
-      alert('请先输入提示词再保存。');
+      toast.show('请先输入提示词再保存。');
       return;
     }
     if (targetCanvasSize.width <= 0 || targetCanvasSize.height <= 0) {
-      alert('目标尺寸必须大于 0。');
+      toast.show('目标尺寸必须大于 0。');
       return;
     }
     const pendingPrompt = aiResizePrompt.trim();
@@ -3632,7 +3643,7 @@ export default function Editor() {
           onExport={(settings) => {
             console.log('Exporting with settings:', settings);
             setIsExportModalOpen(false);
-            alert('导出成功！');
+            toast.success('导出成功');
           }}
         />
 

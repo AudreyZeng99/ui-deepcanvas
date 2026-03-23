@@ -1,11 +1,13 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Clock, Trash2, Folder, Share2, X, Image as ImageIcon, ArrowRight, PackagePlus } from 'lucide-react';
-import { Project, useProject } from '../context/ProjectContext';
+import { Plus, Clock, Trash2, Folder, Share2, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check } from 'lucide-react';
+import { Project, SpaceImageRecord, useProject } from '../context/ProjectContext';
 import clsx from 'clsx';
-import { useTheme } from '../theme/ThemeContext';
+import CreateCanvasModal from '../components/CreateCanvasModal';
+import { useToast } from '../components/ToastProvider';
+import { createP2PShareRecord, makeTemplateElements, resolveP2PShareRecord, type P2PShareRecord } from '../utils/p2pShare';
 
-type SpaceView = 'projects' | 'images' | 'p2p';
+type SpaceView = 'projects' | 'favorites' | 'gen-assets' | 'edit-assets' | 'export-assets' | 'p2p';
 
 type SpaceMode = 'personal' | 'public';
 
@@ -19,14 +21,14 @@ type PublicProject = Pick<
   sourceProjectId?: string;
 };
 
-type P2PShareRecord = {
-  code: string;
-  project: Project;
-  createdAt: number;
-};
-
 const PUBLIC_PROJECTS_STORAGE_KEY = 'trae_deepcanvas_public_projects_v1';
-const P2P_SHARE_STORAGE_KEY = 'trae_deepcanvas_p2p_share_codes_v1';
+const PERSONAL_SPACE_TITLE_STORAGE_KEY = 'trae_deepcanvas_personal_space_title_v1';
+const SPACE_ASSET_AUDIT_MAP_STORAGE_KEY = 'trae_deepcanvas_space_asset_audit_map_v1';
+
+type AssetAuditRecord = {
+  xiaobao: boolean;
+  experience: boolean;
+};
 
 function getDefaultPublicProjects(): PublicProject[] {
   const now = Date.now();
@@ -83,42 +85,52 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
-function generateShareCode(existingCodes: Set<string>) {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let tries = 0;
-  while (tries < 20) {
-    const code = Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
-    if (!existingCodes.has(code)) return code;
-    tries += 1;
-  }
-  return `${Date.now().toString(36).slice(-8)}`.toUpperCase();
-}
-
 export default function Projects() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { theme } = useTheme();
-  const isGlass = theme.id.includes('glass');
+  const toast = useToast();
   const {
     projects,
     personalImages,
+    currentProject,
     loadProject,
     deleteProject,
     createProject,
+    updateProject,
     saveProject,
   } = useProject();
 
   const space: SpaceMode = location.pathname.startsWith('/public') ? 'public' : 'personal';
   const [view, setView] = useState<SpaceView>('projects');
+  const [favoritesTab, setFavoritesTab] = useState<'inspiration' | 'prompts' | 'templates'>('inspiration');
+  const [isHydrating, setIsHydrating] = useState(true);
+  const [isCreateCanvasModalOpen, setIsCreateCanvasModalOpen] = useState(false);
+  const [personalSpaceTitle, setPersonalSpaceTitle] = useState(() => {
+    const stored = localStorage.getItem(PERSONAL_SPACE_TITLE_STORAGE_KEY);
+    return stored?.trim() ? stored : '个人空间';
+  });
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(personalSpaceTitle);
+  const [isTitleHover, setIsTitleHover] = useState(false);
+  const [assetAuditMap, setAssetAuditMap] = useState<Record<string, AssetAuditRecord>>(() => {
+    return safeParseJson<Record<string, AssetAuditRecord>>(localStorage.getItem(SPACE_ASSET_AUDIT_MAP_STORAGE_KEY), {});
+  });
+  const [isGenAssetsSelecting, setIsGenAssetsSelecting] = useState(false);
+  const [selectedGenAssetIds, setSelectedGenAssetIds] = useState<Set<string>>(() => new Set());
+  const [isEditAssetsSelecting, setIsEditAssetsSelecting] = useState(false);
+  const [selectedEditAssetIds, setSelectedEditAssetIds] = useState<Set<string>>(() => new Set());
+  const [isExportAssetsSelecting, setIsExportAssetsSelecting] = useState(false);
+  const [selectedExportAssetIds, setSelectedExportAssetIds] = useState<Set<string>>(() => new Set());
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [publicProjects] = useState<PublicProject[]>(() => {
     const parsed = safeParseJson<PublicProject[]>(localStorage.getItem(PUBLIC_PROJECTS_STORAGE_KEY), []);
     return Array.isArray(parsed) && parsed.length > 0 ? parsed : getDefaultPublicProjects();
   });
   const [importShareCode, setImportShareCode] = useState('');
   const [generatedShareCode, setGeneratedShareCode] = useState<string | null>(null);
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
+  const [redeemRecord, setRedeemRecord] = useState<P2PShareRecord | null>(null);
 
   const visibleProjects = useMemo(() => {
     return space === 'public' ? publicProjects : projects;
@@ -128,23 +140,295 @@ export default function Projects() {
     return personalImages;
   }, [personalImages]);
 
+  const projectById = useMemo(() => {
+    const map = new Map<string, Project>();
+    projects.forEach((p) => map.set(p.id, p));
+    return map;
+  }, [projects]);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setIsHydrating(false));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const moduleParam = params.get('module');
+    const assetParam = params.get('asset');
+    const favParam = params.get('fav');
+    if (moduleParam === 'assets') {
+      setView(assetParam === 'edit' ? 'edit-assets' : assetParam === 'export' ? 'export-assets' : 'gen-assets');
+    } else if (moduleParam === 'favorites') {
+      setView('favorites');
+      if (favParam === 'prompts' || favParam === 'templates' || favParam === 'inspiration') {
+        setFavoritesTab(favParam as any);
+      }
+    } else if (moduleParam === 'p2p') {
+      setView('p2p');
+    } else {
+      setView('projects');
+    }
+  }, [location.search]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const currentModule = params.get('module');
+    let nextModule = currentModule;
+    let assetParam = params.get('asset');
+    let favParam = params.get('fav');
+    if (view === 'projects') {
+      nextModule = 'projects';
+      params.delete('asset');
+      params.delete('fav');
+    } else if (view === 'p2p') {
+      nextModule = 'p2p';
+      params.delete('asset');
+      params.delete('fav');
+    } else if (view === 'favorites') {
+      nextModule = 'favorites';
+      favParam = favoritesTab;
+      params.set('fav', favParam);
+      params.delete('asset');
+    } else {
+      nextModule = 'assets';
+      assetParam = view === 'edit-assets' ? 'edit' : view === 'export-assets' ? 'export' : 'gen';
+      params.set('asset', assetParam);
+      params.delete('fav');
+    }
+    params.set('module', nextModule || 'projects');
+    const nextSearch = params.toString();
+    const currentSearch = location.search.replace(/^\?/, '');
+    if (nextSearch !== currentSearch) {
+      navigate({ pathname: location.pathname, search: nextSearch }, { replace: false });
+    }
+  }, [view, favoritesTab]);
+
+  const generatedAssets = useMemo(() => {
+    return visibleImages.filter((img) => projectById.get(img.projectId)?.sourceType === 'text-to-image');
+  }, [visibleImages, projectById]);
+
+  const editedAssets = useMemo(() => {
+    return visibleImages.filter((img) => projectById.get(img.projectId)?.sourceType !== 'text-to-image');
+  }, [visibleImages, projectById]);
+
+  const exportedAssets = useMemo(() => {
+    return visibleImages;
+  }, [visibleImages]);
+
+  const demoAuditedAssetIds = useMemo(() => {
+    return new Set(['demo-gen-2', 'demo-gen-5', 'demo-edit-1', 'demo-edit-4', 'demo-exp-3', 'demo-exp-6']);
+  }, []);
+
+  const demoGeneratedAssets = useMemo<SpaceImageRecord[]>(() => {
+    const now = Date.now();
+    return [
+      { id: 'demo-gen-1', url: 'https://picsum.photos/seed/deepcanvas-gen-1/900/1200', projectId: 'demo-gen', projectName: '生图示例 A', projectLastModified: now - 1000 * 60 * 12 },
+      { id: 'demo-gen-2', url: 'https://picsum.photos/seed/deepcanvas-gen-2/900/700', projectId: 'demo-gen', projectName: '生图示例 B', projectLastModified: now - 1000 * 60 * 40 },
+      { id: 'demo-gen-3', url: 'https://picsum.photos/seed/deepcanvas-gen-3/900/1400', projectId: 'demo-gen', projectName: '生图示例 C', projectLastModified: now - 1000 * 60 * 70 },
+      { id: 'demo-gen-4', url: 'https://picsum.photos/seed/deepcanvas-gen-4/900/900', projectId: 'demo-gen', projectName: '生图示例 D', projectLastModified: now - 1000 * 60 * 95 },
+      { id: 'demo-gen-5', url: 'https://picsum.photos/seed/deepcanvas-gen-5/900/1100', projectId: 'demo-gen', projectName: '生图示例 E', projectLastModified: now - 1000 * 60 * 160 },
+      { id: 'demo-gen-6', url: 'https://picsum.photos/seed/deepcanvas-gen-6/900/760', projectId: 'demo-gen', projectName: '生图示例 F', projectLastModified: now - 1000 * 60 * 210 },
+      { id: 'demo-gen-7', url: 'https://picsum.photos/seed/deepcanvas-gen-7/900/1320', projectId: 'demo-gen', projectName: '生图示例 G', projectLastModified: now - 1000 * 60 * 280 },
+      { id: 'demo-gen-8', url: 'https://picsum.photos/seed/deepcanvas-gen-8/900/820', projectId: 'demo-gen', projectName: '生图示例 H', projectLastModified: now - 1000 * 60 * 360 },
+    ];
+  }, []);
+
+  const demoEditedAssets = useMemo<SpaceImageRecord[]>(() => {
+    const now = Date.now();
+    return [
+      { id: 'demo-edit-1', url: 'https://picsum.photos/seed/deepcanvas-edit-1/900/980', projectId: 'demo-edit', projectName: '编辑示例 A', projectLastModified: now - 1000 * 60 * 15 },
+      { id: 'demo-edit-2', url: 'https://picsum.photos/seed/deepcanvas-edit-2/900/760', projectId: 'demo-edit', projectName: '编辑示例 B', projectLastModified: now - 1000 * 60 * 55 },
+      { id: 'demo-edit-3', url: 'https://picsum.photos/seed/deepcanvas-edit-3/900/1280', projectId: 'demo-edit', projectName: '编辑示例 C', projectLastModified: now - 1000 * 60 * 120 },
+      { id: 'demo-edit-4', url: 'https://picsum.photos/seed/deepcanvas-edit-4/900/700', projectId: 'demo-edit', projectName: '编辑示例 D', projectLastModified: now - 1000 * 60 * 200 },
+      { id: 'demo-edit-5', url: 'https://picsum.photos/seed/deepcanvas-edit-5/900/1180', projectId: 'demo-edit', projectName: '编辑示例 E', projectLastModified: now - 1000 * 60 * 300 },
+      { id: 'demo-edit-6', url: 'https://picsum.photos/seed/deepcanvas-edit-6/900/900', projectId: 'demo-edit', projectName: '编辑示例 F', projectLastModified: now - 1000 * 60 * 430 },
+    ];
+  }, []);
+
+  const demoExportedAssets = useMemo<SpaceImageRecord[]>(() => {
+    const now = Date.now();
+    return [
+      { id: 'demo-exp-1', url: 'https://picsum.photos/seed/deepcanvas-exp-1/900/760', projectId: 'demo-exp', projectName: '导出示例 A', projectLastModified: now - 1000 * 60 * 8 },
+      { id: 'demo-exp-2', url: 'https://picsum.photos/seed/deepcanvas-exp-2/900/1340', projectId: 'demo-exp', projectName: '导出示例 B', projectLastModified: now - 1000 * 60 * 32 },
+      { id: 'demo-exp-3', url: 'https://picsum.photos/seed/deepcanvas-exp-3/900/900', projectId: 'demo-exp', projectName: '导出示例 C', projectLastModified: now - 1000 * 60 * 88 },
+      { id: 'demo-exp-4', url: 'https://picsum.photos/seed/deepcanvas-exp-4/900/1120', projectId: 'demo-exp', projectName: '导出示例 D', projectLastModified: now - 1000 * 60 * 140 },
+      { id: 'demo-exp-5', url: 'https://picsum.photos/seed/deepcanvas-exp-5/900/740', projectId: 'demo-exp', projectName: '导出示例 E', projectLastModified: now - 1000 * 60 * 260 },
+      { id: 'demo-exp-6', url: 'https://picsum.photos/seed/deepcanvas-exp-6/900/1250', projectId: 'demo-exp', projectName: '导出示例 F', projectLastModified: now - 1000 * 60 * 420 },
+    ];
+  }, []);
+
+  const displayGeneratedAssets = useMemo(() => {
+    return generatedAssets.length > 0 ? generatedAssets : demoGeneratedAssets;
+  }, [generatedAssets, demoGeneratedAssets]);
+
+  const displayEditedAssets = useMemo(() => {
+    return editedAssets.length > 0 ? editedAssets : demoEditedAssets;
+  }, [editedAssets, demoEditedAssets]);
+
+  const displayExportedAssets = useMemo(() => {
+    return exportedAssets.length > 0 ? exportedAssets : demoExportedAssets;
+  }, [exportedAssets, demoExportedAssets]);
+
   const shareTargetProject = useMemo(() => {
     if (!shareProjectId) return null;
     return projects.find(p => p.id === shareProjectId) || null;
   }, [projects, shareProjectId]);
 
-  const doToast = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(null), 1800);
+  const doToast = (message: string) => toast.show(message);
+
+  useEffect(() => {
+    if (view !== 'gen-assets') {
+      setIsGenAssetsSelecting(false);
+      setSelectedGenAssetIds(new Set());
+    }
+    if (view !== 'edit-assets') {
+      setIsEditAssetsSelecting(false);
+      setSelectedEditAssetIds(new Set());
+    }
+    if (view !== 'export-assets') {
+      setIsExportAssetsSelecting(false);
+      setSelectedExportAssetIds(new Set());
+    }
+  }, [view]);
+
+  const persistPersonalSpaceTitle = (nextTitle: string) => {
+    const normalized = nextTitle.trim() ? nextTitle.trim() : '个人空间';
+    setPersonalSpaceTitle(normalized);
+    setTitleDraft(normalized);
+    localStorage.setItem(PERSONAL_SPACE_TITLE_STORAGE_KEY, normalized);
+    doToast('标题已更新');
+  };
+
+  const persistAssetAuditMap = (nextMap: Record<string, AssetAuditRecord>) => {
+    setAssetAuditMap(nextMap);
+    localStorage.setItem(SPACE_ASSET_AUDIT_MAP_STORAGE_KEY, JSON.stringify(nextMap));
+  };
+
+  const getAuditedLabel = (assetId: string) => {
+    const record = assetAuditMap[assetId];
+    if (!record && demoAuditedAssetIds.has(assetId)) return '已审核';
+    return record?.xiaobao && record?.experience ? '已审核' : '未审核';
+  };
+
+  const markAssetsAudited = (type: keyof AssetAuditRecord) => {
+    const items =
+      view === 'gen-assets'
+        ? displayGeneratedAssets
+        : view === 'edit-assets'
+          ? displayEditedAssets
+          : view === 'export-assets'
+            ? displayExportedAssets
+            : [];
+
+    if (items.length === 0) {
+      doToast('当前没有可审核的资产');
+      return;
+    }
+
+    if (view !== 'gen-assets' && view !== 'edit-assets' && view !== 'export-assets') {
+      doToast('请先进入资产页');
+      return;
+    }
+
+    const nextMap: Record<string, AssetAuditRecord> = { ...assetAuditMap };
+    items.forEach((item) => {
+      const prev = nextMap[item.id] || { xiaobao: false, experience: false };
+      nextMap[item.id] = { ...prev, [type]: true };
+    });
+    persistAssetAuditMap(nextMap);
+    doToast(`已完成${type === 'xiaobao' ? '消保' : '体验'}审核`);
+  };
+
+  const toggleGenAssetsSelecting = () => {
+    setIsGenAssetsSelecting((prev) => {
+      const next = !prev;
+      if (!next) setSelectedGenAssetIds(new Set());
+      return next;
+    });
+  };
+
+  const toggleGenAssetSelected = (assetId: string) => {
+    setSelectedGenAssetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
+  };
+
+  const toggleEditAssetsSelecting = () => {
+    setIsEditAssetsSelecting((prev) => {
+      const next = !prev;
+      if (!next) setSelectedEditAssetIds(new Set());
+      return next;
+    });
+  };
+
+  const toggleEditAssetSelected = (assetId: string) => {
+    setSelectedEditAssetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
+  };
+
+  const toggleExportAssetsSelecting = () => {
+    setIsExportAssetsSelecting((prev) => {
+      const next = !prev;
+      if (!next) setSelectedExportAssetIds(new Set());
+      return next;
+    });
+  };
+
+  const toggleExportAssetSelected = (assetId: string) => {
+    setSelectedExportAssetIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(assetId)) next.delete(assetId);
+      else next.add(assetId);
+      return next;
+    });
+  };
+
+  const sendSelectedAssetsToAudit = (type: keyof AssetAuditRecord) => {
+    if (view !== 'gen-assets' && view !== 'edit-assets' && view !== 'export-assets') {
+      doToast('请先进入资产页');
+      return;
+    }
+
+    const selectedIds =
+      view === 'gen-assets'
+        ? selectedGenAssetIds
+        : view === 'edit-assets'
+          ? selectedEditAssetIds
+          : selectedExportAssetIds;
+
+
+    if (selectedIds.size === 0) {
+      doToast('请先勾选资产');
+      return;
+    }
+
+    const nextMap: Record<string, AssetAuditRecord> = { ...assetAuditMap };
+    Array.from(selectedIds).forEach((assetId) => {
+      const prev = nextMap[assetId] || { xiaobao: false, experience: false };
+      nextMap[assetId] = { ...prev, [type]: true };
+    });
+    persistAssetAuditMap(nextMap);
+    doToast(`已送 ${selectedIds.size} 张到${type === 'xiaobao' ? '消保' : '体验'}审核`);
+
+    if (view === 'gen-assets') setSelectedGenAssetIds(new Set());
+    if (view === 'edit-assets') setSelectedEditAssetIds(new Set());
+    if (view === 'export-assets') setSelectedExportAssetIds(new Set());
   };
 
   const handleCreateNew = () => {
     if (space === 'public') return;
     if (projects.length >= 5) {
-      alert('已达到个人文件数量上限 (5个)。请先删除部分旧文件。');
+      doToast('已达到个人文件数量上限 (5个)。请先删除部分旧文件。');
       return;
     }
-    navigate('/editor');
+    setIsCreateCanvasModalOpen(true);
   };
 
   const handleProjectClick = (id: string) => {
@@ -154,7 +438,7 @@ export default function Projects() {
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm('确认删除该项目吗？')) {
+    if (confirm('确认删除该设计吗？')) {
       deleteProject(id);
     }
   };
@@ -172,50 +456,166 @@ export default function Projects() {
     setGeneratedShareCode(null);
   };
 
+  const closeRedeemModal = () => {
+    setIsRedeemModalOpen(false);
+    setRedeemRecord(null);
+  };
+
+  const getRedeemPreviewUrl = (record: P2PShareRecord | null) => {
+    if (!record) return null;
+    if (record.kind === 'inspiration') return record.payload.imageUrl;
+    if (record.kind === 'public_template') return record.payload.previewImageUrl;
+    return record.payload.project.thumbnail || null;
+  };
+
+  const applyTemplateToCanvas = (next: { width: number; height: number; elements: any[]; thumbnail?: string | null }) => {
+    const canvasHasContent = (currentProject?.elements?.length || 0) > 0;
+    if (canvasHasContent) {
+      const ok = window.confirm('当前创建设计画布非空，继续将覆盖现有内容吗？');
+      if (!ok) return;
+    }
+
+    if (!currentProject) {
+      createProject(next.width, next.height, 'Untitled Project', {
+        elements: next.elements,
+        thumbnail: next.thumbnail || undefined,
+        sourceType: 'manual',
+      });
+      navigate('/editor');
+      doToast('已应用到画布');
+      return;
+    }
+
+    updateProject({
+      width: next.width,
+      height: next.height,
+      elements: next.elements,
+      thumbnail: next.thumbnail || undefined,
+      sourceType: 'manual',
+    });
+    navigate('/editor');
+    doToast('已应用到画布');
+  };
+
+  const handleApplyRedeemedTemplate = () => {
+    if (!redeemRecord) return;
+    const previewUrl = getRedeemPreviewUrl(redeemRecord);
+    if (redeemRecord.kind === 'personal_design') {
+      const source = redeemRecord.payload.project;
+      applyTemplateToCanvas({
+        width: source.width,
+        height: source.height,
+        elements: Array.isArray(source.elements) ? source.elements : [],
+        thumbnail: source.thumbnail || previewUrl,
+      });
+      closeRedeemModal();
+      return;
+    }
+
+    if (redeemRecord.kind === 'public_template') {
+      const elements = Array.isArray(redeemRecord.payload.elements)
+        ? redeemRecord.payload.elements
+        : makeTemplateElements(
+            redeemRecord.payload.previewImageUrl,
+            redeemRecord.payload.width || 1080,
+            redeemRecord.payload.height || 1920
+          );
+      applyTemplateToCanvas({
+        width: redeemRecord.payload.width || 1080,
+        height: redeemRecord.payload.height || 1920,
+        elements,
+        thumbnail: redeemRecord.payload.previewImageUrl || previewUrl,
+      });
+      closeRedeemModal();
+      return;
+    }
+  };
+
+  const handleDoSameInspiration = () => {
+    if (!redeemRecord || redeemRecord.kind !== 'inspiration') return;
+    navigate('/text-to-image', { state: { prompt: redeemRecord.payload.prompt } });
+    closeRedeemModal();
+  };
+
+  const handleShareTestInspiration = async () => {
+    const seed =
+      redeemRecord?.kind === 'inspiration'
+        ? redeemRecord.payload
+        : {
+            title: '灵感示例',
+            imageUrl: 'https://picsum.photos/seed/deepcanvas-inspiration/800/600',
+            prompt: '一只穿着西装的猫，电影感光影，超清细节，商业海报构图',
+          };
+    const record = createP2PShareRecord({ kind: 'inspiration', payload: seed });
+    try {
+      await navigator.clipboard.writeText(record.code);
+      doToast('口令已复制');
+    } catch {
+      doToast('口令已生成');
+    }
+  };
+
+  const handleShareTestPublicTemplate = async () => {
+    const previewUrl = getRedeemPreviewUrl(redeemRecord) || 'https://picsum.photos/seed/deepcanvas-template/900/1600';
+    const record = createP2PShareRecord({
+      kind: 'public_template',
+      payload: {
+        title: '公共模板示例',
+        previewImageUrl: previewUrl,
+        width: 1080,
+        height: 1920,
+        elements: makeTemplateElements(previewUrl, 1080, 1920),
+        sourceLabel: '公共模板',
+      },
+    });
+    try {
+      await navigator.clipboard.writeText(record.code);
+      doToast('口令已复制');
+    } catch {
+      doToast('口令已生成');
+    }
+  };
+
+  const handleShareTestPersonalDesign = async () => {
+    const project = projects[0];
+    if (!project) {
+      doToast('暂无可分享的个人设计');
+      return;
+    }
+    const record = createP2PShareRecord({ kind: 'personal_design', payload: { project } });
+    try {
+      await navigator.clipboard.writeText(record.code);
+      doToast('口令已复制');
+    } catch {
+      doToast('口令已生成');
+    }
+  };
+
   const handleGenerateP2PShareCode = async () => {
     if (!shareTargetProject) return;
-    const recordMap = safeParseJson<Record<string, P2PShareRecord>>(localStorage.getItem(P2P_SHARE_STORAGE_KEY), {});
-    const existingCodes = new Set(Object.keys(recordMap));
-    const code = generateShareCode(existingCodes);
-    recordMap[code] = {
-      code,
-      project: shareTargetProject,
-      createdAt: Date.now(),
-    };
-    localStorage.setItem(P2P_SHARE_STORAGE_KEY, JSON.stringify(recordMap));
-    setGeneratedShareCode(code);
+    const record = createP2PShareRecord({
+      kind: 'personal_design',
+      payload: { project: shareTargetProject },
+    });
+    setGeneratedShareCode(record.code);
     try {
-      await navigator.clipboard.writeText(code);
-      doToast('分享码已复制');
+      await navigator.clipboard.writeText(record.code);
+      doToast('口令已复制');
     } catch {
-      doToast('分享码已生成');
+      doToast('口令已生成');
     }
   };
 
   const handleImportSharedProject = () => {
     if (!importShareCode.trim()) return;
-    if (projects.length >= 5) {
-      doToast('已达到个人文件数量上限 (5个)');
-      return;
-    }
-    const recordMap = safeParseJson<Record<string, P2PShareRecord>>(localStorage.getItem(P2P_SHARE_STORAGE_KEY), {});
     const code = importShareCode.trim().toUpperCase();
-    const record = recordMap[code];
+    const record = resolveP2PShareRecord(code);
     if (!record) {
-      doToast('分享码无效或已失效');
+      doToast('口令无效或已失效');
       return;
     }
-    const source = record.project;
-    const name = `${source.name}（分享）`;
-    createProject(source.width, source.height, name, {
-      elements: source.elements || [],
-      thumbnail: source.thumbnail,
-      sourceType: source.sourceType,
-      aiResizeBinding: source.aiResizeBinding,
-    });
-    saveProject();
-    setImportShareCode('');
-    doToast('已导入到个人空间');
+    setRedeemRecord(record);
+    setIsRedeemModalOpen(true);
   };
 
   const handleForkPublicProject = (publicProject: PublicProject) => {
@@ -238,15 +638,12 @@ export default function Projects() {
     if (visibleProjects.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-            <Folder size={48} className="text-gray-300" />
-          </div>
-          <h3 className="text-xl font-bold mb-2">{space === 'public' ? '公共空间暂无作品' : '还没有项目'}</h3>
-          <p className="text-gray-500 max-w-sm mb-8">
-            {space === 'public' ? '先在个人空间把项目发布到公共空间，这里会展示社区作品。' : '从新建项目开始，创建你的第一张画布。'}
+          <h3 className="text-lg font-semibold text-gray-900">{space === 'public' ? '公共空间暂无作品' : '还没有设计'}</h3>
+          <p className="text-sm text-gray-500 max-w-sm mt-2 mb-8">
+            {space === 'public' ? '先在个人空间把设计发布到公共空间，这里会展示社区作品。' : '从新建设计开始，创建你的第一张画布。'}
           </p>
           {space !== 'public' && (
-            <button onClick={handleCreateNew} className="text-accent-primary font-medium hover:underline">
+            <button onClick={handleCreateNew} className="btn-ion">
               新建画布
             </button>
           )}
@@ -263,7 +660,7 @@ export default function Projects() {
               if (space === 'public') handleForkPublicProject(project as PublicProject);
               else handleProjectClick(project.id);
             }}
-            className="group relative bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer"
+            className="group relative rounded-2xl border border-black/5 bg-white overflow-hidden hover:border-black/10 hover:shadow-sm transition-all duration-200 cursor-pointer"
           >
             <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center relative overflow-hidden">
               {project.thumbnail ? (
@@ -273,21 +670,17 @@ export default function Projects() {
                   <Folder size={32} className="text-gray-300" />
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors" />
               {space !== 'public' ? (
-                <div className="absolute left-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={(e) => openShareModal(e, project.id)}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/90 backdrop-blur border border-gray-200 text-gray-900 text-xs font-bold shadow-sm hover:bg-white"
-                    title="分享项目"
-                  >
-                    <Share2 size={14} />
-                    分享
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => openShareModal(e, project.id)}
+                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white"
+                  title="分享口令"
+                >
+                  <Share2 size={16} />
+                </button>
               ) : (
                 <div className="absolute left-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/90 backdrop-blur border border-gray-200 text-gray-900 text-xs font-bold shadow-sm">
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/90 border border-black/10 text-gray-900 text-xs font-semibold">
                     <PackagePlus size={14} />
                     一键复用
                   </div>
@@ -296,19 +689,19 @@ export default function Projects() {
             </div>
 
             <div className="p-4">
-              <div className="flex items-start justify-between mb-2">
-                <h3 className="font-bold truncate pr-4">{project.name}</h3>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="text-sm font-semibold text-gray-900 truncate">{project.name}</h3>
                 {space !== 'public' && (
                   <button
                     onClick={(e) => handleDelete(e, project.id)}
-                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                    className="p-2 -m-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
                     title="删除"
                   >
                     <Trash2 size={16} />
                   </button>
                 )}
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
+              <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
                 <Clock size={12} />
                 <span>{new Date(space === 'public' ? project.publishedAt : project.lastModified).toLocaleDateString()}</span>
               </div>
@@ -319,31 +712,293 @@ export default function Projects() {
     );
   };
 
-  const renderImagesView = () => {
-    if (visibleImages.length === 0) {
+  const renderAssetsModule = () => {
+    const setAssetView = (next: 'gen-assets' | 'edit-assets' | 'export-assets') => setView(next);
+    const showSelection =
+      view === 'gen-assets' ? isGenAssetsSelecting : view === 'edit-assets' ? isEditAssetsSelecting : isExportAssetsSelecting;
+    const selectedIds =
+      view === 'gen-assets'
+        ? selectedGenAssetIds
+        : view === 'edit-assets'
+          ? selectedEditAssetIds
+          : selectedExportAssetIds;
+    const selectedCount = selectedIds.size;
+    const toggleSelecting =
+      view === 'gen-assets' ? toggleGenAssetsSelecting : view === 'edit-assets' ? toggleEditAssetsSelecting : toggleExportAssetsSelecting;
+
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setAssetView('gen-assets')}
+              className={clsx(
+                "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
+                view === 'gen-assets'
+                  ? "bg-gray-100 text-gray-900 border-gray-200"
+                  : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+              )}
+              aria-selected={view === 'gen-assets'}
+            >
+              文生图历史
+            </button>
+            <button
+              onClick={() => setAssetView('edit-assets')}
+              className={clsx(
+                "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
+                view === 'edit-assets'
+                  ? "bg-gray-100 text-gray-900 border-gray-200"
+                  : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+              )}
+              aria-selected={view === 'edit-assets'}
+            >
+              AI生成
+            </button>
+            <button
+              onClick={() => setAssetView('export-assets')}
+              className={clsx(
+                "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
+                view === 'export-assets'
+                  ? "bg-gray-100 text-gray-900 border-gray-200"
+                  : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+              )}
+              aria-selected={view === 'export-assets'}
+            >
+              导出资产
+            </button>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={toggleSelecting}
+              className={clsx("btn-flat-neutral", showSelection && "bg-gray-50")}
+            >
+              {showSelection ? '取消' : '选择'}
+            </button>
+            <button
+              onClick={() => (showSelection ? sendSelectedAssetsToAudit('xiaobao') : markAssetsAudited('xiaobao'))}
+              disabled={showSelection && selectedCount === 0}
+              className="btn-ion"
+            >
+              消保审核
+            </button>
+            <button
+              onClick={() => (showSelection ? sendSelectedAssetsToAudit('experience') : markAssetsAudited('experience'))}
+              disabled={showSelection && selectedCount === 0}
+              className="btn-ion"
+            >
+              体验审核
+            </button>
+          </div>
+        </div>
+
+        <div key={view} className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {view === 'gen-assets' && renderAssetMasonry('文生图历史', displayGeneratedAssets, '暂无文生图历史', false)}
+          {view === 'edit-assets' && renderAssetMasonry('AI生成', displayEditedAssets, '暂无AI生成记录', false)}
+          {view === 'export-assets' && renderAssetMasonry('导出资产', displayExportedAssets, '暂无导出资产', false)}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFavoritesModule = () => {
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => setFavoritesTab('inspiration')}
+            className={clsx(
+              "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
+              favoritesTab === 'inspiration' ? "bg-gray-100 text-gray-900 border-gray-200" : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+            )}
+            aria-selected={favoritesTab === 'inspiration'}
+          >
+            灵感
+          </button>
+          <button
+            onClick={() => setFavoritesTab('prompts')}
+            className={clsx(
+              "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
+              favoritesTab === 'prompts' ? "bg-gray-100 text-gray-900 border-gray-200" : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+            )}
+            aria-selected={favoritesTab === 'prompts'}
+          >
+            提示词
+          </button>
+          <button
+            onClick={() => setFavoritesTab('templates')}
+            className={clsx(
+              "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
+              favoritesTab === 'templates' ? "bg-gray-100 text-gray-900 border-gray-200" : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+            )}
+            aria-selected={favoritesTab === 'templates'}
+          >
+            公共模板
+          </button>
+        </div>
+        <div key={favoritesTab} className="py-12 text-center text-gray-400 animate-in fade-in slide-in-from-bottom-2 duration-200">
+          {favoritesTab === 'inspiration' && '暂无收藏的灵感'}
+          {favoritesTab === 'prompts' && '暂无收藏的提示词'}
+          {favoritesTab === 'templates' && '暂无收藏的公共模板'}
+        </div>
+      </div>
+    );
+  };
+  const renderAssetMasonry = (title: string, items: typeof visibleImages, emptyText: string, withToolbar: boolean = true) => {
+    if (items.length === 0) {
       return (
         <div className="py-16 text-center text-gray-500">
-          这里会展示你在画布中制作过、编辑过的图片资产。
+          {emptyText}
         </div>
       );
     }
+    const selectionEnabled = view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets';
+    const showSelection =
+      view === 'gen-assets' ? isGenAssetsSelecting : view === 'edit-assets' ? isEditAssetsSelecting : isExportAssetsSelecting;
+    const selectedIds =
+      view === 'gen-assets'
+        ? selectedGenAssetIds
+        : view === 'edit-assets'
+          ? selectedEditAssetIds
+          : selectedExportAssetIds;
+    const selectedCount = selectedIds.size;
+    const toggleSelecting =
+      view === 'gen-assets' ? toggleGenAssetsSelecting : view === 'edit-assets' ? toggleEditAssetsSelecting : toggleExportAssetsSelecting;
+    const toggleSelected =
+      view === 'gen-assets' ? toggleGenAssetSelected : view === 'edit-assets' ? toggleEditAssetSelected : toggleExportAssetSelected;
     return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-500">共 {visibleImages.length} 张</div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {visibleImages.map((image) => (
-            <div
-              key={image.id}
-              className="group text-left relative overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all"
-            >
-              <div className="aspect-square bg-gray-50">
-                <img src={image.url} alt={image.projectName} className="w-full h-full object-cover" />
-              </div>
-              <div className="p-3">
-                <div className="text-xs font-bold text-gray-900 truncate">{image.projectName}</div>
-                <div className="text-[11px] text-gray-500 mt-1">{new Date(image.projectLastModified).toLocaleString()}</div>
+      <div className="space-y-5">
+        {withToolbar && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <div className="text-sm font-black text-gray-900">{title}</div>
+              <div className="text-xs text-gray-500">共 {items.length} 张</div>
+            </div>
+            <div className="flex items-center gap-2">
+              {selectionEnabled && (
+                <>
+                  <button
+                    onClick={toggleSelecting}
+                    className={clsx("btn-ion", showSelection && "shadow-md")}
+                  >
+                    {showSelection ? '取消' : '选择'}
+                  </button>
+                  {showSelection && (
+                    <button
+                      onClick={() => sendSelectedAssetsToAudit('xiaobao')}
+                      disabled={selectedCount === 0}
+                      className="btn-ember"
+                    >
+                      送消保审核
+                      <span
+                        className={clsx(
+                          "px-2 py-0.5 rounded-full text-[11px] font-black",
+                          selectedCount === 0
+                            ? "bg-black/5 text-black/40"
+                            : "text-accent-promotion"
+                        )}
+                        style={
+                          selectedCount === 0
+                            ? undefined
+                            : { backgroundColor: 'color-mix(in srgb, var(--accent-promotion) 12%, white)' }
+                        }
+                      >
+                        {selectedCount}
+                      </span>
+                    </button>
+                  )}
+                  {showSelection && (
+                    <button
+                      onClick={() => sendSelectedAssetsToAudit('experience')}
+                      disabled={selectedCount === 0}
+                      className="btn-breeze"
+                    >
+                      送体验审核
+                      <span
+                        className={clsx(
+                          "px-2 py-0.5 rounded-full text-[11px] font-black",
+                          selectedCount === 0
+                            ? "bg-black/5 text-black/40"
+                            : "text-accent-minor"
+                        )}
+                        style={
+                          selectedCount === 0
+                            ? undefined
+                            : { backgroundColor: 'color-mix(in srgb, var(--accent-minor) 12%, white)' }
+                        }
+                      >
+                        {selectedCount}
+                      </span>
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                onClick={() => markAssetsAudited('xiaobao')}
+                disabled={showSelection}
+                className="btn-ion"
+              >
+                消保审核
+              </button>
+              <button
+                onClick={() => markAssetsAudited('experience')}
+                disabled={showSelection}
+                className="btn-ion"
+              >
+                体验审核
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+          {items.map((image) => (
+            <div key={image.id} className="mb-4 break-inside-avoid">
+              <div
+                onClick={() => {
+                  if (showSelection) toggleSelected(image.id);
+                }}
+                className={clsx(
+                  "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
+                  showSelection && "cursor-pointer select-none",
+                  showSelection && selectedIds.has(image.id) && "ring-2 ring-gray-300 border-gray-200"
+                )}
+              >
+                <div className="relative">
+                  <img src={image.url} alt={image.projectName} className="w-full h-auto object-cover" />
+                  <div
+                    className={clsx(
+                      "absolute top-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-black border shadow-md backdrop-blur",
+                      getAuditedLabel(image.id) === '已审核'
+                        ? "bg-emerald-500/92 text-white border-emerald-300/80 shadow-emerald-500/30"
+                        : "bg-rose-500/92 text-white border-rose-300/80 shadow-rose-500/30"
+                    )}
+                  >
+                    {getAuditedLabel(image.id)}
+                  </div>
+                  {showSelection && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleSelected(image.id);
+                      }}
+                      className={clsx(
+                        "absolute top-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
+                        selectedIds.has(image.id)
+                          ? "bg-gray-800 border-gray-800 text-white"
+                          : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
+                      )}
+                      aria-pressed={selectedIds.has(image.id)}
+                      title={selectedIds.has(image.id) ? '取消勾选' : '勾选'}
+                    >
+                      <Check size={16} strokeWidth={3} />
+                    </button>
+                  )}
+                </div>
+                <div className="p-3">
+                  <div className="text-xs font-bold text-gray-900 truncate">{image.projectName}</div>
+                  <div className="text-[11px] text-gray-500 mt-1">{new Date(image.projectLastModified).toLocaleString()}</div>
+                </div>
               </div>
             </div>
           ))}
@@ -353,47 +1008,45 @@ export default function Projects() {
   };
 
   const renderP2PView = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 rounded-3xl border border-black/5 bg-white overflow-hidden">
         <div className="p-6">
-          <div className="text-sm font-black text-gray-900">点对点导入作品</div>
+          <div className="text-sm font-semibold text-gray-900">点对点导入作品</div>
           <div className="text-xs text-gray-500 mt-2">
-            输入分享码，导入后会以“（分享）”形式进入你的个人项目列表
+            输入口令，先兑换查看预览，再选择“做同款”或“应用模板”
           </div>
           <div className="mt-5 flex gap-2">
             <input
               value={importShareCode}
               onChange={(e) => setImportShareCode(e.target.value)}
-              placeholder="输入分享码（8位）"
-              className="flex-1 px-4 py-3 rounded-2xl border border-gray-200 focus:border-black outline-none bg-white"
+              placeholder="输入口令（8位或12位）"
+              className="flex-1 px-4 py-3 rounded-2xl border border-black/10 focus:border-black/25 outline-none bg-white"
             />
             <button
               onClick={handleImportSharedProject}
               disabled={!importShareCode.trim()}
               className={clsx(
-                "px-4 py-3 rounded-2xl text-sm font-semibold inline-flex items-center gap-2 transition-all",
-                importShareCode.trim()
-                  ? "bg-black text-white hover:bg-gray-900"
-                  : "bg-gray-200 text-gray-500 cursor-not-allowed"
+                "btn-breeze-orange px-4 py-3 rounded-2xl",
+                !importShareCode.trim() && "opacity-50"
               )}
             >
-              导入
+              兑换
               <ArrowRight size={16} />
             </button>
           </div>
         </div>
       </div>
-      <div className="rounded-3xl border border-black/5 bg-gray-50/60 overflow-hidden">
+      <div className="rounded-3xl border border-black/5 bg-white overflow-hidden">
         <div className="p-6">
-          <div className="text-sm font-black text-gray-900">点对点分享作品</div>
+          <div className="text-sm font-semibold text-gray-900">点对点分享作品</div>
           <div className="text-xs text-gray-500 mt-2 leading-relaxed">
-            在“个人项目”里，将鼠标移动到项目卡片上，点击“分享”，生成 8 位分享码并复制给对方即可。
+            在“个人设计 / 公共模板 / 灵感”里点击右上角分享，生成口令复制给对方即可。
           </div>
           <button
             onClick={() => setView('projects')}
-            className="mt-5 px-4 py-3 rounded-2xl border border-gray-200 bg-white text-sm font-semibold text-gray-800 hover:bg-gray-50 transition-colors w-full"
+            className="mt-5 btn-secondary w-full justify-center px-4 py-3 rounded-2xl"
           >
-            回到个人项目
+            回到个人设计
           </button>
         </div>
       </div>
@@ -402,38 +1055,77 @@ export default function Projects() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-8 py-10 space-y-8">
+      <CreateCanvasModal isOpen={isCreateCanvasModalOpen} onClose={() => setIsCreateCanvasModalOpen(false)} />
+      <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-10 py-12 space-y-10">
         {space === 'personal' ? (
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div className="space-y-2">
-              <div className="text-[12px] font-semibold tracking-wider text-gray-500 uppercase">个人空间</div>
-              <div className="flex items-baseline gap-4">
-                <div className="text-3xl font-black tracking-tight text-gray-900">Workspace</div>
+          <div className="flex flex-wrap items-center justify-between gap-6">
+            <div className="space-y-1">
+              <div className="text-[11px] font-medium tracking-widest text-gray-400 uppercase">个人空间</div>
+              <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
+                <div
+                  className="flex items-center gap-1.5"
+                  onMouseEnter={() => setIsTitleHover(true)}
+                  onMouseLeave={() => setIsTitleHover(false)}
+                >
+                  {isEditingTitle ? (
+                    <input
+                      value={titleDraft}
+                      onChange={(e) => setTitleDraft(e.target.value)}
+                      onBlur={() => {
+                        setIsEditingTitle(false);
+                        persistPersonalSpaceTitle(titleDraft);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setIsEditingTitle(false);
+                          persistPersonalSpaceTitle(titleDraft);
+                        }
+                        if (e.key === 'Escape') {
+                          setIsEditingTitle(false);
+                          setTitleDraft(personalSpaceTitle);
+                        }
+                      }}
+                      className="text-2xl font-semibold tracking-tight text-gray-950 bg-transparent outline-none border-b border-black/10 focus:border-black/30 px-0.5"
+                      autoFocus
+                    />
+                  ) : (
+                    <div className="text-2xl font-semibold tracking-tight text-gray-950">{personalSpaceTitle}</div>
+                  )}
+                  {!isEditingTitle && isTitleHover && (
+                    <button
+                      onClick={() => {
+                        setTitleDraft(personalSpaceTitle);
+                        setIsEditingTitle(true);
+                      }}
+                      className="p-2 rounded-xl text-gray-300 hover:text-gray-700 hover:bg-black/5 transition-colors"
+                      title="重命名"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
+                </div>
                 <div className="text-xs text-gray-400 font-medium">
-                  项目 {visibleProjects.length} · 生图 {visibleImages.length}
+                  设计 {visibleProjects.length} · 生图 {displayGeneratedAssets.length} · 编辑 {displayEditedAssets.length} · 导出 {displayExportedAssets.length}
                 </div>
               </div>
             </div>
+
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setView('p2p')}
-                className="px-4 py-2.5 rounded-2xl border border-black/10 bg-white text-gray-900 text-sm font-semibold hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+                className={clsx("btn-breeze-orange", view === 'p2p' && "shadow-md")}
               >
                 <Share2 size={16} />
-                点对点
+                点对点导入
               </button>
+
               <button
                 onClick={handleCreateNew}
-                className={clsx(
-                  "px-4 py-2.5 rounded-2xl text-white flex items-center gap-2 transition-all text-sm font-semibold",
-                  projects.length >= 5
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : (isGlass ? "bg-accent-primary/80 backdrop-blur-md hover:opacity-95" : "bg-accent-primary hover:opacity-90")
-                )}
                 disabled={projects.length >= 5}
+                className="btn-ion"
               >
-                <Plus size={18} />
-                新建项目
+                <Plus size={16} />
+                新建设计
               </button>
             </div>
           </div>
@@ -449,96 +1141,237 @@ export default function Projects() {
             </div>
             <button
               onClick={() => navigate('/projects')}
-              className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition-colors"
+              className="btn-secondary px-4 py-2 rounded-xl"
             >
               返回个人空间
             </button>
           </div>
         )}
 
-        {toast && (
-          <div className="fixed top-6 right-6 z-50">
-            <div className="bg-black text-white text-sm font-medium px-4 py-3 rounded-2xl shadow-xl shadow-black/20">
-              {toast}
+        {space === 'personal' && (
+          <div className="flex items-center justify-between gap-4 border-b border-black/5">
+            <div className="flex items-center gap-6">
+              <button
+                onClick={() => setView('projects')}
+                className={clsx(
+                  "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                  view === 'projects'
+                    ? "text-gray-700 border-gray-300"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                )}
+                aria-selected={view === 'projects'}
+              >
+                <Folder size={16} className={clsx(view === 'projects' ? "opacity-80" : "opacity-50")} />
+                个人设计
+              </button>
+              <button
+                onClick={() => setView('gen-assets')}
+                className={clsx(
+                  "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                  (view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets')
+                    ? "text-gray-700 border-gray-300"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                )}
+                aria-selected={(view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets')}
+              >
+                <Download size={16} className={clsx((view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets') ? "opacity-80" : "opacity-50")} />
+                历史资产
+              </button>
+              <button
+                onClick={() => setView('favorites')}
+                className={clsx(
+                  "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                  view === 'favorites'
+                    ? "text-gray-700 border-gray-300"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                )}
+                aria-selected={view === 'favorites'}
+              >
+                <Sparkles size={16} className={clsx(view === 'favorites' ? "opacity-80" : "opacity-50")} />
+                我的收藏
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setView('p2p')}
+                className={clsx("btn-breeze-orange", view === 'p2p' && "shadow-md")}
+                aria-selected={view === 'p2p'}
+              >
+                <Share2 size={16} />
+                点对点导入
+              </button>
+              <button
+                onClick={handleCreateNew}
+                disabled={projects.length >= 5}
+                className="btn-ion"
+              >
+                <Plus size={16} />
+                新建设计
+              </button>
             </div>
           </div>
         )}
 
-        {space === 'personal' && (
-          <div className={clsx("inline-flex gap-1 p-1.5 rounded-3xl border border-black/5 bg-white/80 backdrop-blur-xl", isGlass && "bg-white/10")}>
-            <button
-              onClick={() => setView('projects')}
-              className={clsx(
-                "px-4 py-2.5 rounded-2xl text-sm font-semibold inline-flex items-center gap-2 transition-colors",
-                view === 'projects' ? 'bg-black text-white' : 'text-gray-700 hover:bg-black/5'
-              )}
-            >
-              <Folder size={15} />
-              个人项目
-            </button>
-            <button
-              onClick={() => setView('images')}
-              className={clsx(
-                "px-4 py-2.5 rounded-2xl text-sm font-semibold inline-flex items-center gap-2 transition-colors",
-                view === 'images' ? 'bg-black text-white' : 'text-gray-700 hover:bg-black/5'
-              )}
-            >
-              <ImageIcon size={15} />
-              生图记录
-            </button>
-            <button
-              onClick={() => setView('p2p')}
-              className={clsx(
-                "px-4 py-2.5 rounded-2xl text-sm font-semibold inline-flex items-center gap-2 transition-colors",
-                view === 'p2p' ? 'bg-black text-white' : 'text-gray-700 hover:bg-black/5'
-              )}
-            >
-              <Share2 size={15} />
-              点对点
-            </button>
-          </div>
-        )}
-
-        <div className={clsx("rounded-3xl border border-black/5 p-6 shadow-[0_10px_30px_rgba(0,0,0,0.04)]", isGlass ? "bg-white/10 backdrop-blur-xl" : "bg-white")}>
-          {space === 'public' && renderProjectsView()}
-          {space === 'personal' && view === 'projects' && renderProjectsView()}
-          {space === 'personal' && view === 'images' && renderImagesView()}
-          {space === 'personal' && view === 'p2p' && renderP2PView()}
+        <div className="rounded-3xl border border-black/5 bg-white p-8">
+          {isHydrating ? (
+            <div className="animate-pulse space-y-6">
+              <div className="h-7 w-48 rounded-xl bg-black/5" />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="h-36 rounded-2xl bg-black/5" />
+                <div className="h-36 rounded-2xl bg-black/5" />
+                <div className="h-36 rounded-2xl bg-black/5" />
+              </div>
+            </div>
+          ) : (
+            <div key={`${space}:${view}:${favoritesTab}`} className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+              {space === 'public' && renderProjectsView()}
+              {space === 'personal' && view === 'projects' && renderProjectsView()}
+              {space === 'personal' && (view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets') && renderAssetsModule()}
+              {space === 'personal' && view === 'favorites' && renderFavoritesModule()}
+              {space === 'personal' && view === 'p2p' && renderP2PView()}
+            </div>
+          )}
         </div>
       </div>
 
       {isShareModalOpen && shareTargetProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeShareModal} />
-          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl shadow-black/20 border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100 flex items-start justify-between">
+          <div className="absolute inset-0 bg-black/25" onClick={closeShareModal} />
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl border border-black/10 overflow-hidden">
+            <div className="p-6 border-b border-black/5 flex items-start justify-between">
               <div>
-                <div className="text-sm text-gray-500 font-medium">分享项目</div>
-                <div className="text-xl font-black text-gray-900 mt-1 truncate">{shareTargetProject.name}</div>
+                <div className="text-xs text-gray-500 font-medium">分享设计</div>
+                <div className="text-lg font-semibold text-gray-900 mt-1 truncate">{shareTargetProject.name}</div>
               </div>
-              <button onClick={closeShareModal} className="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors" title="关闭">
+              <button onClick={closeShareModal} className="p-2 rounded-xl hover:bg-black/5 text-gray-500 transition-colors" title="关闭">
                 <X size={18} />
               </button>
             </div>
 
             <div className="p-6 space-y-5">
               <div className="space-y-3">
-                <div className="text-sm font-bold text-gray-900">点对点分享</div>
+                <div className="text-sm font-semibold text-gray-900">点对点分享</div>
                 <div className="text-xs text-gray-500">
-                  生成一个分享码发给对方，对方在个人空间输入即可导入
+                  生成一个口令发给对方，对方在个人空间输入后即可兑换预览
                 </div>
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleGenerateP2PShareCode}
-                    className="px-4 py-2 rounded-2xl bg-black text-white font-semibold hover:bg-gray-800 transition-colors"
+                    className="btn-ion"
                   >
-                    生成分享码
+                    生成口令
                   </button>
                   {generatedShareCode && (
-                    <div className="flex-1 px-4 py-2 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-black tracking-widest text-gray-900">
+                    <div className="flex-1 px-4 py-2 rounded-2xl border border-black/10 bg-white text-sm font-semibold tracking-widest text-gray-900">
                       {generatedShareCode}
                     </div>
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRedeemModalOpen && redeemRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/30" onClick={closeRedeemModal} />
+          <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <div className="p-6 border-b border-black/5 flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500 font-medium">口令兑换</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {redeemRecord.kind === 'inspiration'
+                    ? '收到一个灵感'
+                    : redeemRecord.kind === 'public_template'
+                      ? '收到一个公共模板'
+                      : '收到一个个人设计'}
+                </div>
+              </div>
+              <button onClick={closeRedeemModal} className="p-2 rounded-xl hover:bg-black/5 text-gray-500 transition-colors" title="关闭">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              <div className="p-6 bg-black/[0.02] border-r border-black/5">
+                <div className="aspect-[4/3] rounded-2xl bg-white border border-black/10 overflow-hidden flex items-center justify-center">
+                  {getRedeemPreviewUrl(redeemRecord) ? (
+                    <img
+                      src={getRedeemPreviewUrl(redeemRecord) as string}
+                      alt="预览"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-xs text-gray-400">暂无预览</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6 space-y-5">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-black/5 text-gray-700">
+                      {redeemRecord.kind === 'inspiration'
+                        ? '灵感'
+                        : redeemRecord.kind === 'public_template'
+                          ? '公共模板'
+                          : '个人设计'}
+                    </span>
+                    {redeemRecord.kind === 'personal_design' && (
+                      <div className="text-xs text-gray-500 truncate">{redeemRecord.payload.project.name}</div>
+                    )}
+                    {redeemRecord.kind === 'public_template' && (
+                      <div className="text-xs text-gray-500 truncate">{redeemRecord.payload.title}</div>
+                    )}
+                  </div>
+
+                  {redeemRecord.kind === 'inspiration' && (
+                    <div className="rounded-2xl border border-black/10 bg-white p-4">
+                      <div className="text-xs text-gray-500 font-medium">提示词</div>
+                      <div className="mt-2 text-sm text-gray-900 whitespace-pre-wrap break-words">
+                        {redeemRecord.payload.prompt}
+                      </div>
+                    </div>
+                  )}
+
+                  {redeemRecord.kind !== 'inspiration' && (
+                    <div className="text-xs text-gray-500">
+                      画布尺寸 {redeemRecord.kind === 'personal_design' ? `${redeemRecord.payload.project.width}×${redeemRecord.payload.project.height}` : `${redeemRecord.payload.width || 1080}×${redeemRecord.payload.height || 1920}`}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-black/10 bg-white p-4">
+                  <div className="text-xs text-gray-500 font-medium">测试分享入口</div>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button onClick={handleShareTestInspiration} className="btn-secondary justify-center px-3 py-2 rounded-xl">
+                      分享灵感
+                    </button>
+                    <button onClick={handleShareTestPublicTemplate} className="btn-secondary justify-center px-3 py-2 rounded-xl">
+                      分享公共模板
+                    </button>
+                    <button onClick={handleShareTestPersonalDesign} className="btn-secondary justify-center px-3 py-2 rounded-xl">
+                      分享个人设计
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {redeemRecord.kind === 'inspiration' ? (
+                    <button onClick={handleDoSameInspiration} className="btn-breeze-orange flex-1 justify-center px-4 py-3 rounded-2xl">
+                      做同款
+                      <ArrowRight size={16} />
+                    </button>
+                  ) : (
+                    <button onClick={handleApplyRedeemedTemplate} className="btn-breeze-orange flex-1 justify-center px-4 py-3 rounded-2xl">
+                      应用模板
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
+                  <button onClick={closeRedeemModal} className="btn-secondary justify-center px-4 py-3 rounded-2xl">
+                    关闭
+                  </button>
                 </div>
               </div>
             </div>

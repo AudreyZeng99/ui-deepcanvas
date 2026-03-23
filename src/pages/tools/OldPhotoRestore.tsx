@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Upload, Download, RefreshCw, Camera, Image as ImageIcon, X, ArrowLeft } from 'lucide-react';
 import clsx from 'clsx';
 import ExportModal, { ExportSettings } from '../../components/ExportModal';
+import { useToast } from '../../components/ToastProvider';
 
 export default function OldPhotoRestore() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [restoredUrl, setRestoredUrl] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -67,7 +69,7 @@ export default function OldPhotoRestore() {
   const handleExport = (settings: ExportSettings) => {
     console.log('Exporting with settings:', settings);
     setIsExportModalOpen(false);
-    alert('老照片已成功修复并导出！');
+    toast.success('老照片已成功修复并导出');
   };
 
   return (

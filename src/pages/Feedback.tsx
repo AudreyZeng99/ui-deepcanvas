@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { BookOpen, HelpCircle, Send, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
+import { useToast } from '../components/ToastProvider';
 
 export default function Feedback() {
+  const toast = useToast();
   const [issueTitle, setIssueTitle] = useState('');
   const [issueDescription, setIssueDescription] = useState('');
   const [activeTab, setActiveTab] = useState<'manual' | 'faq' | 'new-issue'>('new-issue');
@@ -147,10 +149,10 @@ export default function Feedback() {
                   className="w-full py-3 px-6 bg-black text-white rounded-xl font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                   onClick={() => {
                   if (!issueTitle || !issueDescription) {
-                    alert('请填写完整信息');
+                    toast.show('请填写完整信息');
                     return;
                   }
-                  alert('提交成功！感谢您的反馈。');
+                  toast.success('提交成功，感谢您的反馈');
                   setIssueTitle('');
                   setIssueDescription('');
                 }}

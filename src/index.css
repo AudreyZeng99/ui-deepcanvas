@@ -9,6 +9,7 @@
   --primary: #000000;
   --accent-blue: #2E5BFF;
   --accent-orange: #FF5C00;
+  --accent-orange-fixed: #FF7A00;
 }
 
 body {
@@ -31,6 +32,187 @@ body {
   .btn-secondary {
     @apply bg-white border border-black/10 text-black px-6 py-3 rounded-3xl hover:bg-gray-50 transition-all font-medium;
   }
+
+  .btn-ion {
+    @apply inline-flex items-center justify-center gap-2 min-h-11 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all duration-200;
+    @apply focus-visible:outline-none;
+    color: var(--accent-primary);
+    background-color: color-mix(in srgb, var(--accent-primary) 7%, white);
+    border-color: color-mix(in srgb, var(--accent-primary) 62%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+  }
+
+  .btn-ember {
+    @apply inline-flex items-center justify-center gap-2 min-h-11 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all duration-200;
+    @apply focus-visible:outline-none;
+    color: var(--accent-promotion);
+    background-color: color-mix(in srgb, var(--accent-promotion) 7%, white);
+    border-color: color-mix(in srgb, var(--accent-promotion) 62%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+  }
+
+  .btn-breeze {
+    @apply inline-flex items-center justify-center gap-2 min-h-11 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all duration-200;
+    @apply focus-visible:outline-none;
+    color: var(--accent-minor);
+    background-color: color-mix(in srgb, var(--accent-minor) 7%, white);
+    border-color: color-mix(in srgb, var(--accent-minor) 62%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+  }
+
+  .btn-breeze-orange {
+    @apply inline-flex items-center justify-center gap-2 min-h-11 px-5 py-2.5 rounded-full text-sm font-semibold border transition-all duration-200;
+    @apply focus-visible:outline-none;
+    color: var(--accent-orange-fixed);
+    background-color: color-mix(in srgb, var(--accent-orange-fixed) 7%, white);
+    border-color: color-mix(in srgb, var(--accent-orange-fixed) 62%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+  }
+
+  .btn-flat {
+    @apply inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-4 rounded-xl text-sm font-semibold border transition-colors duration-200;
+    @apply focus-visible:outline-none;
+    box-shadow: none;
+  }
+
+  .btn-flat:focus-visible {
+    outline: 2px solid rgba(107, 114, 128, 0.35);
+    outline-offset: 2px;
+  }
+
+  .btn-flat:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-flat-neutral {
+    @apply btn-flat;
+    color: #111827;
+    background-color: #ffffff;
+    border-color: rgba(0, 0, 0, 0.08);
+  }
+
+  .btn-flat-neutral:hover {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.12);
+  }
+
+  .btn-flat-ember {
+    @apply btn-flat;
+    color: var(--accent-promotion);
+    background-color: color-mix(in srgb, var(--accent-promotion) 5%, white);
+    border-color: color-mix(in srgb, var(--accent-promotion) 45%, transparent);
+  }
+
+  .btn-flat-ember:hover {
+    background-color: color-mix(in srgb, var(--accent-promotion) 9%, white);
+    border-color: color-mix(in srgb, var(--accent-promotion) 58%, transparent);
+  }
+
+  .btn-flat-breeze {
+    @apply btn-flat;
+    color: var(--accent-minor);
+    background-color: color-mix(in srgb, var(--accent-minor) 5%, white);
+    border-color: color-mix(in srgb, var(--accent-minor) 45%, transparent);
+  }
+
+  .btn-flat-breeze:hover {
+    background-color: color-mix(in srgb, var(--accent-minor) 9%, white);
+    border-color: color-mix(in srgb, var(--accent-minor) 58%, transparent);
+  }
+
+  .toast-center {
+    @apply fixed top-6 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center gap-2 pointer-events-none;
+  }
+
+  .toast-breeze-top {
+    @apply px-4 py-2 rounded-2xl text-sm font-semibold shadow-lg border backdrop-blur-md;
+    color: var(--accent-minor);
+    background-color: color-mix(in srgb, var(--accent-minor) 12%, white);
+    border-color: color-mix(in srgb, var(--accent-minor) 42%, transparent);
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--accent-minor) 14%, transparent),
+      0 1px 0 rgba(255, 255, 255, 0.88) inset;
+  }
+}
+
+.btn-ion:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 11%, white);
+  border-color: color-mix(in srgb, var(--accent-primary) 82%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 26px color-mix(in srgb, var(--accent-primary) 16%, transparent);
+}
+
+.btn-ember:hover {
+  background-color: color-mix(in srgb, var(--accent-promotion) 11%, white);
+  border-color: color-mix(in srgb, var(--accent-promotion) 82%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 26px color-mix(in srgb, var(--accent-promotion) 16%, transparent);
+}
+
+.btn-breeze:hover {
+  background-color: color-mix(in srgb, var(--accent-minor) 11%, white);
+  border-color: color-mix(in srgb, var(--accent-minor) 82%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 26px color-mix(in srgb, var(--accent-minor) 16%, transparent);
+}
+
+.btn-breeze-orange:hover {
+  background-color: color-mix(in srgb, var(--accent-orange-fixed) 11%, white);
+  border-color: color-mix(in srgb, var(--accent-orange-fixed) 82%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 10px 26px color-mix(in srgb, var(--accent-orange-fixed) 16%, transparent);
+}
+
+.btn-ion:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-primary) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.btn-ember:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-promotion) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.btn-breeze:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-minor) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.btn-breeze-orange:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent-orange-fixed) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.btn-ion:disabled,
+.btn-ember:disabled,
+.btn-breeze:disabled,
+.btn-breeze-orange:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ion:disabled:hover {
+  background-color: color-mix(in srgb, var(--accent-primary) 7%, white);
+  border-color: color-mix(in srgb, var(--accent-primary) 62%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+
+.btn-ember:disabled:hover {
+  background-color: color-mix(in srgb, var(--accent-promotion) 7%, white);
+  border-color: color-mix(in srgb, var(--accent-promotion) 62%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+
+.btn-breeze:disabled:hover {
+  background-color: color-mix(in srgb, var(--accent-minor) 7%, white);
+  border-color: color-mix(in srgb, var(--accent-minor) 62%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+}
+
+.btn-breeze-orange:disabled:hover {
+  background-color: color-mix(in srgb, var(--accent-orange-fixed) 7%, white);
+  border-color: color-mix(in srgb, var(--accent-orange-fixed) 62%, transparent);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
 }
 
 @layer utilities {

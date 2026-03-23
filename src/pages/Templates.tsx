@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Search, Camera, ChevronRight, Play, Heart, ChevronDown, Plus } from 'lucide-react';
+import { Search, Camera, ChevronRight, Play, Heart, ChevronDown, Plus, Share2 } from 'lucide-react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../components/ToastProvider';
+import { createP2PShareRecord, makeTemplateElements } from '../utils/p2pShare';
 
 // Mock Data Interfaces
 interface Template {
@@ -98,6 +100,7 @@ const generateMockData = (): Section[] => {
 const sections = generateMockData();
 
 const TemplateCard = ({ item }: { item: Template }) => {
+  const toast = useToast();
   return (
     <div className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2">
       {/* Card Image Container */}
@@ -118,6 +121,35 @@ const TemplateCard = ({ item }: { item: Template }) => {
             </div>
           </div>
         )}
+
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            const width = 1080;
+            const height = 1920;
+            const record = createP2PShareRecord({
+              kind: 'public_template',
+              payload: {
+                title: item.title,
+                previewImageUrl: item.imageUrl,
+                width,
+                height,
+                elements: makeTemplateElements(item.imageUrl, width, height),
+                sourceLabel: '公共模板',
+              },
+            });
+            try {
+              await navigator.clipboard.writeText(record.code);
+              toast.show('口令已复制');
+            } catch {
+              toast.show('口令已生成');
+            }
+          }}
+          className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+          title="分享口令"
+        >
+          <Share2 size={16} />
+        </button>
 
         {/* Hover Actions - Optional */}
         <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
