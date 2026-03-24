@@ -53,6 +53,7 @@ interface ProjectContextType {
     createProject: (width: number, height: number, customName?: string, initialData?: Partial<Project>) => void;
     updateProject: (data: Partial<Project>) => void;
     saveProject: (data?: Partial<Project>) => void;
+    saveCurrentProjectAsNew: () => 'ok' | 'limit_reached';
     validateSave: (name: string) => 'ok' | 'limit_reached' | 'duplicate_name';
     loadProject: (id: string) => void;
     deleteProject: (id: string) => void;
@@ -257,6 +258,35 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     return 'ok';
   };
 
+  const saveCurrentProjectAsNew = (): 'ok' | 'limit_reached' => {
+    if (!currentProject) return 'ok';
+    if (projects.length >= 5) return 'limit_reached';
+
+    const baseName = currentProject.name.trim() ? currentProject.name.trim() : '未命名设计';
+    const existsName = (n: string) => projects.some(p => p.name === n);
+    let nextName = `${baseName}（备份）`;
+    if (existsName(nextName)) {
+      let i = 2;
+      while (existsName(`${baseName}（备份 ${i}）`) && i < 50) i += 1;
+      nextName = i >= 50 ? `${baseName}（备份 ${Date.now()}）` : `${baseName}（备份 ${i}）`;
+    }
+
+    const duplicated: Project = {
+      ...currentProject,
+      id: crypto.randomUUID(),
+      name: nextName,
+      lastModified: Date.now(),
+    };
+
+    if (!duplicated.thumbnail) {
+      const urls = extractImageUrlsFromElements(duplicated.elements);
+      if (urls.length > 0) duplicated.thumbnail = urls[0];
+    }
+
+    setProjects(prev => [duplicated, ...prev]);
+    return 'ok';
+  };
+
   const loadProject = (id: string) => {
     const project = projects.find(p => p.id === id);
     if (project) {
@@ -413,6 +443,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       createProject,
       updateProject,
       saveProject,
+      saveCurrentProjectAsNew,
       validateSave,
       loadProject,
       deleteProject,

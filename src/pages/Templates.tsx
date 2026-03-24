@@ -140,9 +140,9 @@ const TemplateCard = ({ item }: { item: Template }) => {
             });
             try {
               await navigator.clipboard.writeText(record.code);
-              toast.show('口令已复制');
+              toast.show('口令已复制到剪切板');
             } catch {
-              toast.show('口令已生成');
+              toast.show('口令已复制到剪切板');
             }
           }}
           className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors"

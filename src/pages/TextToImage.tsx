@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   Scaling,
   Palette,
-  Sliders
+  Sliders,
+  X
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useProject } from '../context/ProjectContext';
@@ -36,7 +37,7 @@ export default function TextToImage() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { createProject } = useProject();
+  const { createProject, currentProject, projects, isDirty, saveCurrentProjectAsNew } = useProject();
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
   const [activeSource, setActiveSource] = useState<'original' | 'optimized'>('original');
@@ -44,6 +45,8 @@ export default function TextToImage() {
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isStartEditModalOpen, setIsStartEditModalOpen] = useState(false);
+  const [pendingStartEdit, setPendingStartEdit] = useState<null | { width: number; height: number; prompt: string; imageUrl: string }>(null);
   
   // Settings
   const [activeSetting, setActiveSetting] = useState<'dimensions' | 'style' | 'advanced' | null>(null);
@@ -344,15 +347,24 @@ export default function TextToImage() {
                 const selectedPrompt = activeSource === 'optimized' && optimizedPrompt.trim()
                   ? optimizedPrompt.trim()
                   : originalPrompt.trim();
-                createProject(dimensions.width, dimensions.height, 'AI 文生图项目', {
+                const imageUrl = generatedImages[selectedImageIndex];
+                const width = dimensions.width;
+                const height = dimensions.height;
+                const existsInPersonalSpace = currentProject ? projects.some(p => p.id === currentProject.id) : false;
+                if (currentProject && (isDirty || !existsInPersonalSpace)) {
+                  setPendingStartEdit({ width, height, prompt: selectedPrompt, imageUrl });
+                  setIsStartEditModalOpen(true);
+                  return;
+                }
+                createProject(width, height, 'AI 文生图项目', {
                   sourceType: 'text-to-image',
                   aiResizeBinding: {
                     defaultPrompt: selectedPrompt,
                     originalPrompt: originalPrompt.trim(),
                     optimizedPrompt: optimizedPrompt.trim(),
-                    generatedImage: generatedImages[selectedImageIndex],
-                    sourceWidth: dimensions.width,
-                    sourceHeight: dimensions.height
+                    generatedImage: imageUrl,
+                    sourceWidth: width,
+                    sourceHeight: height
                   }
                 });
                 navigate('/editor');
@@ -394,6 +406,86 @@ export default function TextToImage() {
           </div>
         </div>
       </div>
+      
+      {isStartEditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setIsStartEditModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <div className="p-6 border-b border-black/5 flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500 font-medium">未保存提示</div>
+                <div className="text-lg font-semibold text-gray-900">当前画布有未保存修改</div>
+              </div>
+              <button onClick={() => setIsStartEditModalOpen(false)} className="p-2 rounded-xl hover:bg-black/5 text-gray-500 transition-colors" title="关闭">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="text-sm text-gray-600 leading-relaxed">
+                继续开始编辑将新建项目并离开当前画布。你可以先把当前画布保存为一份个人设计（备份），再继续。
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => {
+                    if (!pendingStartEdit) return;
+                    const status = saveCurrentProjectAsNew();
+                    if (status === 'limit_reached') {
+                      toast.show('已达到个人文件数量上限 (5个)，无法先保存当前画布。');
+                      return;
+                    }
+                    toast.show('已保存到个人设计');
+                    setIsStartEditModalOpen(false);
+                    const { width, height, prompt, imageUrl } = pendingStartEdit;
+                    createProject(width, height, 'AI 文生图项目', {
+                      sourceType: 'text-to-image',
+                      aiResizeBinding: {
+                        defaultPrompt: prompt,
+                        originalPrompt: originalPrompt.trim(),
+                        optimizedPrompt: optimizedPrompt.trim(),
+                        generatedImage: imageUrl,
+                        sourceWidth: width,
+                        sourceHeight: height
+                      }
+                    });
+                    navigate('/editor');
+                  }}
+                  className="btn-breeze-orange flex-1 justify-center px-4 py-3 rounded-2xl"
+                >
+                  保存到个人设计并继续
+                </button>
+                <button
+                  onClick={() => {
+                    if (!pendingStartEdit) return;
+                    setIsStartEditModalOpen(false);
+                    const { width, height, prompt, imageUrl } = pendingStartEdit;
+                    createProject(width, height, 'AI 文生图项目', {
+                      sourceType: 'text-to-image',
+                      aiResizeBinding: {
+                        defaultPrompt: prompt,
+                        originalPrompt: originalPrompt.trim(),
+                        optimizedPrompt: optimizedPrompt.trim(),
+                        generatedImage: imageUrl,
+                        sourceWidth: width,
+                        sourceHeight: height
+                      }
+                    });
+                    navigate('/editor');
+                  }}
+                  className="btn-secondary flex-1 justify-center px-4 py-3 rounded-2xl"
+                >
+                  直接覆盖
+                </button>
+              </div>
+              <button
+                onClick={() => setIsStartEditModalOpen(false)}
+                className="btn-flat-neutral w-full justify-center px-4 py-3 rounded-2xl"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Right Column: Controls */}
       <div className="w-[560px] flex flex-col gap-4 h-full">

@@ -69,6 +69,15 @@ body {
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
   }
 
+  .btn-breeze-orange-sm {
+    @apply inline-flex items-center justify-center gap-2 h-9 px-3 py-2 rounded-full text-xs font-semibold border transition-all duration-200;
+    @apply focus-visible:outline-none;
+    color: var(--accent-orange-fixed);
+    background-color: color-mix(in srgb, var(--accent-orange-fixed) 7%, white);
+    border-color: color-mix(in srgb, var(--accent-orange-fixed) 62%, transparent);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 1px 1px rgba(0, 0, 0, 0.06);
+  }
+
   .btn-flat {
     @apply inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-4 rounded-xl text-sm font-semibold border transition-colors duration-200;
     @apply focus-visible:outline-none;

@@ -93,11 +93,13 @@ export default function Projects() {
     projects,
     personalImages,
     currentProject,
+    isDirty,
     loadProject,
     deleteProject,
     createProject,
     updateProject,
     saveProject,
+    saveCurrentProjectAsNew,
   } = useProject();
 
   const space: SpaceMode = location.pathname.startsWith('/public') ? 'public' : 'personal';
@@ -131,7 +133,12 @@ export default function Projects() {
   const [generatedShareCode, setGeneratedShareCode] = useState<string | null>(null);
   const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
   const [redeemRecord, setRedeemRecord] = useState<P2PShareRecord | null>(null);
+  const [isApplyTemplateModalOpen, setIsApplyTemplateModalOpen] = useState(false);
+  const [pendingTemplateApply, setPendingTemplateApply] = useState<null | { width: number; height: number; elements: any[]; thumbnail?: string | null }>(null);
+  const [isNavigateTTIModalOpen, setIsNavigateTTIModalOpen] = useState(false);
+  const [pendingTTIPrompt, setPendingTTIPrompt] = useState<string | null>(null);
 
+  const buildShareDisplay = (code: string) => `【文生图】挖到宝了！快复制完整口令¥${code}¥打开GUWP办公屏搜索文生图-个人空间查看！`;
   const visibleProjects = useMemo(() => {
     return space === 'public' ? publicProjects : projects;
   }, [space, publicProjects, projects]);
@@ -461,6 +468,11 @@ export default function Projects() {
     setRedeemRecord(null);
   };
 
+  const closeApplyTemplateModal = () => {
+    setIsApplyTemplateModalOpen(false);
+    setPendingTemplateApply(null);
+  };
+
   const getRedeemPreviewUrl = (record: P2PShareRecord | null) => {
     if (!record) return null;
     if (record.kind === 'inspiration') return record.payload.imageUrl;
@@ -468,7 +480,7 @@ export default function Projects() {
     return record.payload.project.thumbnail || null;
   };
 
-  const applyTemplateToCanvas = (next: { width: number; height: number; elements: any[]; thumbnail?: string | null }) => {
+  const doApplyTemplateToCanvas = (next: { width: number; height: number; elements: any[]; thumbnail?: string | null }) => {
     const canvasHasContent = (currentProject?.elements?.length || 0) > 0;
     if (canvasHasContent) {
       const ok = window.confirm('当前创建设计画布非空，继续将覆盖现有内容吗？');
@@ -495,6 +507,33 @@ export default function Projects() {
     });
     navigate('/editor');
     doToast('已应用到画布');
+  };
+
+  const applyTemplateToCanvas = (next: { width: number; height: number; elements: any[]; thumbnail?: string | null }) => {
+    if (currentProject && isDirty) {
+      setPendingTemplateApply(next);
+      setIsApplyTemplateModalOpen(true);
+      return;
+    }
+    doApplyTemplateToCanvas(next);
+  };
+
+  const handleSaveDirtyCanvasThenApply = () => {
+    if (!pendingTemplateApply) return;
+    const status = saveCurrentProjectAsNew();
+    if (status === 'limit_reached') {
+      doToast('已达到个人文件数量上限 (5个)，无法先保存当前画布。');
+      return;
+    }
+    doToast('已保存到个人设计');
+    closeApplyTemplateModal();
+    doApplyTemplateToCanvas(pendingTemplateApply);
+  };
+
+  const handleDiscardDirtyCanvasThenApply = () => {
+    if (!pendingTemplateApply) return;
+    closeApplyTemplateModal();
+    doApplyTemplateToCanvas(pendingTemplateApply);
   };
 
   const handleApplyRedeemedTemplate = () => {
@@ -533,62 +572,14 @@ export default function Projects() {
 
   const handleDoSameInspiration = () => {
     if (!redeemRecord || redeemRecord.kind !== 'inspiration') return;
-    navigate('/text-to-image', { state: { prompt: redeemRecord.payload.prompt } });
-    closeRedeemModal();
-  };
-
-  const handleShareTestInspiration = async () => {
-    const seed =
-      redeemRecord?.kind === 'inspiration'
-        ? redeemRecord.payload
-        : {
-            title: '灵感示例',
-            imageUrl: 'https://picsum.photos/seed/deepcanvas-inspiration/800/600',
-            prompt: '一只穿着西装的猫，电影感光影，超清细节，商业海报构图',
-          };
-    const record = createP2PShareRecord({ kind: 'inspiration', payload: seed });
-    try {
-      await navigator.clipboard.writeText(record.code);
-      doToast('口令已复制');
-    } catch {
-      doToast('口令已生成');
-    }
-  };
-
-  const handleShareTestPublicTemplate = async () => {
-    const previewUrl = getRedeemPreviewUrl(redeemRecord) || 'https://picsum.photos/seed/deepcanvas-template/900/1600';
-    const record = createP2PShareRecord({
-      kind: 'public_template',
-      payload: {
-        title: '公共模板示例',
-        previewImageUrl: previewUrl,
-        width: 1080,
-        height: 1920,
-        elements: makeTemplateElements(previewUrl, 1080, 1920),
-        sourceLabel: '公共模板',
-      },
-    });
-    try {
-      await navigator.clipboard.writeText(record.code);
-      doToast('口令已复制');
-    } catch {
-      doToast('口令已生成');
-    }
-  };
-
-  const handleShareTestPersonalDesign = async () => {
-    const project = projects[0];
-    if (!project) {
-      doToast('暂无可分享的个人设计');
+    const existsInPersonalSpace = currentProject ? projects.some(p => p.id === currentProject.id) : false;
+    if (currentProject && (isDirty || !existsInPersonalSpace)) {
+      setPendingTTIPrompt(redeemRecord.payload.prompt);
+      setIsNavigateTTIModalOpen(true);
       return;
     }
-    const record = createP2PShareRecord({ kind: 'personal_design', payload: { project } });
-    try {
-      await navigator.clipboard.writeText(record.code);
-      doToast('口令已复制');
-    } catch {
-      doToast('口令已生成');
-    }
+    navigate('/text-to-image', { state: { prompt: redeemRecord.payload.prompt } });
+    closeRedeemModal();
   };
 
   const handleGenerateP2PShareCode = async () => {
@@ -600,9 +591,9 @@ export default function Projects() {
     setGeneratedShareCode(record.code);
     try {
       await navigator.clipboard.writeText(record.code);
-      doToast('口令已复制');
+      doToast('口令已复制到剪切板');
     } catch {
-      doToast('口令已生成');
+      doToast('口令已复制到剪切板');
     }
   };
 
@@ -636,23 +627,42 @@ export default function Projects() {
 
   const renderProjectsView = () => {
     if (visibleProjects.length === 0) {
-      return (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <h3 className="text-lg font-semibold text-gray-900">{space === 'public' ? '公共空间暂无作品' : '还没有设计'}</h3>
-          <p className="text-sm text-gray-500 max-w-sm mt-2 mb-8">
-            {space === 'public' ? '先在个人空间把设计发布到公共空间，这里会展示社区作品。' : '从新建设计开始，创建你的第一张画布。'}
-          </p>
-          {space !== 'public' && (
-            <button onClick={handleCreateNew} className="btn-ion">
-              新建画布
-            </button>
-          )}
-        </div>
-      );
+      if (space === 'public') {
+        return (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <h3 className="text-lg font-semibold text-gray-900">公共空间暂无作品</h3>
+            <p className="text-sm text-gray-500 max-w-sm mt-2">
+              先在个人空间把设计发布到公共空间，这里会展示社区作品。
+            </p>
+          </div>
+        );
+      }
     }
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {space !== 'public' && (
+          <button
+            onClick={handleCreateNew}
+            disabled={projects.length >= 5}
+            className={clsx(
+              "group relative rounded-2xl border border-dashed border-black/10 bg-white overflow-hidden text-left transition-all duration-200 hover:border-black/20 hover:shadow-sm",
+              projects.length >= 5 && "opacity-60 cursor-not-allowed hover:shadow-none hover:border-black/10"
+            )}
+          >
+            <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-black/[0.02] to-black/[0.06]">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white border border-black/10 shadow-sm flex items-center justify-center text-gray-700">
+                  <Plus size={22} />
+                </div>
+                <div className="text-sm font-semibold text-gray-900">新建设计</div>
+                <div className="text-xs text-gray-500">
+                  {projects.length >= 5 ? '已达上限（5个）' : '创建一张新画布'}
+                </div>
+              </div>
+            </div>
+          </button>
+        )}
         {visibleProjects.map((project: any) => (
           <div
             key={project.id}
@@ -728,45 +738,45 @@ export default function Projects() {
 
     return (
       <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setAssetView('gen-assets')}
-              className={clsx(
-                "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
-                view === 'gen-assets'
-                  ? "bg-gray-100 text-gray-900 border-gray-200"
-                  : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
-              )}
-              aria-selected={view === 'gen-assets'}
-            >
-              文生图历史
-            </button>
-            <button
-              onClick={() => setAssetView('edit-assets')}
-              className={clsx(
-                "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
-                view === 'edit-assets'
-                  ? "bg-gray-100 text-gray-900 border-gray-200"
-                  : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
-              )}
-              aria-selected={view === 'edit-assets'}
-            >
-              AI生成
-            </button>
-            <button
-              onClick={() => setAssetView('export-assets')}
-              className={clsx(
-                "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
-                view === 'export-assets'
-                  ? "bg-gray-100 text-gray-900 border-gray-200"
-                  : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
-              )}
-              aria-selected={view === 'export-assets'}
-            >
-              导出资产
-            </button>
-          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <nav className="flex items-center gap-6">
+              <button
+                onClick={() => setAssetView('gen-assets')}
+                className={clsx(
+                  "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
+                  view === 'gen-assets'
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                )}
+                aria-selected={view === 'gen-assets'}
+              >
+                文生图历史
+              </button>
+              <button
+                onClick={() => setAssetView('edit-assets')}
+                className={clsx(
+                  "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
+                  view === 'edit-assets'
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                )}
+                aria-selected={view === 'edit-assets'}
+              >
+                AI生成
+              </button>
+              <button
+                onClick={() => setAssetView('export-assets')}
+                className={clsx(
+                  "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
+                  view === 'export-assets'
+                    ? "border-gray-900 text-gray-900"
+                    : "border-transparent text-gray-400 hover:text-gray-700"
+                )}
+                aria-selected={view === 'export-assets'}
+              >
+                导出资产
+              </button>
+            </nav>
 
           <div className="flex items-center justify-end gap-2">
             <button
@@ -792,7 +802,7 @@ export default function Projects() {
           </div>
         </div>
 
-        <div key={view} className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <div>
           {view === 'gen-assets' && renderAssetMasonry('文生图历史', displayGeneratedAssets, '暂无文生图历史', false)}
           {view === 'edit-assets' && renderAssetMasonry('AI生成', displayEditedAssets, '暂无AI生成记录', false)}
           {view === 'export-assets' && renderAssetMasonry('导出资产', displayExportedAssets, '暂无导出资产', false)}
@@ -804,12 +814,12 @@ export default function Projects() {
   const renderFavoritesModule = () => {
     return (
       <div className="space-y-5">
-        <div className="flex flex-wrap items-center gap-2">
+        <nav className="flex items-center gap-6">
           <button
             onClick={() => setFavoritesTab('inspiration')}
             className={clsx(
-              "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
-              favoritesTab === 'inspiration' ? "bg-gray-100 text-gray-900 border-gray-200" : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+              "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
+              favoritesTab === 'inspiration' ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
             )}
             aria-selected={favoritesTab === 'inspiration'}
           >
@@ -818,8 +828,8 @@ export default function Projects() {
           <button
             onClick={() => setFavoritesTab('prompts')}
             className={clsx(
-              "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
-              favoritesTab === 'prompts' ? "bg-gray-100 text-gray-900 border-gray-200" : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+              "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
+              favoritesTab === 'prompts' ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
             )}
             aria-selected={favoritesTab === 'prompts'}
           >
@@ -828,15 +838,15 @@ export default function Projects() {
           <button
             onClick={() => setFavoritesTab('templates')}
             className={clsx(
-              "h-11 px-4 rounded-xl text-sm font-semibold border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300 focus-visible:ring-offset-2",
-              favoritesTab === 'templates' ? "bg-gray-100 text-gray-900 border-gray-200" : "bg-white border-black/10 text-gray-600 hover:bg-black/5"
+              "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
+              favoritesTab === 'templates' ? "border-gray-900 text-gray-900" : "border-transparent text-gray-400 hover:text-gray-700"
             )}
             aria-selected={favoritesTab === 'templates'}
           >
             公共模板
           </button>
-        </div>
-        <div key={favoritesTab} className="py-12 text-center text-gray-400 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        </nav>
+        <div className="py-12 text-center text-gray-400">
           {favoritesTab === 'inspiration' && '暂无收藏的灵感'}
           {favoritesTab === 'prompts' && '暂无收藏的提示词'}
           {favoritesTab === 'templates' && '暂无收藏的公共模板'}
@@ -1113,19 +1123,14 @@ export default function Projects() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setView('p2p')}
-                className={clsx("btn-breeze-orange", view === 'p2p' && "shadow-md")}
+                className={clsx(
+                  "btn-breeze-orange-sm",
+                  view === 'p2p' && "shadow-sm"
+                )}
+                aria-selected={view === 'p2p'}
               >
-                <Share2 size={16} />
-                点对点导入
-              </button>
-
-              <button
-                onClick={handleCreateNew}
-                disabled={projects.length >= 5}
-                className="btn-ion"
-              >
-                <Plus size={16} />
-                新建设计
+                <Share2 size={14} />
+                兑换分享口令
               </button>
             </div>
           </div>
@@ -1191,24 +1196,7 @@ export default function Projects() {
                 我的收藏
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setView('p2p')}
-                className={clsx("btn-breeze-orange", view === 'p2p' && "shadow-md")}
-                aria-selected={view === 'p2p'}
-              >
-                <Share2 size={16} />
-                点对点导入
-              </button>
-              <button
-                onClick={handleCreateNew}
-                disabled={projects.length >= 5}
-                className="btn-ion"
-              >
-                <Plus size={16} />
-                新建设计
-              </button>
-            </div>
+            <div className="flex items-center gap-2"></div>
           </div>
         )}
 
@@ -1223,7 +1211,7 @@ export default function Projects() {
               </div>
             </div>
           ) : (
-            <div key={`${space}:${view}:${favoritesTab}`} className="animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <div>
               {space === 'public' && renderProjectsView()}
               {space === 'personal' && view === 'projects' && renderProjectsView()}
               {space === 'personal' && (view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets') && renderAssetsModule()}
@@ -1262,8 +1250,8 @@ export default function Projects() {
                     生成口令
                   </button>
                   {generatedShareCode && (
-                    <div className="flex-1 px-4 py-2 rounded-2xl border border-black/10 bg-white text-sm font-semibold tracking-widest text-gray-900">
-                      {generatedShareCode}
+                    <div className="flex-1 px-4 py-2 rounded-2xl border border-black/10 bg-white text-sm font-semibold tracking-normal text-gray-900">
+                      {buildShareDisplay(generatedShareCode)}
                     </div>
                   )}
                 </div>
@@ -1273,6 +1261,65 @@ export default function Projects() {
         </div>
       )}
 
+      {isNavigateTTIModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setIsNavigateTTIModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <div className="p-6 border-b border-black/5 flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500 font-medium">未保存提示</div>
+                <div className="text-lg font-semibold text-gray-900">当前画布有未保存修改</div>
+              </div>
+              <button onClick={() => setIsNavigateTTIModalOpen(false)} className="p-2 rounded-xl hover:bg-black/5 text-gray-500 transition-colors" title="关闭">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="text-sm text-gray-600 leading-relaxed">
+                继续前往文生图将离开当前画布。你可以先把当前画布保存为一份个人设计（备份），再继续。
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={() => {
+                    const status = saveCurrentProjectAsNew();
+                    if (status === 'limit_reached') {
+                      doToast('已达到个人文件数量上限 (5个)，无法先保存当前画布。');
+                      return;
+                    }
+                    doToast('已保存到个人设计');
+                    setIsNavigateTTIModalOpen(false);
+                    if (pendingTTIPrompt) {
+                      navigate('/text-to-image', { state: { prompt: pendingTTIPrompt } });
+                      closeRedeemModal();
+                    }
+                  }}
+                  className="btn-breeze-orange flex-1 justify-center px-4 py-3 rounded-2xl"
+                >
+                  保存到个人设计并继续
+                </button>
+                <button
+                  onClick={() => {
+                    setIsNavigateTTIModalOpen(false);
+                    if (pendingTTIPrompt) {
+                      navigate('/text-to-image', { state: { prompt: pendingTTIPrompt } });
+                      closeRedeemModal();
+                    }
+                  }}
+                  className="btn-secondary flex-1 justify-center px-4 py-3 rounded-2xl"
+                >
+                  直接覆盖
+                </button>
+              </div>
+              <button
+                onClick={() => setIsNavigateTTIModalOpen(false)}
+                className="btn-flat-neutral w-full justify-center px-4 py-3 rounded-2xl"
+              >
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {isRedeemModalOpen && redeemRecord && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/30" onClick={closeRedeemModal} />
@@ -1342,21 +1389,6 @@ export default function Projects() {
                   )}
                 </div>
 
-                <div className="rounded-2xl border border-black/10 bg-white p-4">
-                  <div className="text-xs text-gray-500 font-medium">测试分享入口</div>
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <button onClick={handleShareTestInspiration} className="btn-secondary justify-center px-3 py-2 rounded-xl">
-                      分享灵感
-                    </button>
-                    <button onClick={handleShareTestPublicTemplate} className="btn-secondary justify-center px-3 py-2 rounded-xl">
-                      分享公共模板
-                    </button>
-                    <button onClick={handleShareTestPersonalDesign} className="btn-secondary justify-center px-3 py-2 rounded-xl">
-                      分享个人设计
-                    </button>
-                  </div>
-                </div>
-
                 <div className="flex items-center gap-2">
                   {redeemRecord.kind === 'inspiration' ? (
                     <button onClick={handleDoSameInspiration} className="btn-breeze-orange flex-1 justify-center px-4 py-3 rounded-2xl">
@@ -1374,6 +1406,49 @@ export default function Projects() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isApplyTemplateModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/30" onClick={closeApplyTemplateModal} />
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <div className="p-6 border-b border-black/5 flex items-start justify-between">
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500 font-medium">未保存提示</div>
+                <div className="text-lg font-semibold text-gray-900">当前画布有未保存修改</div>
+              </div>
+              <button onClick={closeApplyTemplateModal} className="p-2 rounded-xl hover:bg-black/5 text-gray-500 transition-colors" title="关闭">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="text-sm text-gray-600 leading-relaxed">
+                继续应用将覆盖当前画布内容。你可以先把当前画布保存为一份个人设计（备份），再继续应用。
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={handleSaveDirtyCanvasThenApply}
+                  className="btn-breeze-orange flex-1 justify-center px-4 py-3 rounded-2xl"
+                >
+                  保存到个人设计并继续
+                  <ArrowRight size={16} />
+                </button>
+                <button
+                  onClick={handleDiscardDirtyCanvasThenApply}
+                  className="btn-secondary flex-1 justify-center px-4 py-3 rounded-2xl"
+                >
+                  直接覆盖
+                </button>
+              </div>
+              <button
+                onClick={closeApplyTemplateModal}
+                className="btn-flat-neutral w-full justify-center px-4 py-3 rounded-2xl"
+              >
+                取消
+              </button>
             </div>
           </div>
         </div>
