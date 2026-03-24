@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { Wand2, LayoutTemplate } from 'lucide-react';
+import { Wand2, LayoutTemplate, Share2 } from 'lucide-react';
+import { useToast } from '../components/ToastProvider';
+import { createP2PShareRecord } from '../utils/p2pShare';
 
 const inspirationCategories = [
   {
@@ -160,6 +162,7 @@ const inspirationCategories = [
 
 export default function Inspiration() {
   const navigate = useNavigate();
+  const toast = useToast();
 
   return (
     <div className="min-h-screen p-8 max-w-[1600px] mx-auto">
@@ -189,6 +192,30 @@ export default function Inspiration() {
                   key={item.id} 
                   className="group relative h-[300px] rounded-3xl overflow-hidden cursor-pointer shadow-sm hover:shadow-2xl transition-all duration-500 border border-black/5"
                 >
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const record = createP2PShareRecord({
+                        kind: 'inspiration',
+                        payload: {
+                          title: item.title,
+                          prompt: item.prompt,
+                          imageUrl: (item as any).imageUrl,
+                        },
+                      });
+                      try {
+                        await navigator.clipboard.writeText(record.code);
+                    toast.show('口令已复制到剪切板');
+                      } catch {
+                    toast.show('口令已复制到剪切板');
+                      }
+                    }}
+                    className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+                    title="分享口令"
+                  >
+                    <Share2 size={16} />
+                  </button>
+
                   {/* Placeholder Image Background */}
                   <div className="absolute inset-0 transition-transform duration-700 group-hover:scale-105">
                     {/* @ts-ignore */}

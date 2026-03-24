@@ -31,10 +31,12 @@ import CreateCanvasModal from '../components/CreateCanvasModal';
 
 import { useTheme } from '../theme/ThemeContext';
 import { Tooltip } from '../components/Tooltip';
+import { useToast } from '../components/ToastProvider';
 
 export default function Home() {
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const toast = useToast();
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
@@ -278,7 +280,7 @@ export default function Home() {
               <ToolIcon icon={Presentation} label="PPT 生成" className={toolIconClass} onClick={() => navigate('/tools/ppt-gen')} />
               <ToolIcon icon={ScanFace} label="证件照生成" className={toolIconClass} onClick={() => navigate('/tools/id-photo')} />
               <ToolIcon icon={History} label="老照片修复" className={toolIconClass} onClick={() => navigate('/tools/old-photo')} />
-              <ToolIcon icon={LayoutTemplate} label="结构化海报" className={toolIconClass} onClick={() => alert('结构化海报功能开发中...')} />
+              <ToolIcon icon={LayoutTemplate} label="结构化海报" className={toolIconClass} onClick={() => toast.show('结构化海报功能开发中')} />
               <ToolIcon icon={MoreHorizontal} label="敬请期待" className={toolIconClass} onClick={() => {}} />
             </div>
           </BentoCard>

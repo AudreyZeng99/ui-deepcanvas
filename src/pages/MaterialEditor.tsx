@@ -113,9 +113,11 @@ import ExportModal from '../components/ExportModal';
 import { Tooltip } from '../components/Tooltip';
 import { useProject } from '../context/ProjectContext';
 import { useEffect, useRef } from 'react';
+import { useToast } from '../components/ToastProvider';
 
 export default function MaterialEditor() {
   const { currentProject, createProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
+  const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Element Management
@@ -355,6 +357,15 @@ export default function MaterialEditor() {
   }, []);
 
   useEffect(() => {
+    if (!currentProject) return;
+    const nextElements = Array.isArray(currentProject.elements) ? (currentProject.elements as any[]) : [];
+    setElements(nextElements as any);
+    setSelectedElement(null);
+    setSelectedElementIds([]);
+    setSelectedContent('');
+  }, [currentProject?.id, currentProject?.elements]);
+
+  useEffect(() => {
     elementsRef.current = elements;
   }, [elements]);
 
@@ -397,7 +408,7 @@ export default function MaterialEditor() {
     }
 
     if (projects.length >= 5) {
-      alert('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
+      toast.show('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
       return;
     }
 
@@ -412,11 +423,11 @@ export default function MaterialEditor() {
 
     const status = validateSave(nextName);
     if (status === 'limit_reached') {
-      alert('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
+      toast.show('已达到个人文件数量上限 (5个)，无法保存新文件。请先删除部分旧文件。');
       return;
     }
     if (status === 'duplicate_name') {
-      alert('文件名已存在，请使用其他名称');
+      toast.show('文件名已存在，请使用其他名称');
       return;
     }
 
@@ -2082,8 +2093,7 @@ export default function MaterialEditor() {
                               <div className="w-px h-4 bg-gray-200" />
                               <button 
                                 onClick={() => {
-                                  // Mock matting action
-                                  alert('AI抠图功能即将上线');
+                                  toast.show('AI抠图功能即将上线');
                                 }}
                                 className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-xs font-medium text-purple-600 rounded-md transition-colors flex items-center gap-1.5 whitespace-nowrap"
                               >
@@ -3516,7 +3526,7 @@ export default function MaterialEditor() {
           onExport={(settings) => {
             console.log('Exporting with settings:', settings);
             setIsExportModalOpen(false);
-            alert('导出成功！');
+            toast.success('导出成功');
           }}
         />
 

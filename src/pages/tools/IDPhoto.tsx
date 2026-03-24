@@ -3,8 +3,10 @@ import ToolLayout from './ToolLayout';
 import { Upload, Download, RefreshCw, Wand2, Image as ImageIcon, ScanFace, Check, RotateCcw } from 'lucide-react';
 import clsx from 'clsx';
 import ExportModal, { ExportSettings } from '../../components/ExportModal';
+import { useToast } from '../../components/ToastProvider';
 
 export default function IDPhoto() {
+  const toast = useToast();
   const [, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export default function IDPhoto() {
   const handleExport = (settings: ExportSettings) => {
     console.log('Exporting with settings:', settings);
     setIsExportModalOpen(false);
-    alert('导出成功！');
+    toast.success('导出成功');
   };
 
   return (
