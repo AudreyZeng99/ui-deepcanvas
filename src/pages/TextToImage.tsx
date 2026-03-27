@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
-  Wand2, 
   Image as ImageIcon, 
   Download, 
   Scissors, 
   Edit3, 
   RefreshCw,
   Sparkles,
+  Lightbulb,
+  Zap,
   Maximize2,
   CheckCircle2,
   Scaling,
@@ -40,7 +41,8 @@ export default function TextToImage() {
   const { createProject, currentProject, projects, isDirty, saveCurrentProjectAsNew } = useProject();
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
-  const [activeSource, setActiveSource] = useState<'original' | 'optimized'>('original');
+  const [usePromptOptimizer, setUsePromptOptimizer] = useState(true);
+  const [lastOptimizedOriginalPrompt, setLastOptimizedOriginalPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<string[]>([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
@@ -63,6 +65,8 @@ export default function TextToImage() {
   useEffect(() => {
     if (location.state?.prompt) {
       setOriginalPrompt(location.state.prompt);
+      setOptimizedPrompt('');
+      setLastOptimizedOriginalPrompt('');
     }
   }, [location.state]);
 
@@ -79,12 +83,15 @@ export default function TextToImage() {
     };
   }, []);
 
-  const handleOptimize = () => {
-    // Mock optimization logic
+  const optimizePrompt = (prompt: string) => {
     const enhancements = "，细节丰富，8k分辨率，电影级光效，真实感，艺术站热门，杰作，清晰聚焦";
-    setOptimizedPrompt((originalPrompt || "绝美场景") + enhancements);
-    setActiveSource('optimized');
+    return (prompt || "绝美场景") + enhancements;
   };
+
+  const originalPromptNormalized = originalPrompt.trim();
+  const isOptimizedValid = Boolean(optimizedPrompt.trim()) && originalPromptNormalized === lastOptimizedOriginalPrompt;
+  const promptDisplaySource = usePromptOptimizer ? (isOptimizedValid ? 'optimized' : 'original') : 'original';
+  const promptDisplayValue = promptDisplaySource === 'optimized' ? optimizedPrompt : originalPrompt;
 
   return (
     <div className="h-screen p-6 flex gap-6 overflow-hidden bg-background">
@@ -344,7 +351,7 @@ export default function TextToImage() {
             <button 
               onClick={() => {
                 if (selectedImageIndex === null) return;
-                const selectedPrompt = activeSource === 'optimized' && optimizedPrompt.trim()
+                const selectedPrompt = usePromptOptimizer && optimizedPrompt.trim()
                   ? optimizedPrompt.trim()
                   : originalPrompt.trim();
                 const imageUrl = generatedImages[selectedImageIndex];
@@ -489,130 +496,102 @@ export default function TextToImage() {
 
       {/* Right Column: Controls */}
       <div className="w-[560px] flex flex-col gap-4 h-full">
-        <div className="flex-1 overflow-y-auto pr-2 space-y-4 custom-scrollbar">
-          
-          {/* Prompt Engineering Section */}
-          <div className="bg-white/60 backdrop-blur-xl border border-black/5 rounded-3xl p-5 flex flex-col gap-4 flex-1 h-full">
-            <div className="flex items-center gap-2 mb-1">
-              <Wand2 size={20} className="text-accent-primary" />
-              <h3 className="font-bold text-lg">提示词工程</h3>
-            </div>
-
-            {/* Original Prompt */}
-            <div 
-              className={clsx(
-                "rounded-2xl border-2 transition-all p-4 relative group flex-1",
-                activeSource === 'original' ? "border-accent-primary bg-accent-primary/5" : "border-transparent bg-white hover:border-black/5"
-              )}
-              onClick={() => setActiveSource('original')}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">原始提示词</label>
-                <div className={clsx(
-                  "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  activeSource === 'original' ? "border-accent-primary bg-accent-primary text-white" : "border-gray-300 text-transparent"
-                )}>
-                  <CheckCircle2 size={14} />
-                </div>
-              </div>
-              <textarea 
-                value={originalPrompt}
-                onChange={(e) => setOriginalPrompt(e.target.value)}
-                placeholder="描述你想要看到的画面..."
-                maxLength={1500}
-                className="w-full h-[calc(100%-2rem)] bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
-              />
-              <div className="absolute bottom-4 right-4 text-xs text-gray-400">{originalPrompt.length}/1500</div>
-            </div>
-
-            {/* Optimization Action */}
-            <div className="relative h-4 flex items-center justify-center -my-2 z-10">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-black/5"></div>
-              </div>
-              <Tooltip content="AI 优化提示词">
-                <button 
-                  onClick={handleOptimize}
-                  className="relative bg-white border border-black/10 shadow-sm text-accent-promotion hover:text-white hover:bg-accent-promotion hover:border-accent-promotion px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all transform hover:scale-105"
-                >
-                  <Sparkles size={12} />
-                  AI 优化
-                </button>
-              </Tooltip>
-            </div>
-
-            {/* Optimized Prompt */}
-            <div 
-              className={clsx(
-                "rounded-2xl border-2 transition-all p-4 relative flex-1",
-                activeSource === 'optimized' ? "border-accent-promotion bg-accent-promotion/5" : "border-transparent bg-white hover:border-black/5",
-                !optimizedPrompt && "opacity-50"
-              )}
-              onClick={() => optimizedPrompt && setActiveSource('optimized')}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">AI 优化提示词</label>
-                <div className={clsx(
-                  "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                  activeSource === 'optimized' ? "border-accent-promotion bg-accent-promotion text-white" : "border-gray-300 text-transparent"
-                )}>
-                  <CheckCircle2 size={14} />
-                </div>
-              </div>
-              <textarea 
-                value={optimizedPrompt}
-                onChange={(e) => setOptimizedPrompt(e.target.value)}
-                placeholder="AI 优化后的提示词将出现在这里..."
-                maxLength={1500}
-                disabled={!optimizedPrompt && activeSource !== 'optimized'}
-                className="w-full h-[calc(100%-2rem)] bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
-              />
-              <div className="absolute bottom-4 right-4 text-xs text-gray-400">{optimizedPrompt.length}/1500</div>
+        <div className="bg-white/60 backdrop-blur-xl border border-black/5 rounded-3xl p-5 flex flex-col gap-4 flex-1 h-full shadow-xl shadow-black/5">
+          <div className="flex-1 rounded-2xl border border-black/5 bg-white/70 p-4 relative">
+            <textarea
+              value={promptDisplayValue}
+              onChange={(e) => {
+                const next = e.target.value;
+                if (usePromptOptimizer && promptDisplaySource === 'optimized') {
+                  setOptimizedPrompt(next);
+                  return;
+                }
+                setOriginalPrompt(next);
+              }}
+              placeholder="描述你想要看到的画面..."
+              maxLength={1500}
+              className="w-full h-full bg-transparent border-none p-0 resize-none focus:outline-none text-sm leading-relaxed placeholder:text-gray-400"
+            />
+            <div className="absolute bottom-3 right-4 text-xs text-gray-400">
+              {promptDisplayValue.length}/1500
             </div>
           </div>
-        </div>
 
-        {/* Generate Button Footer */}
-        <div className="p-4 bg-white/60 backdrop-blur-xl border border-black/5 rounded-3xl mt-auto shadow-xl shadow-black/5">
-          <button 
-            className={clsx(
-              "w-full py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 transition-all transform active:scale-[0.98]",
-              isGenerating ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-accent-primary text-white hover:opacity-90 shadow-lg hover:shadow-xl"
-            )}
-            onClick={() => {
-              if (isGenerating) return;
-              
-              // If optimized prompt is empty, automatically optimize the original prompt
-              if (!optimizedPrompt.trim()) {
-                handleOptimize();
-              }
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-semibold text-gray-500 w-[176px] whitespace-nowrap">
+                模式：{usePromptOptimizer ? '调用提示词优化器' : '不调用提示词优化器'}
+              </div>
 
-              setIsGenerating(true);
-              setGeneratedImages([]);
-              setSelectedImageIndex(null);
-              setTimeout(() => {
-                setIsGenerating(false);
-                setGeneratedImages([
-                  'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80',
-                  'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80',
-                  'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
-                  'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80'
-                ]);
-              }, 2000);
-            }}
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw size={20} className="animate-spin" />
-                生成中...
-              </>
-            ) : (
-              <>
-                <Sparkles size={20} />
-                开始生成
-              </>
-            )}
-          </button>
+              <div className="bg-white border border-black/10 rounded-full p-1 shadow-sm flex items-center gap-1">
+                <Tooltip content="不调用提示词优化器" position="top">
+                  <button
+                    onClick={() => setUsePromptOptimizer(false)}
+                    className={clsx(
+                      "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                      !usePromptOptimizer
+                        ? "bg-gray-100 text-gray-900"
+                        : "text-gray-600 hover:bg-black/5"
+                    )}
+                  >
+                    <Lightbulb size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="调用提示词优化器" position="top">
+                  <button
+                    onClick={() => setUsePromptOptimizer(true)}
+                    className={clsx(
+                      "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                      usePromptOptimizer
+                        ? "bg-accent-promotion text-white"
+                        : "text-gray-600 hover:bg-black/5"
+                    )}
+                  >
+                    <Zap size={16} />
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+
+            <div className="bg-white border border-black/10 rounded-full p-1 shadow-sm">
+              <button
+                className={clsx(
+                  "w-9 h-9 rounded-full flex items-center justify-center transition-colors",
+                  isGenerating ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-accent-promotion text-white"
+                )}
+                onClick={() => {
+                  if (isGenerating) return;
+                  const userInput = promptDisplayValue.trim();
+
+                  if (usePromptOptimizer) {
+                    if (promptDisplaySource === 'original') {
+                      setOriginalPrompt(userInput);
+                      const nextOptimized = optimizePrompt(userInput);
+                      setOptimizedPrompt(nextOptimized);
+                      setLastOptimizedOriginalPrompt(userInput);
+                    }
+                  } else {
+                    setOriginalPrompt(userInput);
+                  }
+
+                  setIsGenerating(true);
+                  setGeneratedImages([]);
+                  setSelectedImageIndex(null);
+                  setTimeout(() => {
+                    setIsGenerating(false);
+                    setGeneratedImages([
+                      'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80',
+                      'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80',
+                      'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
+                      'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80'
+                    ]);
+                  }, 2000);
+                }}
+              >
+                {isGenerating ? <RefreshCw size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
       
