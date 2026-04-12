@@ -106,10 +106,28 @@ function buildImageRecords(projects: Project[]): SpaceImageRecord[] {
 
 function getDefaultTeams(): Team[] {
   return [
-    { id: 'team-1', name: '团队1', projectIds: [], materials: [], createdAt: Date.now() - 3 },
-    { id: 'team-2', name: '团队2', projectIds: [], materials: [], createdAt: Date.now() - 2 },
-    { id: 'team-3', name: '团队3', projectIds: [], materials: [], createdAt: Date.now() - 1 },
+    { id: 'team-1', name: '流量素材投放banner制作', projectIds: [], materials: [], createdAt: Date.now() - 3 },
+    { id: 'team-2', name: '小程序贷款海报制作', projectIds: [], materials: [], createdAt: Date.now() - 2 },
+    { id: 'team-3', name: '营销中台物料制作', projectIds: [], materials: [], createdAt: Date.now() - 1 },
   ];
+}
+
+function ensureDefaultTeams(input: Team[]): Team[] {
+  const defaults = getDefaultTeams();
+  const byId = new Map(input.map(t => [t.id, t]));
+  const mergedDefaults = defaults.map((d) => {
+    const existing = byId.get(d.id);
+    if (!existing) return d;
+    return {
+      ...existing,
+      name: d.name,
+      projectIds: Array.isArray(existing.projectIds) ? existing.projectIds : [],
+      materials: Array.isArray(existing.materials) ? existing.materials : [],
+      createdAt: typeof existing.createdAt === 'number' ? existing.createdAt : d.createdAt,
+    };
+  });
+  const rest = input.filter(t => !defaults.some(d => d.id === t.id));
+  return [...mergedDefaults, ...rest];
 }
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
@@ -143,7 +161,8 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
             : [],
           createdAt: typeof t.createdAt === 'number' ? t.createdAt : Date.now(),
         }));
-      return normalized.length > 0 ? normalized : getDefaultTeams();
+      const safe = normalized.length > 0 ? normalized : getDefaultTeams();
+      return ensureDefaultTeams(safe);
     } catch {
       return getDefaultTeams();
     }

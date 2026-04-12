@@ -14,6 +14,7 @@ import {
   Settings,
   Bell,
   UserCircle,
+  ChevronDown,
   Wand2,
   Eraser,
   Scissors,
@@ -40,11 +41,20 @@ export default function Home() {
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
   const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
   const adminMenuRef = useRef<HTMLDivElement>(null);
+  const [isPerspectiveOpen, setIsPerspectiveOpen] = useState(false);
+  const perspectiveRef = useRef<HTMLDivElement>(null);
+  const [userPerspective, setUserPerspective] = useState<'traffic' | 'loan'>(() => {
+    const raw = localStorage.getItem('trae_deepcanvas_home_perspective_v1');
+    return raw === 'loan' ? 'loan' : 'traffic';
+  });
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (adminMenuRef.current && !adminMenuRef.current.contains(event.target as Node)) {
         setIsAdminMenuOpen(false);
+      }
+      if (perspectiveRef.current && !perspectiveRef.current.contains(event.target as Node)) {
+        setIsPerspectiveOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -52,6 +62,10 @@ export default function Home() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('trae_deepcanvas_home_perspective_v1', userPerspective);
+  }, [userPerspective]);
   
   const isGlass = theme.id.includes('glass');
   const isOutlined = theme.id.includes('outlined');
@@ -77,7 +91,61 @@ export default function Home() {
 
       <div className="w-full max-w-[1150px] h-[750px] flex flex-col gap-6">
         <header className="flex justify-between items-end flex-shrink-0">
-          <div>
+          <div className="flex flex-col items-start">
+            <div className="relative mb-3" ref={perspectiveRef}>
+              <button
+                type="button"
+                onClick={() => setIsPerspectiveOpen((prev) => !prev)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap"
+              >
+                <span className="text-[11px] font-bold text-gray-400">视角</span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {userPerspective === 'traffic' ? '流量投放' : '贷款小程序'}
+                </span>
+                <ChevronDown size={16} className={clsx('text-gray-400 transition-transform', isPerspectiveOpen ? 'rotate-180' : 'rotate-0')} />
+              </button>
+
+              {isPerspectiveOpen && (
+                <div className="absolute left-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserPerspective('traffic');
+                      setIsPerspectiveOpen(false);
+                    }}
+                    className={clsx(
+                      'w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-left',
+                      userPerspective === 'traffic' ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+                    )}
+                  >
+                    <span>流量投放</span>
+                    {userPerspective === 'traffic' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-700">
+                        当前
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserPerspective('loan');
+                      setIsPerspectiveOpen(false);
+                    }}
+                    className={clsx(
+                      'w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-left',
+                      userPerspective === 'loan' ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
+                    )}
+                  >
+                    <span>贷款小程序</span>
+                    {userPerspective === 'loan' && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-700">
+                        当前
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
             <h1 className="text-5xl font-black relative inline-block mb-2 whitespace-nowrap">
               <span className="relative z-10">Deepcanvas, 让设计更简单</span>
               <svg className="absolute -bottom-2 right-0 w-32 h-4 z-0 text-accent-secondary" viewBox="0 0 100 10" preserveAspectRatio="none">
@@ -219,36 +287,59 @@ export default function Home() {
           </BentoCard>
 
           {/* Templates (Important Level = Primary) */}
-          <BentoCard 
-            className={clsx("col-span-1 md:col-span-1 bg-primary border border-primary-border text-primary-foreground group cursor-pointer !overflow-visible relative z-10", glassCardClasses)}
-            title="模版"
-            description="快速应用专业设计模版"
-            icon={LayoutTemplate}
-            onClick={() => navigate('/templates')}
+          <div
+            className={clsx(
+              "relative rounded-3xl p-0 flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 backdrop-blur-xl col-span-1 md:col-span-1 bg-primary border border-primary-border text-primary-foreground group !overflow-visible z-10",
+              glassCardClasses
+            )}
           >
-             {/* Floating Decoration - Unclipped - Vertically Centered */}
-             <div className="absolute right-[-30px] top-1/2 -translate-y-1/2 w-40 h-40 z-50 pointer-events-none">
-                <div className="w-full h-full group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
-                   <img src={`${import.meta.env.BASE_URL}figure/blue-cloud-v2.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
-                </div>
-             </div>
+            <div className="absolute left-6 top-6 z-20 p-3 rounded-2xl bg-white/10 backdrop-blur-md w-fit pointer-events-none">
+              <LayoutTemplate size={24} />
+            </div>
 
-             {/* Clipped Background Effects */}
-             <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
-                <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-500" />
-                <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                  <ArrowUpRight className="text-current opacity-50" />
-                </div>
-             </div>
-          </BentoCard>
+            <button
+              type="button"
+              onClick={() => navigate('/templates?scope=public')}
+              className="relative z-10 flex-1 text-left px-6 py-6 hover:bg-white/10 transition-colors"
+            >
+              <div className="text-sm font-bold">公共模版</div>
+              <div className="text-xs opacity-70 mt-1 font-medium">点击跳转到公共模板</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const teamId = userPerspective === 'traffic' ? 'team-1' : 'team-2';
+                navigate(`/templates?scope=team&teamId=${teamId}`);
+              }}
+              className="relative z-10 flex-1 text-left px-6 py-6 border-t border-white/10 hover:bg-white/10 transition-colors"
+            >
+              <div className="text-sm font-bold">{userPerspective === 'traffic' ? '流量模版' : '贷款小程序模版'}</div>
+              <div className="text-xs opacity-70 mt-1 font-medium">
+                点击跳转到我的团队模板（默认勾选{userPerspective === 'traffic' ? '流量模版' : '贷款小程序模版'}）
+              </div>
+            </button>
+
+            <div className="absolute right-[-30px] top-1/2 -translate-y-1/2 w-40 h-40 z-50 pointer-events-none">
+              <div className="w-full h-full group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
+                <img src={`${import.meta.env.BASE_URL}figure/blue-cloud-v2.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
+              </div>
+            </div>
+
+            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+              <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-500" />
+              <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
+                <ArrowUpRight className="text-current opacity-50" />
+              </div>
+            </div>
+          </div>
 
           {/* Banking (Minor Level) */}
           <BentoCard 
             className="col-span-1 md:col-span-1 bg-minor border border-minor-border text-minor-foreground group cursor-pointer"
-            title="流量投放素材设计"
-            description="金融业务场景专属模版库"
+            title="AI广告设计助手"
+            description="一站式素材与项目协作空间"
             icon={Smartphone}
-            onClick={() => navigate('/material-editor')}
+            onClick={() => navigate('/ai-ad-design-assistant')}
           >
             <div className="mt-4">
                <div className="text-3xl font-bold">4</div>
