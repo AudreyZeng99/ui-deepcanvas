@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Check, ChevronDown, ClipboardCheck, Download, FolderOpen, Heart, Image, Package, Plus, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ClipboardCheck, Download, FolderOpen, Heart, Image, Package, Plus, Search, Upload, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
@@ -189,7 +189,7 @@ export default function AIAdDesignAssistant() {
   const toast = useToast();
   const [activeSection, setActiveSection] = useState<AssistantSection>('materials');
   const [query, setQuery] = useState('');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(() => {
     const set = new Set<string>();
     seedMaterials.forEach((item) => {
@@ -201,6 +201,8 @@ export default function AIAdDesignAssistant() {
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
   const [createForm, setCreateForm] = useState(() => ({ name: '', projectId: '', campaign: '' }));
   const [createError, setCreateError] = useState<string | null>(null);
+  const [previewMaterial, setPreviewMaterial] = useState<MaterialItem | null>(null);
+  const [infoMaterial, setInfoMaterial] = useState<MaterialItem | null>(null);
 
   useEffect(() => {
     if (assistantProjects.length > 0) return;
@@ -283,15 +285,6 @@ export default function AIAdDesignAssistant() {
   useEffect(() => {
     localStorage.setItem(ASSISTANT_PROJECTS_STORAGE_KEY, JSON.stringify(assistantProjects));
   }, [assistantProjects]);
-
-  const toggleExpanded = (materialId: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(materialId)) next.delete(materialId);
-      else next.add(materialId);
-      return next;
-    });
-  };
 
   const toggleFavorite = (materialId: string) => {
     setFavorites((prev) => {
@@ -413,15 +406,41 @@ export default function AIAdDesignAssistant() {
             <div className="pt-2">
               {activeSection === 'materials' ? (
                 <div className="space-y-6">
-                  <div className="w-full sm:w-[520px]">
-                    <div className="flex items-center gap-2 bg-white/70 backdrop-blur border border-black/5 rounded-2xl px-3 py-2.5">
-                      <Search size={16} className="text-gray-400" />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="w-full sm:w-[520px]">
+                      <div className="flex items-center gap-2 bg-white/70 backdrop-blur border border-black/5 rounded-2xl px-3 py-2.5">
+                        <Search size={16} className="text-gray-400" />
+                        <input
+                          value={query}
+                          onChange={(e) => setQuery(e.target.value)}
+                          placeholder="搜索：素材ID / 名称 / 标签 / 主题 / 尺寸…"
+                          className="w-full bg-transparent outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="shrink-0">
                       <input
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="搜索：素材ID / 名称 / 标签 / 主题 / 尺寸…"
-                        className="w-full bg-transparent outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                        ref={uploadInputRef}
+                        type="file"
+                        multiple
+                        accept="image/*,.svg"
+                        className="hidden"
+                        onChange={(e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (files.length === 0) return;
+                          toast.show(`已选择 ${files.length} 个文件（演示）`);
+                          e.target.value = '';
+                        }}
                       />
+                      <button
+                        type="button"
+                        onClick={() => uploadInputRef.current?.click()}
+                        className="h-11 px-4 rounded-2xl bg-gray-900 hover:bg-black transition-colors text-sm font-semibold text-white flex items-center gap-2"
+                      >
+                        <Upload size={16} />
+                        上传
+                      </button>
                     </div>
                   </div>
 
@@ -433,11 +452,37 @@ export default function AIAdDesignAssistant() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                       {materials.map((material) => {
-                        const isExpanded = expandedIds.has(material.id);
                         return (
                           <div
                             key={material.id}
-                            className="group rounded-3xl border border-black/5 bg-white overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              if (material.materialType === 'image') {
+                                const params = new URLSearchParams();
+                                params.set('src', material.thumbnailUrl);
+                                params.set('id', material.id);
+                                params.set('name', material.name);
+                                navigate(`/public-canvas?${params.toString()}`);
+                                return;
+                              }
+                              setPreviewMaterial(material);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                if (material.materialType === 'image') {
+                                  const params = new URLSearchParams();
+                                  params.set('src', material.thumbnailUrl);
+                                  params.set('id', material.id);
+                                  params.set('name', material.name);
+                                  navigate(`/public-canvas?${params.toString()}`);
+                                  return;
+                                }
+                                setPreviewMaterial(material);
+                              }
+                            }}
+                            className="group rounded-3xl border border-black/5 bg-white overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-black/10"
                           >
                             <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden">
                               <img
@@ -447,7 +492,10 @@ export default function AIAdDesignAssistant() {
                               />
                               <button
                                 type="button"
-                                onClick={() => toggleFavorite(material.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(material.id);
+                                }}
                                 className={clsx(
                                   'absolute top-3 right-3 w-9 h-9 rounded-full border backdrop-blur-md flex items-center justify-center transition-all',
                                   material.isFavorite
@@ -458,6 +506,10 @@ export default function AIAdDesignAssistant() {
                               >
                                 <Heart size={16} fill={material.isFavorite ? 'currentColor' : 'none'} />
                               </button>
+
+                              <div className="absolute right-3 bottom-3 px-2 py-1 rounded-full bg-black/55 backdrop-blur border border-white/20 text-xs font-semibold text-white">
+                                {material.materialType}
+                              </div>
                             </div>
 
                             <div className="p-4">
@@ -471,40 +523,18 @@ export default function AIAdDesignAssistant() {
                               <div className="mt-3 flex flex-wrap gap-2">
                                 <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{material.size}</span>
                                 <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{material.theme}</span>
-                                <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{material.materialType}</span>
                                 <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{material.isTemplate ? '模板' : '非模板'}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setInfoMaterial(material);
+                                  }}
+                                  className="px-2 py-1 rounded-full bg-gray-900 text-xs font-semibold text-white hover:bg-black transition-colors"
+                                >
+                                  查看全部
+                                </button>
                               </div>
-
-                              <button
-                                type="button"
-                                onClick={() => toggleExpanded(material.id)}
-                                className="mt-4 w-full flex items-center justify-between px-3 py-2.5 rounded-2xl bg-gray-50/60 border border-black/5 hover:bg-gray-50 transition-colors"
-                              >
-                                <span className="text-xs font-semibold text-gray-700">标签信息</span>
-                                <ChevronDown
-                                  size={16}
-                                  className={clsx('text-gray-500 transition-transform', isExpanded ? 'rotate-180' : 'rotate-0')}
-                                />
-                              </button>
-
-                              {isExpanded && (
-                                <div className="mt-3 rounded-2xl bg-gray-50/60 border border-black/5 p-3 animate-in fade-in duration-300">
-                                  <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                                    <Meta label="素材ID" value={material.id} />
-                                    <Meta label="素材名称" value={material.name} />
-                                    <Meta label="最新更新时间" value={material.updatedAt} />
-                                    <Meta label="热度" value={String(material.popularity)} />
-                                    <Meta label="使用频率" value={String(material.usageFrequency)} />
-                                    <Meta label="尺寸" value={material.size} />
-                                    <Meta label="颜色" value={material.color} />
-                                    <Meta label="主题" value={material.theme} />
-                                    <Meta label="是否被收藏" value={material.isFavorite ? '是' : '否'} />
-                                    <Meta label="素材标签信息" value={material.tags.join('、')} />
-                                    <Meta label="素材是否为模板" value={material.isTemplate ? '是' : '否'} />
-                                    <Meta label="素材是否为image or layer" value={material.materialType} />
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           </div>
                         );
@@ -680,6 +710,127 @@ export default function AIAdDesignAssistant() {
               )}
             </div>
           </main>
+
+          {previewMaterial && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                onClick={() => setPreviewMaterial(null)}
+                aria-label="Close"
+              />
+              <div className="relative w-full max-w-[1120px] bg-white rounded-3xl border border-black/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col md:flex-row max-h-[82vh]">
+                <div className="md:w-[62%] bg-[#0B0B0B] flex items-center justify-center">
+                  <img src={previewMaterial.thumbnailUrl} alt={previewMaterial.name} className="w-full h-full object-contain max-h-[82vh]" />
+                </div>
+
+                <div className="md:w-[38%] flex flex-col min-h-0">
+                  <div className="px-6 py-5 border-b border-gray-100 flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-lg font-bold text-gray-900 truncate">{previewMaterial.name}</div>
+                      <div className="text-xs text-gray-500 mt-1">{previewMaterial.id}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewMaterial(null)}
+                      className="w-10 h-10 rounded-full border border-black/10 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center text-gray-700 shrink-0"
+                      aria-label="Close"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="p-6 overflow-y-auto min-h-0 space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{previewMaterial.size}</span>
+                      <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{previewMaterial.theme}</span>
+                      <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">{previewMaterial.color}</span>
+                      <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5 text-xs text-gray-700">
+                        {previewMaterial.isTemplate ? '模板' : '非模板'}
+                      </span>
+                      <span className="px-2 py-1 rounded-full bg-gray-900 text-xs font-semibold text-white">{previewMaterial.materialType}</span>
+                    </div>
+
+                    <div className="rounded-2xl bg-gray-50/70 border border-black/5 p-4">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-3">
+                        <Meta label="最新更新时间" value={previewMaterial.updatedAt} />
+                        <Meta label="热度" value={String(previewMaterial.popularity)} />
+                        <Meta label="使用频率" value={String(previewMaterial.usageFrequency)} />
+                        <Meta label="是否被收藏" value={previewMaterial.isFavorite ? '是' : '否'} />
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-semibold text-gray-900">标签信息</div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {previewMaterial.tags.map((tag) => (
+                          <span key={tag} className="px-2 py-1 rounded-full bg-white border border-black/10 text-xs text-gray-700">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {infoMaterial && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+                onClick={() => setInfoMaterial(null)}
+                aria-label="Close"
+              />
+              <div className="relative w-full max-w-[720px] bg-white rounded-3xl border border-black/10 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-gray-100">
+                  <div className="min-w-0">
+                    <div className="text-lg font-bold text-gray-900 truncate">标签信息</div>
+                    <div className="text-xs text-gray-500 mt-1 truncate">
+                      {infoMaterial.name} · {infoMaterial.id}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setInfoMaterial(null)}
+                    className="w-10 h-10 rounded-full border border-black/10 bg-white hover:bg-gray-50 transition-colors flex items-center justify-center text-gray-700 shrink-0"
+                    aria-label="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <div className="p-6 space-y-4 max-h-[72vh] overflow-y-auto">
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-3 rounded-2xl bg-gray-50/70 border border-black/5 p-4">
+                    <Meta label="素材ID" value={infoMaterial.id} />
+                    <Meta label="素材名称" value={infoMaterial.name} />
+                    <Meta label="最新更新时间" value={infoMaterial.updatedAt} />
+                    <Meta label="热度" value={String(infoMaterial.popularity)} />
+                    <Meta label="使用频率" value={String(infoMaterial.usageFrequency)} />
+                    <Meta label="尺寸" value={infoMaterial.size} />
+                    <Meta label="颜色" value={infoMaterial.color} />
+                    <Meta label="主题" value={infoMaterial.theme} />
+                    <Meta label="是否被收藏" value={infoMaterial.isFavorite ? '是' : '否'} />
+                    <Meta label="素材是否为模板" value={infoMaterial.isTemplate ? '是' : '否'} />
+                    <Meta label="素材类型" value={infoMaterial.materialType} />
+                  </div>
+
+                  <div>
+                    <div className="text-xs font-semibold text-gray-900">素材标签</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {infoMaterial.tags.map((tag) => (
+                        <span key={tag} className="px-2 py-1 rounded-full bg-white border border-black/10 text-xs text-gray-700">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

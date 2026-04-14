@@ -25,7 +25,8 @@ import {
   History,
   MoreHorizontal,
   LogOut,
-  User
+  User,
+  ArrowUp
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -47,6 +48,12 @@ export default function Home() {
     const raw = localStorage.getItem('trae_deepcanvas_home_perspective_v1');
     return raw === 'loan' ? 'loan' : 'traffic';
   });
+  const [chatInput, setChatInput] = useState('');
+
+  const handleChatSubmit = () => {
+    if (!chatInput.trim()) return;
+    navigate(`/public-canvas?q=${encodeURIComponent(chatInput)}`);
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -83,16 +90,27 @@ export default function Home() {
   const toolIconClass = getToolIconClasses();
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-8">
+    <div className="min-h-screen flex flex-col items-center bg-background p-8 pt-16 pb-32">
       <CreateCanvasModal 
         isOpen={isCanvasModalOpen} 
         onClose={() => setIsCanvasModalOpen(false)} 
       />
 
-      <div className="w-full max-w-[1150px] h-[750px] flex flex-col gap-6">
-        <header className="flex justify-between items-end flex-shrink-0">
-          <div className="flex flex-col items-start">
-            <div className="relative mb-3" ref={perspectiveRef}>
+      <div className="w-full max-w-[1000px] flex flex-col gap-10 mt-auto mb-auto">
+        <header className="relative flex items-start justify-center flex-shrink-0 pt-2">
+          <div className="flex flex-col items-center text-center pt-10">
+            <h1 className="text-5xl font-black relative inline-block mb-2">
+              <span className="relative z-10">Deepcanvas, 让设计更简单</span>
+              <svg className="absolute -bottom-2 right-0 w-32 h-4 z-0 text-accent-secondary" viewBox="0 0 100 10" preserveAspectRatio="none">
+                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" className="opacity-50" />
+              </svg>
+              <span className="absolute -top-4 -right-8 text-4xl animate-bounce">✨</span>
+            </h1>
+            <p className="text-gray-500">What will you create today?</p>
+          </div>
+
+          <div className="absolute right-0 top-0 flex items-center gap-3">
+            <div className="relative" ref={perspectiveRef}>
               <button
                 type="button"
                 onClick={() => setIsPerspectiveOpen((prev) => !prev)}
@@ -146,19 +164,9 @@ export default function Home() {
                 </div>
               )}
             </div>
-            <h1 className="text-5xl font-black relative inline-block mb-2 whitespace-nowrap">
-              <span className="relative z-10">Deepcanvas, 让设计更简单</span>
-              <svg className="absolute -bottom-2 right-0 w-32 h-4 z-0 text-accent-secondary" viewBox="0 0 100 10" preserveAspectRatio="none">
-                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" className="opacity-50" />
-              </svg>
-              <span className="absolute -top-4 -right-8 text-4xl animate-bounce">✨</span>
-            </h1>
-            <p className="text-gray-500 whitespace-nowrap">What will you create today?</p>
-          </div>
-          <div className="flex items-center gap-3">
             <Link to="/projects" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
               <Folder size={16} />
-              我的项目
+              个人空间
             </Link>
             <Link to="/gallery" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
               <LayoutGrid size={16} />
@@ -232,7 +240,41 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 max-w-[1000px] mx-auto w-full max-h-[600px] self-center">
+        {/* Global Chat Input */}
+        <div className="w-full max-w-[800px] mx-auto relative flex items-center group/chat">
+          <div
+            className={clsx(
+              "absolute top-0 left-6 -translate-y-full -mt-1 z-10 px-2 py-0.5 rounded-md border text-[11px] font-semibold tracking-wide pointer-events-none select-none",
+              isGlass ? "bg-white/70 backdrop-blur-xl border-white/20 text-gray-700" : "bg-white border-gray-200 text-gray-600"
+            )}
+          >
+            Agent会话（内测）
+          </div>
+          <input
+            type="text"
+            placeholder="告诉我你想设计什么，例如：帮我生成一张母亲节营销海报..."
+            className={clsx(
+              "w-full h-14 pl-6 pr-16 rounded-full border shadow-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-base transition-all",
+              isGlass ? "bg-white/60 backdrop-blur-xl border-white/20 text-black placeholder:text-gray-500" : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
+            )}
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleChatSubmit();
+              }
+            }}
+          />
+          <button
+            onClick={handleChatSubmit}
+            className="absolute right-2 w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!chatInput.trim()}
+          >
+            <ArrowUp size={18} className="translate-x-[-1px] translate-y-[1px]" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full self-center">
           {/* Inspiration - Large Card (Normal Level) */}
           <BentoCard 
             className={clsx("col-span-1 md:col-span-2 lg:col-span-2 bg-white border border-theme-border group cursor-pointer text-black", glassCardClasses)}
@@ -273,12 +315,12 @@ export default function Home() {
             onClick={() => setIsCanvasModalOpen(true)}
           >
             {/* Floating Decoration - Unclipped */}
-            <div className="absolute right-[-30px] top-[-30px] w-40 h-40 z-50 pointer-events-none group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
+            <div className="absolute right-[-20px] top-[-20px] w-32 h-32 z-50 pointer-events-none group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
               <img src={`${import.meta.env.BASE_URL}figure/cloud-white.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
             </div>
 
             {/* Clipped Background Effects */}
-            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
               <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
               <div className="absolute right-4 bottom-4 bg-white/20 p-2 rounded-full backdrop-blur-sm">
                  <ArrowUpRight size={16} />
@@ -287,51 +329,26 @@ export default function Home() {
           </BentoCard>
 
           {/* Templates (Important Level = Primary) */}
-          <div
-            className={clsx(
-              "relative rounded-3xl p-0 flex flex-col overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 backdrop-blur-xl col-span-1 md:col-span-1 bg-primary border border-primary-border text-primary-foreground group !overflow-visible z-10",
-              glassCardClasses
-            )}
+          <BentoCard 
+            className={clsx("col-span-1 md:col-span-1 bg-primary border border-primary-border text-primary-foreground group cursor-pointer !overflow-visible relative z-10", glassCardClasses)}
+            title="公共模版"
+            description="点击进入公共模板库"
+            icon={LayoutTemplate}
+            onClick={() => navigate('/templates?scope=public')}
           >
-            <div className="absolute left-6 top-6 z-20 p-3 rounded-2xl bg-white/10 backdrop-blur-md w-fit pointer-events-none">
-              <LayoutTemplate size={24} />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => navigate('/templates?scope=public')}
-              className="relative z-10 flex-1 text-left px-6 py-6 hover:bg-white/10 transition-colors"
-            >
-              <div className="text-sm font-bold">公共模版</div>
-              <div className="text-xs opacity-70 mt-1 font-medium">点击跳转到公共模板</div>
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const teamId = userPerspective === 'traffic' ? 'team-1' : 'team-2';
-                navigate(`/templates?scope=team&teamId=${teamId}`);
-              }}
-              className="relative z-10 flex-1 text-left px-6 py-6 border-t border-white/10 hover:bg-white/10 transition-colors"
-            >
-              <div className="text-sm font-bold">{userPerspective === 'traffic' ? '流量模版' : '贷款小程序模版'}</div>
-              <div className="text-xs opacity-70 mt-1 font-medium">
-                点击跳转到我的团队模板（默认勾选{userPerspective === 'traffic' ? '流量模版' : '贷款小程序模版'}）
-              </div>
-            </button>
-
-            <div className="absolute right-[-30px] top-1/2 -translate-y-1/2 w-40 h-40 z-50 pointer-events-none">
+            <div className="absolute right-[-30px] top-1/2 -translate-y-1/2 w-32 h-32 z-50 pointer-events-none">
               <div className="w-full h-full group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
                 <img src={`${import.meta.env.BASE_URL}figure/blue-cloud-v2.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
               </div>
             </div>
 
-            <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
               <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-500" />
               <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
                 <ArrowUpRight className="text-current opacity-50" />
               </div>
             </div>
-          </div>
+          </BentoCard>
 
           {/* Banking (Minor Level) */}
           <BentoCard 
@@ -388,10 +405,10 @@ function ToolIcon({ icon: Icon, label, className, onClick }: { icon: React.Eleme
         e.stopPropagation();
         onClick?.();
       }}
-      className={clsx("flex flex-col items-center justify-center gap-2 p-3 rounded-2xl backdrop-blur-sm border hover:scale-105 transition-all duration-300 cursor-pointer group/icon", className)}
+      className={clsx("flex flex-col items-center justify-center gap-1.5 p-2 rounded-xl backdrop-blur-sm border hover:scale-105 transition-all duration-300 cursor-pointer group/icon", className)}
     >
-      <Icon size={24} className="group-hover/icon:scale-110 transition-transform duration-300" />
-      <span className="text-xs font-medium opacity-90 whitespace-nowrap">{label}</span>
+      <Icon size={20} className="group-hover/icon:scale-110 transition-transform duration-300" />
+      <span className="text-[11px] font-medium opacity-90 whitespace-nowrap">{label}</span>
     </div>
   );
 }
@@ -410,19 +427,19 @@ function BentoCard({ className, title, description, icon: Icon, children, accent
   return (
     <div 
       onClick={onClick}
-      className={clsx("relative rounded-3xl p-6 flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 backdrop-blur-xl", className)}
+      className={clsx("relative rounded-2xl p-5 flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 backdrop-blur-xl", className)}
     >
       <div className="relative z-10 flex justify-between items-start">
-        <div className={clsx("p-3 rounded-2xl bg-white/10 backdrop-blur-md w-fit", accentColor)}>
-          <Icon size={24} />
+        <div className={clsx("p-2.5 rounded-xl bg-white/10 backdrop-blur-md w-fit", accentColor)}>
+          <Icon size={20} />
         </div>
       </div>
       
       {children}
 
-      <div className="relative z-10 mt-auto pt-8">
-        <h3 className="text-xl font-bold mb-1">{title}</h3>
-        <p className="text-sm opacity-70 font-medium">{description}</p>
+      <div className="relative z-10 mt-auto pt-6">
+        <h3 className="text-lg font-bold mb-1">{title}</h3>
+        <p className="text-xs opacity-70 font-medium leading-relaxed">{description}</p>
       </div>
     </div>
   );

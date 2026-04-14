@@ -26,6 +26,7 @@ import MaterialManagement from './pages/MaterialManagement';
 import { ToastProvider } from './components/ToastProvider';
 import AIAdDesignAssistant from './pages/AIAdDesignAssistant';
 import AIAdProjectCanvas from './pages/AIAdProjectCanvas';
+import PublicCanvas from './pages/PublicCanvas';
 
 function Layout() {
   const location = useLocation();
@@ -33,7 +34,8 @@ function Layout() {
   const isToolPage = location.pathname.startsWith('/tools/');
   const isMaterialManagement = location.pathname === '/material-management';
   const isAIAdDesignAssistant = location.pathname.startsWith('/ai-ad-design-assistant');
-  const showSidebar = !isHome && !isToolPage && !isMaterialManagement && !isAIAdDesignAssistant;
+  const isPublicCanvas = location.pathname === '/public-canvas';
+  const showSidebar = !isHome && !isToolPage && !isMaterialManagement && !isAIAdDesignAssistant && !isPublicCanvas;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
@@ -50,6 +52,7 @@ function Layout() {
           <Route path="/" element={<Home />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/public" element={<Projects />} />
+          <Route path="/public-canvas" element={<PublicCanvas />} />
           <Route path="/editor" element={<Editor />} />
           <Route path="/material-editor" element={<MaterialEditor />} />
           <Route path="/ai-ad-design-assistant" element={<AIAdDesignAssistant />} />
