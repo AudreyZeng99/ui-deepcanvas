@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Clock, Trash2, Folder, Share2, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check } from 'lucide-react';
+import { Plus, Clock, Trash2, Folder, Share2, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
 import { Project, SpaceImageRecord, useProject } from '../context/ProjectContext';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
 import { useToast } from '../components/ToastProvider';
 import { createP2PShareRecord, makeTemplateElements, resolveP2PShareRecord, type P2PShareRecord } from '../utils/p2pShare';
 
-type SpaceView = 'projects' | 'favorites' | 'gen-assets' | 'edit-assets' | 'export-assets' | 'p2p';
+type SpaceView = 'projects' | 'favorites' | 'gen-assets' | 'edit-assets' | 'export-assets' | 'p2p' | 'teams';
 
 type SpaceMode = 'personal' | 'public';
 
@@ -24,11 +24,63 @@ type PublicProject = Pick<
 const PUBLIC_PROJECTS_STORAGE_KEY = 'trae_deepcanvas_public_projects_v1';
 const PERSONAL_SPACE_TITLE_STORAGE_KEY = 'trae_deepcanvas_personal_space_title_v1';
 const SPACE_ASSET_AUDIT_MAP_STORAGE_KEY = 'trae_deepcanvas_space_asset_audit_map_v1';
+const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams_v1';
+const CURRENT_OA_STORAGE_KEY = 'trae_deepcanvas_current_oa_v1';
+const TEAM_MEMBERS_PAGE_SIZE = 10;
 
 type AssetAuditRecord = {
   xiaobao: boolean;
   experience: boolean;
 };
+
+type TeamRecord = {
+  id: string;
+  name: string;
+  admins: string[];
+  members: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+type OaDirectoryRecord = {
+  name: string;
+  oa: string;
+};
+
+const MOCK_OA_DIRECTORY: OaDirectoryRecord[] = [
+  { name: '大壮', oa: 'dazhuang' },
+  { name: '小壮', oa: 'xiaozhuang' },
+  { name: '壮壮', oa: 'zz' },
+  { name: '大壮', oa: 'da.z' },
+  { name: '测试', oa: 'test'},
+  { name: '小红', oa: 'littlered'},
+  { name: '小红', oa: 'little.r'}
+];
+
+function normalizeDirectoryQuery(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isSubsequence(needle: string, haystack: string) {
+  if (!needle) return true;
+  let i = 0;
+  for (let j = 0; j < haystack.length && i < needle.length; j += 1) {
+    if (haystack[j] === needle[i]) i += 1;
+  }
+  return i === needle.length;
+}
+
+function computeDirectoryScore(query: string, record: OaDirectoryRecord) {
+  const q = normalizeDirectoryQuery(query);
+  if (!q) return 0;
+  const oa = record.oa.toLowerCase();
+  const name = record.name.toLowerCase();
+  if (q === oa || q === name) return 100;
+  if (oa.startsWith(q) || name.startsWith(q)) return 85;
+  if (oa.includes(q) || name.includes(q)) return 70;
+  if (isSubsequence(q, oa)) return 45;
+  return 0;
+}
 
 function getDefaultPublicProjects(): PublicProject[] {
   const now = Date.now();
@@ -85,6 +137,10 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
+function normalizeOaName(value: string) {
+  return value.trim();
+}
+
 export default function Projects() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -137,6 +193,28 @@ export default function Projects() {
   const [pendingTemplateApply, setPendingTemplateApply] = useState<null | { width: number; height: number; elements: any[]; thumbnail?: string | null }>(null);
   const [isNavigateTTIModalOpen, setIsNavigateTTIModalOpen] = useState(false);
   const [pendingTTIPrompt, setPendingTTIPrompt] = useState<string | null>(null);
+  const [currentOaName, setCurrentOaName] = useState(() => {
+    const stored = localStorage.getItem(CURRENT_OA_STORAGE_KEY);
+    return stored?.trim() ? stored : 'zenghuayue';
+  });
+  const [teams, setTeams] = useState<TeamRecord[]>(() => {
+    const parsed = safeParseJson<TeamRecord[]>(localStorage.getItem(TEAMS_STORAGE_KEY), []);
+    return Array.isArray(parsed) ? parsed : [];
+  });
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [newTeamName, setNewTeamName] = useState('');
+  const [teamNameDraft, setTeamNameDraft] = useState('');
+  const [isEditingTeamName, setIsEditingTeamName] = useState(false);
+  const [isCreateTeamOpen, setIsCreateTeamOpen] = useState(false);
+  const [armedDeleteTeamId, setArmedDeleteTeamId] = useState<string | null>(null);
+  const [newTeamMemberInput, setNewTeamMemberInput] = useState('');
+  const [newTeamMemberRole, setNewTeamMemberRole] = useState<'member' | 'admin'>('member');
+  const [newTeamExtraMembers, setNewTeamExtraMembers] = useState<string[]>([]);
+  const [newTeamExtraAdmins, setNewTeamExtraAdmins] = useState<string[]>([]);
+  const [teamMembersPage, setTeamMembersPage] = useState(1);
+  const [isTeamSwitcherOpen, setIsTeamSwitcherOpen] = useState(false);
+  const [teamSwitcherQuery, setTeamSwitcherQuery] = useState('');
+  const teamSwitcherRef = useRef<HTMLDivElement>(null);
 
   const buildShareDisplay = (code: string) => `【文生图】挖到宝了！快复制完整口令¥${code}¥打开GUWP办公屏搜索文生图-个人空间查看！`;
   const visibleProjects = useMemo(() => {
@@ -152,6 +230,16 @@ export default function Projects() {
     projects.forEach((p) => map.set(p.id, p));
     return map;
   }, [projects]);
+
+  const selectedTeam = useMemo(() => {
+    if (!selectedTeamId) return null;
+    return teams.find((team) => team.id === selectedTeamId) ?? null;
+  }, [teams, selectedTeamId]);
+
+  const selectedTeamMemberCount = useMemo(() => {
+    if (!selectedTeam) return 0;
+    return new Set([...selectedTeam.admins, ...selectedTeam.members]).size;
+  }, [selectedTeam]);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setIsHydrating(false));
@@ -172,6 +260,8 @@ export default function Projects() {
       }
     } else if (moduleParam === 'p2p') {
       setView('p2p');
+    } else if (moduleParam === 'teams') {
+      setView('teams');
     } else {
       setView('projects');
     }
@@ -185,6 +275,10 @@ export default function Projects() {
     let favParam = params.get('fav');
     if (view === 'projects') {
       nextModule = 'projects';
+      params.delete('asset');
+      params.delete('fav');
+    } else if (view === 'teams') {
+      nextModule = 'teams';
       params.delete('asset');
       params.delete('fav');
     } else if (view === 'p2p') {
@@ -209,6 +303,51 @@ export default function Projects() {
       navigate({ pathname: location.pathname, search: nextSearch }, { replace: false });
     }
   }, [view, favoritesTab]);
+
+  useEffect(() => {
+    localStorage.setItem(CURRENT_OA_STORAGE_KEY, currentOaName.trim() ? currentOaName.trim() : 'zenghuayue');
+  }, [currentOaName]);
+
+  useEffect(() => {
+    localStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(teams));
+  }, [teams]);
+
+  useEffect(() => {
+    if (!isTeamSwitcherOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (teamSwitcherRef.current && !teamSwitcherRef.current.contains(event.target as Node)) {
+        setIsTeamSwitcherOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isTeamSwitcherOpen]);
+
+  useEffect(() => {
+    if (selectedTeamId) return;
+    if (teams.length === 0) return;
+    setSelectedTeamId(teams[0].id);
+  }, [teams, selectedTeamId]);
+
+  useEffect(() => {
+    if (!selectedTeam) return;
+    setTeamNameDraft(selectedTeam.name);
+    setArmedDeleteTeamId(null);
+    setIsCreateTeamOpen(false);
+    setIsEditingTeamName(false);
+  }, [selectedTeam]);
+
+  useEffect(() => {
+    setTeamMembersPage(1);
+  }, [selectedTeamId]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(selectedTeamMemberCount / TEAM_MEMBERS_PAGE_SIZE));
+    if (teamMembersPage <= totalPages) return;
+    setTeamMembersPage(totalPages);
+  }, [selectedTeamMemberCount, teamMembersPage]);
 
   const generatedAssets = useMemo(() => {
     return visibleImages.filter((img) => projectById.get(img.projectId)?.sourceType === 'text-to-image');
@@ -854,6 +993,853 @@ export default function Projects() {
       </div>
     );
   };
+
+  const [userLookupInput, setUserLookupInput] = useState('');
+  const [newUserRole, setNewUserRole] = useState<'member' | 'admin'>('member');
+  const [isUserLookupOpen, setIsUserLookupOpen] = useState(false);
+  const userLookupRef = useRef<HTMLDivElement>(null);
+  const userLookupDropdownRef = useRef<HTMLDivElement>(null);
+  const [userLookupAnchor, setUserLookupAnchor] = useState<null | { top: number; right: number }>(null);
+
+  const updateUserLookupAnchor = () => {
+    const rect = userLookupRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setUserLookupAnchor({ top: rect.top, right: rect.right });
+  };
+
+  useEffect(() => {
+    if (!isUserLookupOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (userLookupRef.current && userLookupRef.current.contains(target)) return;
+      if (userLookupDropdownRef.current && userLookupDropdownRef.current.contains(target)) return;
+      {
+        setIsUserLookupOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+
+    updateUserLookupAnchor();
+    function handleRelayout() {
+      updateUserLookupAnchor();
+    }
+    window.addEventListener('resize', handleRelayout);
+    window.addEventListener('scroll', handleRelayout, true);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('resize', handleRelayout);
+      window.removeEventListener('scroll', handleRelayout, true);
+    };
+  }, [isUserLookupOpen]);
+
+  const renderTeamsModule = () => {
+    const normalizedOa = normalizeOaName(currentOaName);
+    const visibleTeams = normalizedOa
+      ? teams.filter((team) => team.admins.includes(normalizedOa) || team.members.includes(normalizedOa))
+      : teams;
+    const normalizedQuery = teamSwitcherQuery.trim().toLowerCase();
+    const switcherTeams = normalizedQuery
+      ? visibleTeams.filter((team) => team.name.toLowerCase().includes(normalizedQuery) || team.id.toLowerCase().includes(normalizedQuery))
+      : visibleTeams;
+    const managedTeams = normalizedOa ? switcherTeams.filter((team) => team.admins.includes(normalizedOa)) : switcherTeams;
+    const joinedTeams = normalizedOa
+      ? switcherTeams.filter((team) => !team.admins.includes(normalizedOa) && team.members.includes(normalizedOa))
+      : [];
+    const activeTeam = selectedTeam && (teams.find((t) => t.id === selectedTeam.id) ?? null);
+    const canManage = !!(normalizedOa && activeTeam && activeTeam.admins.includes(normalizedOa));
+    const teamToDelete = armedDeleteTeamId ? teams.find((team) => team.id === armedDeleteTeamId) ?? null : null;
+
+    const commitTeamUpdate = (teamId: string, updater: (prev: TeamRecord) => TeamRecord) => {
+      setTeams((prev) =>
+        prev.map((team) => {
+          if (team.id !== teamId) return team;
+          const next = updater(team);
+          return { ...next, updatedAt: Date.now() };
+        })
+      );
+    };
+
+    const createTeam = () => {
+      const name = newTeamName.trim();
+      if (!name) {
+        toast.show('请输入团队名称');
+        return;
+      }
+      const oa = normalizeOaName(currentOaName);
+      if (!oa) {
+        toast.show('请先填写当前 OA');
+        return;
+      }
+      const now = Date.now();
+      const id = `team-${now}`;
+
+      const baseAdmins = [oa];
+      const baseMembers = [oa];
+
+      const extraMemberSet = new Set(newTeamExtraMembers);
+      const extraAdminSet = new Set(newTeamExtraAdmins);
+
+      const members = Array.from(new Set([...baseMembers, ...extraMemberSet]));
+      const admins = Array.from(new Set([...baseAdmins, ...extraAdminSet]));
+
+      const next: TeamRecord = {
+        id,
+        name,
+        admins,
+        members,
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      setTeams((prev) => [next, ...prev]);
+      setSelectedTeamId(id);
+      setNewTeamName('');
+      setNewTeamExtraMembers([]);
+      setNewTeamExtraAdmins([]);
+      setNewTeamMemberInput('');
+      setNewTeamMemberRole('member');
+      setIsCreateTeamOpen(false);
+      toast.show('已创建团队');
+    };
+
+    const renameTeam = (teamId: string) => {
+      const name = teamNameDraft.trim();
+      if (!name) {
+        toast.show('团队名称不能为空');
+        return;
+      }
+      commitTeamUpdate(teamId, (prev) => ({ ...prev, name }));
+      toast.show('已更新团队名称');
+    };
+
+    const deleteTeam = (teamId: string) => {
+      setTeams((prevTeams) => {
+        const nextTeams = prevTeams.filter((team) => team.id !== teamId);
+        setSelectedTeamId((prevSelected) => {
+          if (prevSelected !== teamId) return prevSelected;
+          return nextTeams.length > 0 ? nextTeams[0].id : null;
+        });
+        return nextTeams;
+      });
+      toast.show('已删除团队');
+    };
+
+    const changeUserRole = (teamId: string, oa: string, newRole: 'admin' | 'member') => {
+      commitTeamUpdate(teamId, (prev) => {
+        let nextAdmins = [...prev.admins];
+        const nextMembers = [...prev.members];
+
+        if (newRole === 'admin') {
+          if (!nextAdmins.includes(oa)) nextAdmins.push(oa);
+          if (!nextMembers.includes(oa)) nextMembers.push(oa);
+        } else {
+          if (nextAdmins.includes(oa)) {
+            nextAdmins = nextAdmins.filter((a) => a !== oa);
+          }
+          if (!nextMembers.includes(oa)) nextMembers.push(oa);
+        }
+
+        if (nextAdmins.length === 0) {
+          toast.show('团队至少需要一名管理员');
+          return prev;
+        }
+        return { ...prev, admins: nextAdmins, members: nextMembers };
+      });
+    };
+
+    const removeUser = (teamId: string, oa: string) => {
+      commitTeamUpdate(teamId, (prev) => {
+        const nextAdmins = prev.admins.filter((a) => a !== oa);
+        const nextMembers = prev.members.filter((m) => m !== oa);
+        if (prev.admins.includes(oa) && nextAdmins.length === 0) {
+          toast.show('无法移除最后一名管理员');
+          return prev;
+        }
+        return { ...prev, admins: nextAdmins, members: nextMembers };
+      });
+    };
+
+    const resolveDirectoryRecord = (input: string) => {
+      const raw = input.trim();
+      if (!raw) return null;
+      const normalized = normalizeDirectoryQuery(raw);
+      const byOa = MOCK_OA_DIRECTORY.find((record) => record.oa.toLowerCase() === normalized);
+      if (byOa) return byOa;
+      const byName = MOCK_OA_DIRECTORY.find((record) => record.name === raw);
+      if (byName) return byName;
+      return null;
+    };
+
+    const addNewTeamMember = () => {
+      const record = resolveDirectoryRecord(newTeamMemberInput);
+      if (!record) {
+        toast.show('添加失败，用户不存在');
+        return;
+      }
+      const oa = record.oa;
+      setNewTeamExtraMembers((prev) => (prev.includes(oa) ? prev : [...prev, oa]));
+      if (newTeamMemberRole === 'admin') {
+        setNewTeamExtraAdmins((prev) => (prev.includes(oa) ? prev : [...prev, oa]));
+      }
+      setNewTeamMemberInput('');
+      setNewTeamMemberRole('member');
+    };
+
+    const addUser = (teamId: string) => {
+      const record = resolveDirectoryRecord(userLookupInput);
+      if (!record) {
+        toast.show('添加失败，用户不存在');
+        return;
+      }
+      const oa = record.oa;
+      commitTeamUpdate(teamId, (prev) => {
+        const nextMembers = prev.members.includes(oa) ? prev.members : [...prev.members, oa];
+        const nextAdmins = prev.admins.includes(oa) ? prev.admins : (newUserRole === 'admin' ? [...prev.admins, oa] : prev.admins);
+        return { ...prev, members: nextMembers, admins: nextAdmins };
+      });
+      setUserLookupInput('');
+      setNewUserRole('member');
+    };
+
+    const allUsers = activeTeam ? Array.from(new Set([...activeTeam.admins, ...activeTeam.members])) : [];
+    const directoryByOa = new Map(MOCK_OA_DIRECTORY.map((record) => [record.oa, record.name]));
+    const directoryCandidates = (() => {
+      const scored = MOCK_OA_DIRECTORY.map((record) => ({
+        ...record,
+        score: computeDirectoryScore(userLookupInput, record),
+      }));
+      if (!userLookupInput.trim()) {
+        return scored.sort((a, b) => a.oa.localeCompare(b.oa));
+      }
+      return scored.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return a.oa.localeCompare(b.oa);
+      });
+    })();
+    const isTeamNameDirty = !!(activeTeam && canManage && teamNameDraft.trim() !== activeTeam.name);
+    const isTeamNameValid = !!teamNameDraft.trim();
+    const memberTotalPages = Math.max(1, Math.ceil(allUsers.length / TEAM_MEMBERS_PAGE_SIZE));
+    const memberPage = Math.min(teamMembersPage, memberTotalPages);
+    const memberSliceStart = (memberPage - 1) * TEAM_MEMBERS_PAGE_SIZE;
+    const memberSliceEnd = memberSliceStart + TEAM_MEMBERS_PAGE_SIZE;
+    const pagedUsers = allUsers.slice(memberSliceStart, memberSliceEnd);
+
+    return (
+      <div className="max-w-7xl mx-auto py-2 px-6 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-black/5 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
+              {currentOaName[0]?.toUpperCase() || '?'}
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">当前登录身份 (模拟)</div>
+              <input
+                value={currentOaName}
+                onChange={(e) => setCurrentOaName(e.target.value)}
+                placeholder="输入你的 OA"
+                className="text-sm font-bold text-gray-900 bg-transparent border-none p-0 focus:ring-0 w-32 placeholder:text-gray-300 outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center gap-3 w-full md:w-auto">
+            <div className="flex items-center gap-3 w-full md:w-auto relative" ref={teamSwitcherRef}>
+              <div className="relative flex-1 md:w-64">
+              <button
+                type="button"
+                onClick={() => setIsTeamSwitcherOpen((prev) => !prev)}
+                className="w-full h-10 px-4 rounded-xl border border-gray-200 bg-gray-50/50 text-sm font-semibold text-gray-900 flex items-center justify-between hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-black/5"
+              >
+                <span className="truncate">{activeTeam ? activeTeam.name : '选择团队...'}</span>
+                <ChevronDown size={16} className={clsx('text-gray-400 shrink-0 transition-transform', isTeamSwitcherOpen && 'rotate-180')} />
+              </button>
+
+              {isTeamSwitcherOpen && (
+                <div className="absolute right-0 top-full mt-2 w-full md:w-80 bg-white rounded-2xl shadow-xl border border-black/10 overflow-hidden z-50">
+                  <div className="p-3 border-b border-black/5 space-y-2">
+                    <div className="relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        value={teamSwitcherQuery}
+                        onChange={(e) => setTeamSwitcherQuery(e.target.value)}
+                        placeholder="搜索团队"
+                        className="w-full h-9 pl-9 pr-3 rounded-lg border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto p-2 space-y-2">
+                    {managedTeams.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="px-2 py-1 text-[11px] font-bold text-gray-500">我管理的</div>
+                        {managedTeams.map((team) => (
+                          <button
+                            key={team.id}
+                            onClick={() => {
+                              setSelectedTeamId(team.id);
+                              setIsTeamSwitcherOpen(false);
+                            }}
+                            className={clsx(
+                              "w-full text-left rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors flex items-center justify-between",
+                              selectedTeamId === team.id && "bg-gray-50 text-blue-600 font-medium"
+                            )}
+                          >
+                            <span className="truncate text-sm">{team.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {joinedTeams.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="px-2 py-1 text-[11px] font-bold text-gray-500">我加入的</div>
+                        {joinedTeams.map((team) => (
+                          <button
+                            key={team.id}
+                            onClick={() => {
+                              setSelectedTeamId(team.id);
+                              setIsTeamSwitcherOpen(false);
+                            }}
+                            className={clsx(
+                              "w-full text-left rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors",
+                              selectedTeamId === team.id && "bg-gray-50 text-blue-600 font-medium"
+                            )}
+                          >
+                            <span className="truncate text-sm">{team.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {switcherTeams.length === 0 && (
+                      <div className="py-6 text-center text-sm text-gray-400">没有匹配的团队</div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateTeamOpen((prev) => !prev);
+                  setTeamSwitcherQuery('');
+                }}
+                className={clsx(
+                  'h-10 px-4 rounded-xl text-sm font-medium transition-colors shrink-0 border',
+                  isCreateTeamOpen ? 'bg-gray-900 text-white border-gray-900 hover:bg-gray-800' : 'bg-white text-gray-900 border-gray-200 hover:bg-gray-50'
+                )}
+              >
+                新建团队
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {isCreateTeamOpen ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-black/5">
+                  <h3 className="text-base font-semibold text-gray-900">新建团队</h3>
+                  <p className="text-xs text-gray-500 mt-1">填写团队基础信息，并添加团队成员</p>
+                </div>
+                <div className="p-5 space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-gray-700">团队名称</label>
+                    <input
+                      value={newTeamName}
+                      onChange={(e) => setNewTeamName(e.target.value)}
+                      placeholder="请输入团队名称"
+                      className="w-full h-10 px-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/5"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-medium text-gray-700">添加成员（可选）</label>
+                      <span className="text-[11px] text-gray-400">当前登录账号会自动作为管理员加入</span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        value={newTeamMemberInput}
+                        onChange={(e) => setNewTeamMemberInput(e.target.value)}
+                        placeholder="姓名或 OA"
+                        className="flex-1 h-10 px-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            addNewTeamMember();
+                          }
+                          if (e.key === 'Escape') {
+                            setNewTeamMemberInput('');
+                          }
+                        }}
+                      />
+                      <div className="flex items-center gap-2 sm:w-auto">
+                        <select
+                          value={newTeamMemberRole}
+                          onChange={(e) => setNewTeamMemberRole(e.target.value as 'admin' | 'member')}
+                          className="h-10 pl-2 pr-8 appearance-none rounded-xl border border-gray-200 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black/5"
+                        >
+                          <option value="member">成员</option>
+                          <option value="admin">管理员</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={addNewTeamMember}
+                          className="h-10 px-4 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors shrink-0"
+                        >
+                          添加
+                        </button>
+                      </div>
+                    </div>
+
+                    {newTeamExtraMembers.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {newTeamExtraMembers.map((oa) => {
+                          const name = directoryByOa.get(oa) ?? oa;
+                          const isAdmin = newTeamExtraAdmins.includes(oa);
+                          return (
+                            <span
+                              key={oa}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-gray-100 text-gray-700"
+                            >
+                              <span className="font-medium">{name}</span>
+                              <span className="text-[10px] text-gray-400">{oa}</span>
+                              {isAdmin && (
+                                <span className="ml-1 rounded-full bg-purple-100 text-purple-700 px-1.5 py-0.5 text-[10px]">
+                                  管理员
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setNewTeamExtraMembers((prev) => prev.filter((id) => id !== oa));
+                                  setNewTeamExtraAdmins((prev) => prev.filter((id) => id !== oa));
+                                }}
+                                className="ml-1 text-gray-400 hover:text-red-500"
+                              >
+                                <X size={12} />
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="pt-2 flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCreateTeamOpen(false);
+                        setNewTeamName('');
+                        setNewTeamMemberInput('');
+                        setNewTeamMemberRole('member');
+                        setNewTeamExtraMembers([]);
+                        setNewTeamExtraAdmins([]);
+                      }}
+                      className="h-9 px-4 rounded-xl bg-white text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createTeam}
+                      className="h-9 px-4 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors"
+                    >
+                      创建团队
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-black/5">
+                  <h3 className="text-base font-semibold text-gray-900">已有团队</h3>
+                  <p className="text-xs text-gray-500 mt-1">查看你当前管理或加入的团队</p>
+                </div>
+                <div className="p-4 space-y-2 max-h-[420px] overflow-y-auto">
+                  {visibleTeams.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-gray-400">暂无团队</div>
+                  ) : (
+                    visibleTeams.map((team) => (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTeamId(team.id);
+                          setIsCreateTeamOpen(false);
+                        }}
+                        className={clsx(
+                          'w-full text-left px-3 py-2 rounded-xl border border-transparent hover:border-gray-200 hover:bg-gray-50 transition-colors flex items-center justify-between gap-2',
+                          selectedTeamId === team.id && 'border-gray-300 bg-gray-50'
+                        )}
+                      >
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{team.name}</div>
+                          <div className="mt-0.5 text-[11px] text-gray-400">
+                            管理员 {team.admins.length} · 成员 {new Set([...team.admins, ...team.members]).size}
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : !activeTeam ? (
+          <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-black/5 border-dashed">
+            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+              <Users size={24} className="text-gray-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">未选择团队</h3>
+            <p className="text-sm text-gray-500">请在上方选择一个团队，或创建一个新团队</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden">
+                <div className="p-5 border-b border-black/5">
+                  <h3 className="text-base font-semibold text-gray-900">团队设置</h3>
+                  <p className="text-xs text-gray-500 mt-1">管理团队基本信息</p>
+                </div>
+                <div className="p-5 space-y-5">
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-medium text-gray-700">团队名称</label>
+                    {activeTeam && (
+                      <>
+                        <div className="flex items-center gap-2">
+                          {isEditingTeamName ? (
+                            <>
+                              <input
+                                value={teamNameDraft}
+                                onChange={(e) => setTeamNameDraft(e.target.value)}
+                                disabled={!canManage}
+                                className="flex-1 h-10 px-3 rounded-xl border border-gray-200 bg-gray-50/50 text-sm focus:bg-white focus:outline-none focus:ring-2 focus:ring-black/5 disabled:opacity-60"
+                                onKeyDown={(e) => {
+                                  if (!activeTeam || !canManage) return;
+                                  if (e.key === 'Enter') {
+                                    renameTeam(activeTeam.id);
+                                    setIsEditingTeamName(false);
+                                  }
+                                  if (e.key === 'Escape') {
+                                    setTeamNameDraft(activeTeam.name);
+                                    setIsEditingTeamName(false);
+                                  }
+                                }}
+                              />
+                              {canManage && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTeamNameDraft(activeTeam.name);
+                                      setIsEditingTeamName(false);
+                                    }}
+                                    className="h-10 px-4 rounded-xl bg-white text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors"
+                                  >
+                                    取消
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      renameTeam(activeTeam.id);
+                                      setIsEditingTeamName(false);
+                                    }}
+                                    disabled={!isTeamNameDirty || !isTeamNameValid}
+                                    className="h-10 px-4 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:hover:bg-gray-900"
+                                  >
+                                    保存
+                                  </button>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-gray-900 truncate">{activeTeam.name}</div>
+                              </div>
+                              {canManage && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTeamNameDraft(activeTeam.name);
+                                    setIsEditingTeamName(true);
+                                  }}
+                                  className="h-9 px-3 rounded-xl bg-white text-gray-700 text-xs font-medium border border-gray-200 hover:bg-gray-50 transition-colors"
+                                >
+                                  编辑
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {canManage && isTeamNameDirty && isEditingTeamName && (
+                          <div className="text-[11px] text-gray-400">名称已修改，记得保存</div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {canManage && (
+                    <div className="rounded-2xl border border-red-100 bg-red-50/40 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-red-900">危险操作</div>
+                          <div className="mt-1 text-xs text-red-700/80">删除团队后不可恢复，请谨慎操作</div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => activeTeam && setArmedDeleteTeamId(activeTeam.id)}
+                          className="h-9 px-3 rounded-xl bg-white text-red-700 text-sm font-medium border border-red-200 hover:bg-red-50 transition-colors shrink-0"
+                        >
+                          删除团队
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="bg-white rounded-2xl border border-black/5 shadow-sm overflow-hidden flex flex-col h-full min-h-[500px]">
+                <div className="p-5 border-b border-black/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                      团队成员
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">{allUsers.length}</span>
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-1">管理团队成员及权限角色</p>
+                  </div>
+                  {canManage && (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-start gap-3 w-full sm:w-auto">
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div ref={userLookupRef} className="relative flex-1 sm:w-48">
+                          <input
+                            value={userLookupInput}
+                            onChange={(e) => {
+                              setUserLookupInput(e.target.value);
+                              setIsUserLookupOpen(true);
+                              updateUserLookupAnchor();
+                            }}
+                            onFocus={() => {
+                              setIsUserLookupOpen(true);
+                              updateUserLookupAnchor();
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Escape') setIsUserLookupOpen(false);
+                            }}
+                            placeholder="姓名或 OA"
+                            className="w-full h-9 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
+                          />
+
+                          {isUserLookupOpen && (
+                            <div
+                              ref={userLookupDropdownRef}
+                              className="fixed w-72 rounded-2xl border border-black/10 bg-white shadow-xl overflow-hidden z-[9999]"
+                              style={
+                                userLookupAnchor
+                                  ? {
+                                      right: Math.max(8, window.innerWidth - userLookupAnchor.right),
+                                      bottom: Math.max(8, window.innerHeight - userLookupAnchor.top + 8),
+                                    }
+                                  : undefined
+                              }
+                            >
+                              <div className="max-h-60 overflow-y-auto py-1">
+                                {directoryCandidates.map((record, index) => {
+                                  const isTop = !!userLookupInput.trim() && index === 0 && record.score > 0;
+                                  const isExact =
+                                    !!userLookupInput.trim() &&
+                                    (normalizeDirectoryQuery(userLookupInput) === record.oa.toLowerCase() || userLookupInput.trim() === record.name);
+                                  return (
+                                    <button
+                                      key={`${record.oa}-${record.name}`}
+                                      type="button"
+                                      onMouseDown={(event) => event.preventDefault()}
+                                      onClick={() => {
+                                        setUserLookupInput(record.oa);
+                                        setIsUserLookupOpen(false);
+                                      }}
+                                      className={clsx(
+                                        'w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors',
+                                        isTop && 'bg-blue-50',
+                                        isExact && 'bg-gray-50'
+                                      )}
+                                    >
+                                      <span className="font-medium text-gray-900 truncate">{record.name}</span>
+                                      <span className="text-xs text-gray-500 truncate">{record.oa}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <select
+                          value={newUserRole}
+                          onChange={(e) => setNewUserRole(e.target.value as 'admin' | 'member')}
+                          className="h-9 pl-2 pr-8 appearance-none rounded-lg border border-gray-200 text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-black/5"
+                        >
+                          <option value="member">成员</option>
+                          <option value="admin">管理员</option>
+                        </select>
+                        <button
+                          onClick={() => addUser(activeTeam.id)}
+                          className="h-9 px-3 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 transition-colors whitespace-nowrap"
+                        >
+                          添加
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 overflow-x-auto">
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-gray-50/50 text-gray-500 border-b border-black/5">
+                      <tr>
+                        <th className="px-6 py-2 font-medium">姓名</th>
+                        <th className="px-6 py-2 font-medium">OA账号</th>
+                        <th className="px-6 py-2 font-medium">角色</th>
+                        <th className="px-6 py-2 font-medium text-right">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {pagedUsers.map((oa) => {
+                        const isAdmin = activeTeam.admins.includes(oa);
+                        const isCurrentUser = oa === normalizedOa;
+                        const displayName = directoryByOa.get(oa) ?? '-';
+                        return (
+                          <tr key={oa} className="hover:bg-gray-50/50 transition-colors">
+                            <td className="px-6 py-2">
+                              <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 border border-black/5 flex items-center justify-center font-semibold text-gray-600 text-xs">
+                                  {(displayName !== '-' ? displayName[0] : oa[0])?.toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="font-medium text-gray-900 flex items-center gap-2">
+                                    {displayName}
+                                    {isCurrentUser && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded font-bold uppercase tracking-wider">You</span>}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-2">
+                              <div className="font-medium text-gray-900">{oa}</div>
+                            </td>
+                            <td className="px-6 py-2">
+                              {canManage ? (
+                                <select
+                                  value={isAdmin ? 'admin' : 'member'}
+                                  onChange={(e) => changeUserRole(activeTeam.id, oa, e.target.value as 'admin' | 'member')}
+                                  className="h-7 pl-2 pr-8 py-0 appearance-none rounded-lg border-transparent hover:border-gray-200 bg-transparent hover:bg-white text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-black/5 cursor-pointer transition-all"
+                                >
+                                  <option value="admin">管理员</option>
+                                  <option value="member">成员</option>
+                                </select>
+                              ) : (
+                                <span className={clsx("px-2.5 py-1 rounded-full text-xs font-medium", isAdmin ? "bg-purple-50 text-purple-700" : "bg-gray-100 text-gray-600")}>
+                                  {isAdmin ? '管理员' : '成员'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-2 text-right">
+                              {canManage && (
+                                <button
+                                  onClick={() => removeUser(activeTeam.id, oa)}
+                                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                  title="移除成员"
+                                >
+                                  <X size={16} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="px-5 py-3 border-t border-black/5 flex items-center justify-between">
+                  <div className="text-xs text-gray-500">
+                    第 {memberPage} / {memberTotalPages} 页 · 每页 {TEAM_MEMBERS_PAGE_SIZE} 人
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTeamMembersPage((prev) => Math.max(1, prev - 1))}
+                      disabled={memberPage <= 1}
+                      className="h-8 px-3 rounded-lg bg-white text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:hover:bg-white"
+                    >
+                      上一页
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeamMembersPage((prev) => Math.min(memberTotalPages, prev + 1))}
+                      disabled={memberPage >= memberTotalPages}
+                      className="h-8 px-3 rounded-lg bg-white text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:hover:bg-white"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {teamToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setArmedDeleteTeamId(null)}
+            />
+            <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-start gap-3">
+                  <div className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-red-50 text-red-600">
+                    <Trash2 size={18} />
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <h2 className="text-base font-semibold text-gray-900">删除团队</h2>
+                    <p className="text-xs text-gray-500">
+                      确认要删除团队
+                      <span className="font-semibold text-gray-900">「{teamToDelete.name}」</span>
+                      吗？删除后不可恢复，团队成员将无法继续访问该团队及其内容。
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setArmedDeleteTeamId(null)}
+                    className="h-9 px-4 rounded-xl bg-white text-gray-700 text-sm font-medium border border-gray-200 hover:bg-gray-50 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      deleteTeam(teamToDelete.id);
+                      setArmedDeleteTeamId(null);
+                    }}
+                    className="h-9 px-4 rounded-xl bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors"
+                  >
+                    确认删除
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderAssetMasonry = (title: string, items: typeof visibleImages, emptyText: string, withToolbar: boolean = true) => {
     if (items.length === 0) {
       return (
@@ -1195,6 +2181,19 @@ export default function Projects() {
                 <Sparkles size={16} className={clsx(view === 'favorites' ? "opacity-80" : "opacity-50")} />
                 我的收藏
               </button>
+              <button
+                onClick={() => setView('teams')}
+                className={clsx(
+                  "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                  view === 'teams'
+                    ? "text-gray-700 border-gray-300"
+                    : "text-gray-500 border-transparent hover:text-gray-700"
+                )}
+                aria-selected={view === 'teams'}
+              >
+                <Users size={16} className={clsx(view === 'teams' ? "opacity-80" : "opacity-50")} />
+                我的团队
+              </button>
             </div>
             <div className="flex items-center gap-2"></div>
           </div>
@@ -1216,6 +2215,7 @@ export default function Projects() {
               {space === 'personal' && view === 'projects' && renderProjectsView()}
               {space === 'personal' && (view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets') && renderAssetsModule()}
               {space === 'personal' && view === 'favorites' && renderFavoritesModule()}
+              {space === 'personal' && view === 'teams' && renderTeamsModule()}
               {space === 'personal' && view === 'p2p' && renderP2PView()}
             </div>
           )}
