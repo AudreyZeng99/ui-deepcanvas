@@ -204,7 +204,7 @@ function goBackOrHome(navigate: NavigateFunction) {
 function WorkroomTopbar({ identity, onClearRole }: { identity: WorkroomIdentity | null; onClearRole: () => void }) {
   return (
     <div className="sticky top-0 z-40 border-b border-gray-100 bg-white/80 backdrop-blur">
-      <div className="mx-auto max-w-[1320px] px-8 py-4 flex items-center justify-between">
+      <div className="w-full px-8 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center font-semibold">W</div>
           <div className="flex flex-col">
@@ -256,7 +256,7 @@ function WorkroomShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900">
       <WorkroomTopbar identity={identity} onClearRole={clearRole} />
-      <div className="mx-auto max-w-[1320px] px-8 py-6">{children}</div>
+      <div className="w-full px-8 py-6">{children}</div>
     </div>
   );
 }
