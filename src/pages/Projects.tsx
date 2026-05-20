@@ -1321,7 +1321,7 @@ export default function Projects() {
     const pagedUsers = allUsers.slice(memberSliceStart, memberSliceEnd);
 
     return (
-      <div className="max-w-7xl mx-auto py-2 px-6 space-y-6">
+      <div className="max-w-[1320px] mx-auto py-2 px-8 space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-black/5 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg">
@@ -1984,7 +1984,7 @@ export default function Projects() {
   return (
     <div className="min-h-screen bg-background">
       <CreateCanvasModal isOpen={isCreateCanvasModalOpen} onClose={() => setIsCreateCanvasModalOpen(false)} />
-      <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-10 py-12 space-y-10">
+      <div className="max-w-[1320px] mx-auto px-8 py-12 space-y-10">
         {space === 'personal' ? (
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div className="space-y-1">

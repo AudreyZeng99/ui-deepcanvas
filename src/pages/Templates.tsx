@@ -465,7 +465,7 @@ export default function Templates() {
     <div className="h-full flex flex-col bg-white overflow-hidden">
       {/* Content Scroll Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <div className="max-w-7xl mx-auto w-full px-8 py-6 space-y-10 pb-20">
+        <div className="max-w-[1320px] mx-auto w-full px-8 py-6 space-y-10 pb-20">
           
           {/* Standard Header */}
           <header className="mb-8 flex items-start justify-between gap-4">

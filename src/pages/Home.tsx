@@ -61,11 +61,22 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-8 py-12">
-        <div className="w-full max-w-[980px] space-y-6">
+        <div className="w-full max-w-[980px] space-y-6 relative">
+          <div className="pointer-events-none select-none absolute -right-10 -top-10 w-44 opacity-90">
+            <img src={`${import.meta.env.BASE_URL}figure/cloud-white.png`} alt="" className="w-full h-full object-contain drop-shadow-2xl" />
+          </div>
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div className="space-y-1">
-              <div className="text-2xl font-black text-gray-900">Deepcanvas</div>
-              <div className="text-sm text-gray-500">输入需求，直接开始创作。按 ⌘/Ctrl + Enter 发送。</div>
+              <div className="flex flex-col gap-1">
+                <h1 className="text-4xl font-black relative inline-block leading-tight">
+                  <span className="relative z-10 text-gray-900">Deepcanvas, 让设计更简单</span>
+                  <svg className="absolute -bottom-1 right-0 w-32 h-3 z-0 text-accent-secondary" viewBox="0 0 100 10" preserveAspectRatio="none">
+                    <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" className="opacity-50" />
+                  </svg>
+                  <span className="absolute -top-5 -right-8 text-3xl animate-bounce">✨</span>
+                </h1>
+                <div className="text-sm text-gray-500">输入需求，直接开始创作。按 ⌘/Ctrl + Enter 发送。</div>
+              </div>
             </div>
             <Link to="/workroom" className="h-10 px-4 rounded-full bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700 flex items-center gap-2">
               <Briefcase size={16} />
