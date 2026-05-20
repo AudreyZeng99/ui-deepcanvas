@@ -343,8 +343,8 @@ function WorkroomHome() {
 
   if (identity.role === 'ops') {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="xl:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
           <div className="text-lg font-semibold">运维工作流</div>
           <div className="text-sm text-gray-500 mt-1">从原料上传到图层库发布。</div>
           <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -465,7 +465,7 @@ function BusinessEntry() {
   if (!identity || identity.role !== 'business') return null;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div className="text-sm font-semibold text-gray-900">团队</div>
         <div className="mt-3 space-y-2">
@@ -487,7 +487,7 @@ function BusinessEntry() {
         </div>
       </div>
 
-      <div className="lg:col-span-2 space-y-4">
+      <div className="xl:col-span-2 space-y-4">
         <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
           <div className="text-lg font-semibold">项目图层库（按规格）</div>
           <div className="text-sm text-gray-500 mt-1">点击项目 → 选择规格 → 进入图层资产列表 → 打开画布并记录历史。</div>
@@ -857,7 +857,7 @@ function LibraryPage() {
         </Link>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filteredAssets.length === 0 ? (
           <div className="text-sm text-gray-500">暂无资产。可切换到运维角色在原料操作车间发布。</div>
         ) : (
@@ -980,7 +980,7 @@ function ProjectSpecAssets() {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {filtered.length === 0 ? (
           <div className="text-sm text-gray-500">
             暂无资产。可切换到运维角色，将拆分结果发布到「项目图层库」并选择该规格。
@@ -1063,8 +1063,8 @@ function WorkroomCanvas() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="xl:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-lg font-semibold">图片微调画布（MVP）</div>
