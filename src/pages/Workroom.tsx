@@ -454,84 +454,61 @@ function BusinessEntry() {
   }, [teams]);
 
   const [projects, setProjects] = useState<WorkroomProject[]>(() => readProjects());
-  const [activeTeamId, setActiveTeamId] = useState<string>(() => teams[0]?.id || '');
 
   useEffect(() => {
     setProjects(readProjects());
   }, [teams]);
-
-  useEffect(() => {
-    if (!activeTeamId && teams[0]?.id) setActiveTeamId(teams[0].id);
-  }, [activeTeamId, teams]);
 
   const accessibleLibraries = useMemo(() => {
     if (!identity) return [];
     return libs.filter((l) => canAccessLibrary(identity, l));
   }, [identity, libs]);
 
-  const teamProjects = useMemo(() => projects.filter((p) => p.teamId === activeTeamId), [projects, activeTeamId]);
-
   if (!identity || identity.role !== 'business') return null;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-        <div className="text-sm font-semibold text-gray-900">团队</div>
-        <div className="mt-3 space-y-2">
-          {teams.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setActiveTeamId(t.id)}
-              className={clsx(
-                'w-full text-left rounded-xl border px-3 py-3 transition',
-                activeTeamId === t.id ? 'border-black bg-black text-white' : 'border-gray-200 bg-white hover:bg-gray-50'
-              )}
-            >
-              <div className="text-sm font-semibold">{t.name}</div>
-              <div className={clsx('text-xs mt-1', activeTeamId === t.id ? 'text-white/70' : 'text-gray-500')}>
-                进入该团队下的项目图层库
-              </div>
-            </button>
-          ))}
+      <div className="xl:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-end justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-lg font-semibold">项目（按规格）</div>
+            <div className="text-sm text-gray-500 mt-1">业务登录后绑定机构，直接展示机构下项目，无需展示团队切换。</div>
+          </div>
+          <div className="text-xs px-2.5 py-1 rounded-full bg-gray-100 border border-black/5 text-gray-700 font-semibold">
+            当前机构：{identity.businessOrg === 'shenzhen' ? '深圳分行' : '其他'}
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          {projects.length === 0 ? (
+            <div className="text-sm text-gray-500">暂无项目</div>
+          ) : (
+            projects.map((p) => (
+              <Link
+                key={p.id}
+                to={`/workroom/projects/${encodeURIComponent(p.id)}`}
+                className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition p-4"
+              >
+                <div className="font-semibold">{p.name}</div>
+                <div className="text-sm text-gray-500 mt-1">规格：{p.specs.join(' / ')}</div>
+              </Link>
+            ))
+          )}
         </div>
       </div>
 
-      <div className="xl:col-span-2 space-y-4">
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-          <div className="text-lg font-semibold">项目图层库（按规格）</div>
-          <div className="text-sm text-gray-500 mt-1">点击项目 → 选择规格 → 进入图层资产列表 → 打开画布并记录历史。</div>
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {teamProjects.length === 0 ? (
-              <div className="text-sm text-gray-500">暂无项目</div>
-            ) : (
-              teamProjects.map((p) => (
-                <Link
-                  key={p.id}
-                  to={`/workroom/projects/${encodeURIComponent(p.id)}`}
-                  className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition p-4"
-                >
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-sm text-gray-500 mt-1">规格：{p.specs.join(' / ')}</div>
-                </Link>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-          <div className="text-sm font-semibold text-gray-900">共享图层库</div>
-          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-            {accessibleLibraries.map((lib) => (
-              <Link
-                key={lib.id}
-                to={`/workroom/libraries/${encodeURIComponent(lib.id)}`}
-                className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition p-4"
-              >
-                <div className="font-semibold">{lib.name}</div>
-                <div className="text-sm text-gray-500 mt-1">{lib.description || '—'}</div>
-              </Link>
-            ))}
-          </div>
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <div className="text-sm font-semibold text-gray-900">共享图层库</div>
+        <div className="mt-3 space-y-2">
+          {accessibleLibraries.map((lib) => (
+            <Link
+              key={lib.id}
+              to={`/workroom/libraries/${encodeURIComponent(lib.id)}`}
+              className="block rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition px-3 py-3"
+            >
+              <div className="text-sm font-semibold">{lib.name}</div>
+              <div className="text-xs text-gray-500 mt-1">{lib.description || '—'}</div>
+            </Link>
+          ))}
         </div>
       </div>
     </div>
