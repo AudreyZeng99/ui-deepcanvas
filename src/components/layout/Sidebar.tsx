@@ -1,124 +1,131 @@
-import { 
-  Sparkles, 
-  Image as ImageIcon, 
-  PenTool, 
-  LayoutTemplate, 
-  LayoutGrid,
-  Settings,
-  FolderOpen,
-  MessageSquare,
-  Building2,
-  Briefcase
-} from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import type { ElementType } from 'react';
+import { Briefcase, Building2, Folder, Home, Image as ImageIcon, Plus, Sparkles, Users } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 
 import { Tooltip } from '../Tooltip';
-
-const menuGroups = [
-  {
-    title: '开始设计',
-    items: [
-      { icon: Sparkles, label: '灵感', path: '/inspiration' },
-      { icon: ImageIcon, label: '文生图', path: '/text-to-image' },
-      { icon: PenTool, label: '创建设计', path: '/editor' },
-      { icon: LayoutTemplate, label: '模版', path: '/templates' },
-    ]
-  },
-  {
-    title: '空间',
-    items: [
-      { icon: Briefcase, label: '工作间', path: '/workroom' },
-      { icon: FolderOpen, label: '个人空间', path: '/projects' },
-      { icon: Building2, label: '公共空间', path: '/public' },
-      { icon: LayoutGrid, label: '资产管理', path: '/gallery' },
-    ]
-  }
-];
+import CreateCanvasModal from '../CreateCanvasModal';
 
 export default function Sidebar() {
-  return (
-    <aside 
-      className="fixed left-0 top-0 h-screen flex flex-col py-6 bg-white border-r border-gray-100 z-50 w-20 items-center transition-all duration-300 ease-in-out"
-    >
-      {/* Header / Logo */}
-      <div className="mb-8 flex items-center justify-center">
-        <NavLink to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl transition-transform group-hover:scale-105 shrink-0 shadow-lg shadow-black/20">
-            D
-          </div>
-        </NavLink>
-      </div>
-      
-      {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-8 overflow-y-auto w-full no-scrollbar px-2">
-        {menuGroups.map((group, index) => (
-          <div key={group.title} className="flex flex-col gap-3 items-center w-full">
-            {group.items.map((item) => (
-              <Tooltip key={item.path} content={item.label} position="right">
-                <NavLink
-                  to={item.path}
-                  className={({ isActive }) =>
-                    clsx(
-                      "p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center",
-                      isActive 
-                        ? "bg-black text-white shadow-lg shadow-black/20"
-                        : "text-gray-400 hover:bg-gray-100 hover:text-black"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <item.icon size={22} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-                  )}
-                </NavLink>
-              </Tooltip>
-            ))}
-            {/* Separator between groups */}
-            {index < menuGroups.length - 1 && (
-              <div className="w-8 h-px bg-gray-100 mt-2" />
-            )}
-          </div>
-        ))}
-      </nav>
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
-      {/* Footer / Settings / Feedback */}
-      <div className="mt-auto w-full flex flex-col gap-4 items-center px-2 pb-6">
-        <Tooltip content="设置" position="right">
-          <NavLink 
-            to="/settings"
-            className={({ isActive }) =>
-              clsx(
-                "p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center",
-                isActive 
-                  ? "bg-black text-white shadow-lg shadow-black/20"
-                  : "text-gray-400 hover:bg-gray-100 hover:text-black"
-              )
-            }
-          >
-            {({ isActive }) => (
-              <Settings size={22} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-            )}
-          </NavLink>
-        </Tooltip>
-        
-        <Tooltip content="用户意见收集" position="right">
-          <NavLink 
-            to="/feedback"
-            className={({ isActive }) =>
-              clsx(
-                "p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center",
-                isActive 
-                  ? "bg-black text-white shadow-lg shadow-black/20"
-                  : "text-gray-400 hover:bg-gray-100 hover:text-black"
-              )
-            }
-          >
-            {({ isActive }) => (
-              <MessageSquare size={22} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-            )}
-          </NavLink>
-        </Tooltip>
-      </div>
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) setIsCreateMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const searchParams = new URLSearchParams(location.search);
+  const templateScope = searchParams.get('scope') === 'team' ? 'team' : 'public';
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-20 bg-white border-r border-gray-100 z-50 flex flex-col items-center py-6 gap-3">
+      <CreateCanvasModal isOpen={isCanvasModalOpen} onClose={() => setIsCanvasModalOpen(false)} />
+
+      <NavLink to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-black/20">
+        D
+      </NavLink>
+
+      <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2">
+        <IconNavLink icon={Home} label="首页" to="/" />
+        <IconNavLink icon={Briefcase} label="工作间" to="/workroom" />
+        <IconNavLink icon={Folder} label="个人空间" to="/projects" />
+
+        <div className="relative w-full flex items-center justify-center" ref={createMenuRef}>
+          <Tooltip content="新建画布" position="right">
+            <button
+              type="button"
+              onClick={() => setIsCreateMenuOpen((v) => !v)}
+              className={clsx(
+                'p-3 rounded-xl transition-all duration-200 flex items-center justify-center w-full',
+                isCreateMenuOpen ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
+              )}
+              aria-label="新建画布"
+            >
+              <Plus size={22} />
+            </button>
+          </Tooltip>
+          {isCreateMenuOpen && (
+            <div className="absolute left-[76px] top-1/2 -translate-y-1/2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateMenuOpen(false);
+                  setIsCanvasModalOpen(true);
+                }}
+                className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              >
+                新建创建设计画布
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateMenuOpen(false);
+                  navigate('/public-canvas');
+                }}
+                className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
+              >
+                新建无限画布
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="w-8 h-px bg-gray-100 my-1" />
+        <IconNavLink icon={Sparkles} label="提示词灵感" to="/inspiration" />
+        <IconNavLink icon={ImageIcon} label="文生图" to="/text-to-image" />
+
+        <IconNavLink
+          icon={Users}
+          label="社区"
+          to="/templates?scope=public"
+          forceActive={location.pathname === '/templates' && templateScope === 'public'}
+        />
+        <IconNavLink
+          icon={Building2}
+          label="团队"
+          to="/templates?scope=team"
+          forceActive={location.pathname === '/templates' && templateScope === 'team'}
+        />
+      </nav>
     </aside>
+  );
+}
+
+function IconNavLink({
+  icon: Icon,
+  label,
+  to,
+  forceActive,
+}: {
+  icon: ElementType;
+  label: string;
+  to: string;
+  forceActive?: boolean;
+}) {
+  return (
+    <Tooltip content={label} position="right">
+      <NavLink
+        to={to}
+        className={({ isActive }) =>
+          clsx(
+            'p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center w-full',
+            forceActive ?? isActive ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
+          )
+        }
+        aria-label={label}
+      >
+        {({ isActive }) => <Icon size={22} strokeWidth={(forceActive ?? isActive) ? 2.5 : 2} className="shrink-0" />}
+      </NavLink>
+    </Tooltip>
   );
 }

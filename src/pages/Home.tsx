@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
+import type { ElementType } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowUp,
   Briefcase,
-  Building2,
-  Folder,
-  Image as ImageIcon,
-  Plus,
-  Sparkles,
-  Users,
   Wand2,
   Eraser,
   Scissors,
@@ -20,36 +15,21 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import clsx from 'clsx';
-import CreateCanvasModal from '../components/CreateCanvasModal';
 
 import { useTheme } from '../theme/ThemeContext';
-import { Tooltip } from '../components/Tooltip';
 import { useToast } from '../components/ToastProvider';
 
 export default function Home() {
   const { theme } = useTheme();
   const navigate = useNavigate();
   const toast = useToast();
-  const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
   const [chatInput, setChatInput] = useState('');
-  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
-  const createMenuRef = useRef<HTMLDivElement>(null);
 
   const handleChatSubmit = () => {
     const q = chatInput.trim();
     if (!q) return;
     navigate(`/public-canvas?q=${encodeURIComponent(q)}`);
   };
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) setIsCreateMenuOpen(false);
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
   
   const isGlass = theme.id.includes('glass');
   const isOutlined = theme.id.includes('outlined');
@@ -80,70 +60,7 @@ export default function Home() {
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans">
-      <CreateCanvasModal 
-        isOpen={isCanvasModalOpen} 
-        onClose={() => setIsCanvasModalOpen(false)} 
-      />
-
-      <aside className="fixed left-0 top-0 h-screen w-20 bg-white border-r border-gray-100 z-50 flex flex-col items-center py-6 gap-3">
-        <Link to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-black/20">
-          D
-        </Link>
-
-        <div className="mt-4 flex flex-col items-center gap-2 w-full px-2">
-          <QuickActionLink icon={Briefcase} label="工作间" to="/workroom" />
-          <QuickActionLink icon={Folder} label="个人空间" to="/projects" />
-
-          <div className="relative w-full flex items-center justify-center" ref={createMenuRef}>
-            <Tooltip content="新建画布" position="right">
-              <button
-                type="button"
-                onClick={() => setIsCreateMenuOpen((v) => !v)}
-                className={clsx(
-                  'p-3 rounded-xl transition-all duration-200 flex items-center justify-center w-full',
-                  isCreateMenuOpen ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
-                )}
-                aria-label="新建画布"
-              >
-                <Plus size={22} />
-              </button>
-            </Tooltip>
-            {isCreateMenuOpen && (
-              <div className="absolute left-[76px] top-1/2 -translate-y-1/2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    setIsCanvasModalOpen(true);
-                  }}
-                  className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
-                >
-                  新建创建设计画布
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCreateMenuOpen(false);
-                    navigate('/public-canvas');
-                  }}
-                  className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
-                >
-                  新建无限画布
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="w-8 h-px bg-gray-100 my-1" />
-          <QuickActionLink icon={Sparkles} label="提示词灵感" to="/inspiration" />
-          <QuickActionLink icon={ImageIcon} label="文生图" to="/text-to-image" />
-          <QuickActionLink icon={Users} label="社区" to="/templates?scope=public" />
-          <QuickActionLink icon={Building2} label="团队" to="/templates?scope=team" />
-        </div>
-      </aside>
-
-      <main className="ml-20 min-h-screen flex items-center justify-center px-8 py-12">
+    <div className="min-h-screen flex items-center justify-center px-8 py-12">
         <div className="w-full max-w-[980px] space-y-6">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div className="space-y-1">
@@ -224,26 +141,11 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </main>
     </div>
   );
 }
 
-function QuickActionLink({ icon: Icon, label, to }: { icon: React.ElementType; label: string; to: string }) {
-  return (
-    <Tooltip content={label} position="right">
-      <Link
-        to={to}
-        className="p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center w-full text-gray-400 hover:bg-gray-100 hover:text-black"
-        aria-label={label}
-      >
-        <Icon size={22} strokeWidth={2} className="shrink-0" />
-      </Link>
-    </Tooltip>
-  );
-}
-
-function ToolIcon({ icon: Icon, label, className, onClick }: { icon: React.ElementType; label: string; className?: string; onClick?: () => void }) {
+function ToolIcon({ icon: Icon, label, className, onClick }: { icon: ElementType; label: string; className?: string; onClick?: () => void }) {
   return (
     <div 
       onClick={(e) => {

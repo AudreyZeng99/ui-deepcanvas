@@ -31,13 +31,9 @@ import Workroom from './pages/Workroom';
 
 function Layout() {
   const location = useLocation();
-  const isHome = location.pathname === '/';
-  const isToolPage = location.pathname.startsWith('/tools/');
   const isMaterialManagement = location.pathname === '/material-management';
   const isAIAdDesignAssistant = location.pathname.startsWith('/ai-ad-design-assistant');
-  const isPublicCanvas = location.pathname === '/public-canvas';
-  const isWorkroomCanvas = location.pathname.startsWith('/workroom/canvas');
-  const showSidebar = !isHome && !isToolPage && !isMaterialManagement && !isAIAdDesignAssistant && !isPublicCanvas && !isWorkroomCanvas;
+  const showSidebar = !isMaterialManagement && !isAIAdDesignAssistant;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
