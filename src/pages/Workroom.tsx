@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, type NavigateFunction } from 'react-router-dom';
 import clsx from 'clsx';
+import { ArrowLeft } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { useToast } from '../components/ToastProvider';
 
@@ -190,6 +191,14 @@ function formatTime(ts: number) {
   const d = new Date(ts);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function goBackOrHome(navigate: NavigateFunction) {
+  if (typeof window !== 'undefined' && window.history.length > 1) {
+    navigate(-1);
+    return;
+  }
+  navigate('/workroom/home');
 }
 
 function WorkroomTopbar({ identity, onClearRole }: { identity: WorkroomIdentity | null; onClearRole: () => void }) {
@@ -633,6 +642,19 @@ function MaterialWorkshop() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => goBackOrHome(navigate)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+        >
+          <ArrowLeft size={16} />
+          返回上一页
+        </button>
+        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+          回到工作间
+        </Link>
+      </div>
       <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
         <div className="text-lg font-semibold">原料操作车间</div>
         <div className="text-sm text-gray-500 mt-1">上传原料 → 填写标注字段 → 模拟拆分确认 → 发布到指定图层库。</div>
@@ -846,59 +868,72 @@ function LibraryPage() {
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-lg font-semibold">{lib.name}</div>
-          <div className="text-sm text-gray-500 mt-1">{lib.description || '—'}</div>
-        </div>
-        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition">
-          返回工作间
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => goBackOrHome(navigate)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+        >
+          <ArrowLeft size={16} />
+          返回上一页
+        </button>
+        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+          回到工作间
         </Link>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {filteredAssets.length === 0 ? (
-          <div className="text-sm text-gray-500">暂无资产。可切换到运维角色在原料操作车间发布。</div>
-        ) : (
-          filteredAssets.map((a) => (
-            <div key={a.id} className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
-              <div className="aspect-[4/3] bg-gray-50">
-                <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="p-3">
-                <div className="text-sm font-semibold text-gray-900 line-clamp-1">{a.name}</div>
-                <div className="text-xs text-gray-500 mt-1">
-                  规格：{a.spec} · {formatTime(a.createdAt)}
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-lg font-semibold">{lib.name}</div>
+            <div className="text-sm text-gray-500 mt-1">{lib.description || '—'}</div>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filteredAssets.length === 0 ? (
+            <div className="text-sm text-gray-500">暂无资产。可切换到运维角色在原料操作车间发布。</div>
+          ) : (
+            filteredAssets.map((a) => (
+              <div key={a.id} className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
+                <div className="aspect-[4/3] bg-gray-50">
+                  <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
                 </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    onClick={() => openCanvas(a)}
-                    className={clsx(
-                      'px-3 py-2 rounded-lg text-sm transition',
-                      isBusiness(identity) ? 'bg-black text-white hover:bg-gray-900' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    )}
-                  >
-                    打开画布
-                  </button>
-                  {canDelete && (
+                <div className="p-3">
+                  <div className="text-sm font-semibold text-gray-900 line-clamp-1">{a.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    规格：{a.spec} · {formatTime(a.createdAt)}
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
                     <button
-                      onClick={() => deleteAsset(a.id)}
-                      className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+                      onClick={() => openCanvas(a)}
+                      className={clsx(
+                        'px-3 py-2 rounded-lg text-sm transition',
+                        isBusiness(identity) ? 'bg-black text-white hover:bg-gray-900' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      )}
                     >
-                      删除
+                      打开画布
                     </button>
+                    {canDelete && (
+                      <button
+                        onClick={() => deleteAsset(a.id)}
+                        className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+                      >
+                        删除
+                      </button>
+                    )}
+                  </div>
+                  {a.meta && (
+                    <div className="mt-2 text-xs text-gray-500">
+                      标注：色调 {a.meta.tone || '—'} · 小福鹿 {a.meta.hasXiaofulu ? '是' : '否'} · 娇娇 {a.meta.hasJiaojiao ? '是' : '否'}
+                    </div>
                   )}
                 </div>
-                {a.meta && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    标注：色调 {a.meta.tone || '—'} · 小福鹿 {a.meta.hasXiaofulu ? '是' : '否'} · 娇娇 {a.meta.hasJiaojiao ? '是' : '否'}
-                  </div>
-                )}
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -906,6 +941,7 @@ function LibraryPage() {
 
 function ProjectPage() {
   const identity = readIdentity();
+  const navigate = useNavigate();
   const { projectId } = useParams();
   const projects = useMemo(() => readProjects(), []);
   const project = projects.find((p) => p.id === projectId);
@@ -915,27 +951,40 @@ function ProjectPage() {
   if (!project) return <Navigate to="/workroom/home" replace />;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-lg font-semibold">{project.name}</div>
-          <div className="text-sm text-gray-500 mt-1">选择图片规格进入该规格下的图层资产。</div>
-        </div>
-        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition">
-          返回工作间
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => goBackOrHome(navigate)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+        >
+          <ArrowLeft size={16} />
+          返回上一页
+        </button>
+        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+          回到工作间
         </Link>
       </div>
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-        {project.specs.map((s) => (
-          <Link
-            key={s}
-            to={`/workroom/projects/${encodeURIComponent(project.id)}/spec/${encodeURIComponent(s)}`}
-            className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition p-4"
-          >
-            <div className="font-semibold">{s}</div>
-            <div className="text-sm text-gray-500 mt-1">查看该规格的资产 → 进入画布。</div>
-          </Link>
-        ))}
+
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-lg font-semibold">{project.name}</div>
+            <div className="text-sm text-gray-500 mt-1">选择图片规格进入该规格下的图层资产。</div>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          {project.specs.map((s) => (
+            <Link
+              key={s}
+              to={`/workroom/projects/${encodeURIComponent(project.id)}/spec/${encodeURIComponent(s)}`}
+              className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition p-4"
+            >
+              <div className="font-semibold">{s}</div>
+              <div className="text-sm text-gray-500 mt-1">查看该规格的资产 → 进入画布。</div>
+            </Link>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -961,56 +1010,69 @@ function ProjectSpecAssets() {
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-lg font-semibold">{project.name}</div>
-          <div className="text-sm text-gray-500 mt-1">规格：{specKey}</div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/workroom/projects/${encodeURIComponent(project.id)}`}
-            className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
-          >
-            返回规格
-          </Link>
-          <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition">
-            返回工作间
-          </Link>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => goBackOrHome(navigate)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+        >
+          <ArrowLeft size={16} />
+          返回上一页
+        </button>
+        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+          回到工作间
+        </Link>
       </div>
 
-      <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {filtered.length === 0 ? (
-          <div className="text-sm text-gray-500">
-            暂无资产。可切换到运维角色，将拆分结果发布到「项目图层库」并选择该规格。
+      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="text-lg font-semibold">{project.name}</div>
+            <div className="text-sm text-gray-500 mt-1">规格：{specKey}</div>
           </div>
-        ) : (
-          filtered.map((a) => (
-            <div key={a.id} className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
-              <div className="aspect-[4/3] bg-gray-50">
-                <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="p-3">
-                <div className="text-sm font-semibold text-gray-900 line-clamp-1">{a.name}</div>
-                <div className="text-xs text-gray-500 mt-1">{formatTime(a.createdAt)}</div>
-                <div className="mt-3 flex items-center gap-2">
-                  <button onClick={() => openCanvas(a.id)} className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
-                    进入画布
-                  </button>
-                  <button
-                    onClick={() => {
-                      toast.show('本页为业务只读视图；删除由运维在图层库页执行。');
-                    }}
-                    className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
-                  >
-                    了解权限
-                  </button>
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/workroom/projects/${encodeURIComponent(project.id)}`}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+            >
+              返回规格
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {filtered.length === 0 ? (
+            <div className="text-sm text-gray-500">
+              暂无资产。可切换到运维角色，将拆分结果发布到「项目图层库」并选择该规格。
+            </div>
+          ) : (
+            filtered.map((a) => (
+              <div key={a.id} className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
+                <div className="aspect-[4/3] bg-gray-50">
+                  <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="p-3">
+                  <div className="text-sm font-semibold text-gray-900 line-clamp-1">{a.name}</div>
+                  <div className="text-xs text-gray-500 mt-1">{formatTime(a.createdAt)}</div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button onClick={() => openCanvas(a.id)} className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+                      进入画布
+                    </button>
+                    <button
+                      onClick={() => {
+                        toast.show('本页为业务只读视图；删除由运维在图层库页执行。');
+                      }}
+                      className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+                    >
+                      了解权限
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1019,6 +1081,7 @@ function ProjectSpecAssets() {
 function WorkroomCanvas() {
   const toast = useToast();
   const identity = readIdentity();
+  const navigate = useNavigate();
   const { assetId } = useParams();
   const assets = useMemo(() => readAssets(), []);
   const asset = assets.find((a) => a.id === assetId);
@@ -1063,51 +1126,64 @@ function WorkroomCanvas() {
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="xl:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold">图片微调画布（MVP）</div>
-            <div className="text-sm text-gray-500 mt-1">
-              资产：{asset.name} · 规格：{asset.spec}
-            </div>
-          </div>
-          <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition">
-            返回工作间
-          </Link>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
-          <div className="aspect-[16/10]">
-            <img src={asset.url} alt={asset.name} className="w-full h-full object-contain" />
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button onClick={saveVersion} className="px-4 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
-            保存版本
-          </button>
-        </div>
-        <div className="text-xs text-gray-500 mt-2">此处先串联“进入画布 + 历史记录”的关键链路；后续可替换为真实画布编辑器。</div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => goBackOrHome(navigate)}
+          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 transition"
+        >
+          <ArrowLeft size={16} />
+          返回上一页
+        </button>
+        <Link to="/workroom/home" className="px-3 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+          回到工作间
+        </Link>
       </div>
 
-      <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-        <div className="text-sm font-semibold text-gray-900">编辑历史</div>
-        <div className="text-xs text-gray-500 mt-1">所有业务人员对同一资产的操作都在这里留痕（MVP）。</div>
-        <div className="mt-4 space-y-2 max-h-[520px] overflow-y-auto">
-          {history.length === 0 ? (
-            <div className="text-sm text-gray-500">暂无记录</div>
-          ) : (
-            history.map((h) => (
-              <div key={h.id} className="rounded-xl border border-gray-200 bg-white px-3 py-3">
-                <div className="text-sm font-semibold text-gray-900">
-                  {h.type === 'open_canvas' ? '打开画布' : '保存版本'}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">{formatTime(h.at)} · {getRoleLabel({ role: h.byRole })}</div>
-                {h.note && <div className="text-xs text-gray-600 mt-1">{h.note}</div>}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="xl:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-lg font-semibold">图片微调画布（MVP）</div>
+              <div className="text-sm text-gray-500 mt-1">
+                资产：{asset.name} · 规格：{asset.spec}
               </div>
-            ))
-          )}
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50 overflow-hidden">
+            <div className="aspect-[16/10]">
+              <img src={asset.url} alt={asset.name} className="w-full h-full object-contain" />
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-end gap-2">
+            <button onClick={saveVersion} className="px-4 py-2 rounded-lg text-sm bg-black text-white hover:bg-gray-900 transition">
+              保存版本
+            </button>
+          </div>
+          <div className="text-xs text-gray-500 mt-2">此处先串联“进入画布 + 历史记录”的关键链路；后续可替换为真实画布编辑器。</div>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
+          <div className="text-sm font-semibold text-gray-900">编辑历史</div>
+          <div className="text-xs text-gray-500 mt-1">所有业务人员对同一资产的操作都在这里留痕（MVP）。</div>
+          <div className="mt-4 space-y-2 max-h-[520px] overflow-y-auto">
+            {history.length === 0 ? (
+              <div className="text-sm text-gray-500">暂无记录</div>
+            ) : (
+              history.map((h) => (
+                <div key={h.id} className="rounded-xl border border-gray-200 bg-white px-3 py-3">
+                  <div className="text-sm font-semibold text-gray-900">
+                    {h.type === 'open_canvas' ? '打开画布' : '保存版本'}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">{formatTime(h.at)} · {getRoleLabel({ role: h.byRole })}</div>
+                  {h.note && <div className="text-xs text-gray-600 mt-1">{h.note}</div>}
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>
