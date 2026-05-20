@@ -7,7 +7,8 @@ import {
   Settings,
   FolderOpen,
   MessageSquare,
-  Building2
+  Building2,
+  Briefcase
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
@@ -27,6 +28,7 @@ const menuGroups = [
   {
     title: '空间',
     items: [
+      { icon: Briefcase, label: '工作间', path: '/workroom' },
       { icon: FolderOpen, label: '个人空间', path: '/projects' },
       { icon: Building2, label: '公共空间', path: '/public' },
       { icon: LayoutGrid, label: '资产管理', path: '/gallery' },

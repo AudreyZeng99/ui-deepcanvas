@@ -4,9 +4,11 @@ import { Upload, Download, RefreshCw, Wand2, Image as ImageIcon, ScanFace, Check
 import clsx from 'clsx';
 import ExportModal, { ExportSettings } from '../../components/ExportModal';
 import { useToast } from '../../components/ToastProvider';
+import { useProject } from '../../context/ProjectContext';
 
 export default function IDPhoto() {
   const toast = useToast();
+  const { recordEditedAsset, recordExportedAsset } = useProject();
   const [, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -14,6 +16,11 @@ export default function IDPhoto() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [bgColor, setBgColor] = useState<string>('#438edb'); // Default blue
   const [size, setSize] = useState<string>('1inch');
+
+  React.useEffect(() => {
+    if (!generatedImage) return;
+    recordEditedAsset(generatedImage, 'editImage.upload', { tool: 'IDPhoto', bgColor, size });
+  }, [generatedImage, recordEditedAsset, bgColor, size]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -43,7 +50,7 @@ export default function IDPhoto() {
   };
 
   const handleExport = (settings: ExportSettings) => {
-    console.log('Exporting with settings:', settings);
+    if (generatedImage) recordExportedAsset(generatedImage, { source: 'IDPhoto', export: settings, bgColor, size });
     setIsExportModalOpen(false);
     toast.success('导出成功');
   };

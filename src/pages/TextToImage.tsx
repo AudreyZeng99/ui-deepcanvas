@@ -37,7 +37,7 @@ export default function TextToImage() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { createProject, currentProject, projects, isDirty, saveCurrentProjectAsNew } = useProject();
+  const { createProject, currentProject, projects, isDirty, saveCurrentProjectAsNew, recordGeneratedAssets, recordExportedAsset } = useProject();
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [optimizedPrompt, setOptimizedPrompt] = useState('');
   const [activeSource, setActiveSource] = useState<'original' | 'optimized'>('original');
@@ -592,12 +592,20 @@ export default function TextToImage() {
               setSelectedImageIndex(null);
               setTimeout(() => {
                 setIsGenerating(false);
-                setGeneratedImages([
+                const urls = [
                   'https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?w=800&q=80',
                   'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?w=800&q=80',
                   'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&q=80',
                   'https://images.unsplash.com/photo-1614850523459-c2f4c699c52e?w=800&q=80'
-                ]);
+                ];
+                setGeneratedImages(urls);
+                const promptUsed = (activeSource === 'optimized' ? optimizedPrompt : originalPrompt) || optimizedPrompt || originalPrompt;
+                recordGeneratedAssets(urls, promptUsed, {
+                  source: 'generator',
+                  dimensions,
+                  style: selectedStyle,
+                  modelParams
+                });
               }, 2000);
             }}
           >
@@ -622,7 +630,10 @@ export default function TextToImage() {
         onClose={() => setIsExportModalOpen(false)}
         previewImage={selectedImageIndex !== null ? generatedImages[selectedImageIndex] : ''}
         onExport={(settings) => {
-          console.log('Exporting with settings:', settings);
+          const url = selectedImageIndex !== null ? generatedImages[selectedImageIndex] : '';
+          if (url) {
+            recordExportedAsset(url, { source: 'text-to-image', export: settings });
+          }
           setIsExportModalOpen(false);
           toast.success('导出成功');
         }}

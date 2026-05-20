@@ -43,12 +43,35 @@ export interface SpaceImageRecord {
   projectLastModified: number;
 }
 
+export type PersonalAssetKind = 'generated' | 'edited' | 'exported';
+
+export interface PersonalAssetRecord {
+  id: string;
+  url: string;
+  kind: PersonalAssetKind;
+  createdAt: number;
+  prompt?: string;
+  tool?: string;
+  sourceAssetId?: string;
+  meta?: Record<string, any>;
+}
+
+export interface ExportFolder {
+  id: string;
+  name: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 interface ProjectContextType {
     currentProject: Project | null;
     projects: Project[];
     teams: Team[];
     personalImages: SpaceImageRecord[];
     personalMaterials: MaterialAsset[];
+    personalAssets: PersonalAssetRecord[];
+    exportFolders: ExportFolder[];
+    exportFolderByAssetId: Record<string, string | null | undefined>;
     isDirty: boolean;
     createProject: (width: number, height: number, customName?: string, initialData?: Partial<Project>) => void;
     updateProject: (data: Partial<Project>) => void;
@@ -67,6 +90,13 @@ interface ProjectContextType {
     addImagesToTeamLibrary: (teamId: string, images: SpaceImageRecord[]) => void;
     addUrlToTeamLibrary: (teamId: string, url: string, name?: string) => void;
     removeTeamMaterial: (teamId: string, materialId: string) => void;
+    recordGeneratedAssets: (urls: string[], prompt: string, meta?: Record<string, any>) => void;
+    recordEditedAsset: (url: string, tool: string, meta?: Record<string, any>) => void;
+    recordExportedAsset: (url: string, meta?: Record<string, any>) => void;
+    createExportFolder: (name: string) => ExportFolder;
+    renameExportFolder: (folderId: string, name: string) => void;
+    deleteExportFolder: (folderId: string) => void;
+    moveExportedAssetsToFolder: (assetIds: string[], folderId: string | null) => void;
     markAsDirty: () => void;
   }
 
@@ -75,6 +105,18 @@ const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 const STORAGE_KEY = 'trae_deepcanvas_projects';
 const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams';
 const PERSONAL_MATERIALS_STORAGE_KEY = 'trae_deepcanvas_personal_materials';
+const PERSONAL_ASSETS_STORAGE_KEY = 'trae_deepcanvas_personal_assets_v1';
+const EXPORT_FOLDERS_STORAGE_KEY = 'trae_deepcanvas_export_folders_v1';
+const EXPORT_FOLDER_MAP_STORAGE_KEY = 'trae_deepcanvas_export_folder_map_v1';
+
+function safeParseJson<T>(raw: string | null, fallback: T): T {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
 
 function extractImageUrlsFromElements(elements: any[] | undefined): string[] {
   if (!Array.isArray(elements)) return [];
@@ -188,6 +230,44 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
+  const [personalAssets, setPersonalAssets] = useState<PersonalAssetRecord[]>(() => {
+    const parsed = safeParseJson<PersonalAssetRecord[]>(localStorage.getItem(PERSONAL_ASSETS_STORAGE_KEY), []);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((a) => a && typeof a.id === 'string' && typeof a.url === 'string' && typeof a.kind === 'string' && typeof a.createdAt === 'number')
+      .map((a) => ({
+        id: a.id,
+        url: a.url,
+        kind: a.kind as PersonalAssetKind,
+        createdAt: a.createdAt,
+        prompt: typeof a.prompt === 'string' ? a.prompt : undefined,
+        tool: typeof a.tool === 'string' ? a.tool : undefined,
+        sourceAssetId: typeof a.sourceAssetId === 'string' ? a.sourceAssetId : undefined,
+        meta: a.meta && typeof a.meta === 'object' ? a.meta : undefined,
+      }))
+      .sort((x, y) => y.createdAt - x.createdAt);
+  });
+
+  const [exportFolders, setExportFolders] = useState<ExportFolder[]>(() => {
+    const parsed = safeParseJson<ExportFolder[]>(localStorage.getItem(EXPORT_FOLDERS_STORAGE_KEY), []);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((f) => f && typeof f.id === 'string' && typeof f.name === 'string')
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        createdAt: typeof f.createdAt === 'number' ? f.createdAt : Date.now(),
+        updatedAt: typeof f.updatedAt === 'number' ? f.updatedAt : Date.now(),
+      }))
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  });
+
+  const [exportFolderByAssetId, setExportFolderByAssetId] = useState<Record<string, string | null | undefined>>(() => {
+    const parsed = safeParseJson<Record<string, string | null | undefined>>(localStorage.getItem(EXPORT_FOLDER_MAP_STORAGE_KEY), {});
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
+  });
+
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const personalImages = buildImageRecords(projects);
@@ -204,6 +284,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(PERSONAL_MATERIALS_STORAGE_KEY, JSON.stringify(personalMaterials));
   }, [personalMaterials]);
+
+  useEffect(() => {
+    localStorage.setItem(PERSONAL_ASSETS_STORAGE_KEY, JSON.stringify(personalAssets));
+  }, [personalAssets]);
+
+  useEffect(() => {
+    localStorage.setItem(EXPORT_FOLDERS_STORAGE_KEY, JSON.stringify(exportFolders));
+  }, [exportFolders]);
+
+  useEffect(() => {
+    localStorage.setItem(EXPORT_FOLDER_MAP_STORAGE_KEY, JSON.stringify(exportFolderByAssetId));
+  }, [exportFolderByAssetId]);
 
   const createProject = (width: number, height: number, customName?: string, initialData?: Partial<Project>) => {
     const newProject: Project = {
@@ -451,6 +543,104 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
     }));
   };
 
+  const recordGeneratedAssets = (urls: string[], prompt: string, meta?: Record<string, any>) => {
+    const normalizedUrls = urls.map((u) => u.trim()).filter(Boolean);
+    if (normalizedUrls.length === 0) return;
+    const now = Date.now();
+    setPersonalAssets((prev) => {
+      const additions: PersonalAssetRecord[] = normalizedUrls.map((url) => ({
+        id: crypto.randomUUID(),
+        url,
+        kind: 'generated',
+        createdAt: now,
+        prompt: prompt.trim() ? prompt.trim() : undefined,
+        meta,
+      }));
+      return [...additions, ...prev].sort((a, b) => b.createdAt - a.createdAt);
+    });
+  };
+
+  const recordEditedAsset = (url: string, tool: string, meta?: Record<string, any>) => {
+    const normalized = url.trim();
+    if (!normalized) return;
+    const now = Date.now();
+    setPersonalAssets((prev) => {
+      const created: PersonalAssetRecord = {
+        id: crypto.randomUUID(),
+        url: normalized,
+        kind: 'edited',
+        createdAt: now,
+        tool: tool.trim() ? tool.trim() : undefined,
+        meta,
+      };
+      return [created, ...prev].sort((a, b) => b.createdAt - a.createdAt);
+    });
+  };
+
+  const recordExportedAsset = (url: string, meta?: Record<string, any>) => {
+    const normalized = url.trim();
+    if (!normalized) return;
+    const now = Date.now();
+    setPersonalAssets((prev) => {
+      const created: PersonalAssetRecord = {
+        id: crypto.randomUUID(),
+        url: normalized,
+        kind: 'exported',
+        createdAt: now,
+        meta,
+      };
+      return [created, ...prev].sort((a, b) => b.createdAt - a.createdAt);
+    });
+  };
+
+  const createExportFolder = (name: string) => {
+    const trimmed = name.trim() ? name.trim() : '新建文件夹';
+    const exists = (n: string) => exportFolders.some((f) => f.name === n);
+    let finalName = trimmed;
+    if (exists(finalName)) {
+      let i = 2;
+      while (exists(`${trimmed} ${i}`) && i < 200) i += 1;
+      finalName = i >= 200 ? `${trimmed} ${Date.now()}` : `${trimmed} ${i}`;
+    }
+    const now = Date.now();
+    const created: ExportFolder = { id: crypto.randomUUID(), name: finalName, createdAt: now, updatedAt: now };
+    setExportFolders((prev) => [created, ...prev]);
+    return created;
+  };
+
+  const renameExportFolder = (folderId: string, name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    setExportFolders((prev) =>
+      prev.map((f) => (f.id === folderId ? { ...f, name: trimmed, updatedAt: Date.now() } : f))
+    );
+  };
+
+  const deleteExportFolder = (folderId: string) => {
+    setExportFolders((prev) => prev.filter((f) => f.id !== folderId));
+    setExportFolderByAssetId((prev) => {
+      const next: Record<string, string | null | undefined> = { ...prev };
+      Object.keys(next).forEach((assetId) => {
+        if (next[assetId] === folderId) next[assetId] = null;
+      });
+      return next;
+    });
+  };
+
+  const moveExportedAssetsToFolder = (assetIds: string[], folderId: string | null) => {
+    if (assetIds.length === 0) return;
+    setExportFolderByAssetId((prev) => {
+      const next: Record<string, string | null | undefined> = { ...prev };
+      assetIds.forEach((id) => {
+        next[id] = folderId;
+      });
+      return next;
+    });
+    if (folderId) {
+      setExportFolders((prev) => prev.map((f) => (f.id === folderId ? { ...f, updatedAt: Date.now() } : f)));
+    }
+  };
+
   return (
     <ProjectContext.Provider value={{
       currentProject,
@@ -458,6 +648,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       teams,
       personalImages,
       personalMaterials,
+      personalAssets,
+      exportFolders,
+      exportFolderByAssetId,
       isDirty,
       createProject,
       updateProject,
@@ -476,6 +669,13 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       addImagesToTeamLibrary,
       addUrlToTeamLibrary,
       removeTeamMaterial,
+      recordGeneratedAssets,
+      recordEditedAsset,
+      recordExportedAsset,
+      createExportFolder,
+      renameExportFolder,
+      deleteExportFolder,
+      moveExportedAssetsToFolder,
       markAsDirty
     }}>
       {children}

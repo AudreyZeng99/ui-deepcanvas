@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Clock, Trash2, Folder, Share2, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
-import { Project, SpaceImageRecord, useProject } from '../context/ProjectContext';
+import { Project, useProject, type PersonalAssetRecord } from '../context/ProjectContext';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
 import { useToast } from '../components/ToastProvider';
 import { createP2PShareRecord, makeTemplateElements, resolveP2PShareRecord, type P2PShareRecord } from '../utils/p2pShare';
 
-type SpaceView = 'projects' | 'favorites' | 'gen-assets' | 'edit-assets' | 'export-assets' | 'p2p' | 'teams';
+type SpaceView = 'projects' | 'favorites' | 'assets' | 'p2p' | 'teams';
 
 type SpaceMode = 'personal' | 'public';
 
@@ -23,15 +23,9 @@ type PublicProject = Pick<
 
 const PUBLIC_PROJECTS_STORAGE_KEY = 'trae_deepcanvas_public_projects_v1';
 const PERSONAL_SPACE_TITLE_STORAGE_KEY = 'trae_deepcanvas_personal_space_title_v1';
-const SPACE_ASSET_AUDIT_MAP_STORAGE_KEY = 'trae_deepcanvas_space_asset_audit_map_v1';
 const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams_v1';
 const CURRENT_OA_STORAGE_KEY = 'trae_deepcanvas_current_oa_v1';
 const TEAM_MEMBERS_PAGE_SIZE = 10;
-
-type AssetAuditRecord = {
-  xiaobao: boolean;
-  experience: boolean;
-};
 
 type TeamRecord = {
   id: string;
@@ -147,7 +141,9 @@ export default function Projects() {
   const toast = useToast();
   const {
     projects,
-    personalImages,
+    personalAssets,
+    exportFolders,
+    exportFolderByAssetId,
     currentProject,
     isDirty,
     loadProject,
@@ -156,6 +152,10 @@ export default function Projects() {
     updateProject,
     saveProject,
     saveCurrentProjectAsNew,
+    createExportFolder,
+    renameExportFolder,
+    deleteExportFolder,
+    moveExportedAssetsToFolder,
   } = useProject();
 
   const space: SpaceMode = location.pathname.startsWith('/public') ? 'public' : 'personal';
@@ -170,15 +170,15 @@ export default function Projects() {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(personalSpaceTitle);
   const [isTitleHover, setIsTitleHover] = useState(false);
-  const [assetAuditMap, setAssetAuditMap] = useState<Record<string, AssetAuditRecord>>(() => {
-    return safeParseJson<Record<string, AssetAuditRecord>>(localStorage.getItem(SPACE_ASSET_AUDIT_MAP_STORAGE_KEY), {});
-  });
-  const [isGenAssetsSelecting, setIsGenAssetsSelecting] = useState(false);
-  const [selectedGenAssetIds, setSelectedGenAssetIds] = useState<Set<string>>(() => new Set());
-  const [isEditAssetsSelecting, setIsEditAssetsSelecting] = useState(false);
-  const [selectedEditAssetIds, setSelectedEditAssetIds] = useState<Set<string>>(() => new Set());
-  const [isExportAssetsSelecting, setIsExportAssetsSelecting] = useState(false);
-  const [selectedExportAssetIds, setSelectedExportAssetIds] = useState<Set<string>>(() => new Set());
+  const [assetsTab, setAssetsTab] = useState<'generated' | 'edited' | 'exported'>('generated');
+  const [assetSearchQuery, setAssetSearchQuery] = useState('');
+  const [isAssetsSelecting, setIsAssetsSelecting] = useState(false);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(() => new Set());
+  const [selectedExportFolderId, setSelectedExportFolderId] = useState<'all' | 'unassigned' | string>('all');
+  const [newExportFolderName, setNewExportFolderName] = useState('');
+  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
+  const [renameFolderDraft, setRenameFolderDraft] = useState('');
+  const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null);
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [publicProjects] = useState<PublicProject[]>(() => {
@@ -221,16 +221,6 @@ export default function Projects() {
     return space === 'public' ? publicProjects : projects;
   }, [space, publicProjects, projects]);
 
-  const visibleImages = useMemo(() => {
-    return personalImages;
-  }, [personalImages]);
-
-  const projectById = useMemo(() => {
-    const map = new Map<string, Project>();
-    projects.forEach((p) => map.set(p.id, p));
-    return map;
-  }, [projects]);
-
   const selectedTeam = useMemo(() => {
     if (!selectedTeamId) return null;
     return teams.find((team) => team.id === selectedTeamId) ?? null;
@@ -252,7 +242,10 @@ export default function Projects() {
     const assetParam = params.get('asset');
     const favParam = params.get('fav');
     if (moduleParam === 'assets') {
-      setView(assetParam === 'edit' ? 'edit-assets' : assetParam === 'export' ? 'export-assets' : 'gen-assets');
+      if (assetParam === 'edit') setAssetsTab('edited');
+      else if (assetParam === 'export') setAssetsTab('exported');
+      else setAssetsTab('generated');
+      setView('assets');
     } else if (moduleParam === 'favorites') {
       setView('favorites');
       if (favParam === 'prompts' || favParam === 'templates' || favParam === 'inspiration') {
@@ -292,7 +285,7 @@ export default function Projects() {
       params.delete('asset');
     } else {
       nextModule = 'assets';
-      assetParam = view === 'edit-assets' ? 'edit' : view === 'export-assets' ? 'export' : 'gen';
+      assetParam = assetsTab === 'edited' ? 'edit' : assetsTab === 'exported' ? 'export' : 'gen';
       params.set('asset', assetParam);
       params.delete('fav');
     }
@@ -302,7 +295,7 @@ export default function Projects() {
     if (nextSearch !== currentSearch) {
       navigate({ pathname: location.pathname, search: nextSearch }, { replace: false });
     }
-  }, [view, favoritesTab]);
+  }, [view, favoritesTab, assetsTab]);
 
   useEffect(() => {
     localStorage.setItem(CURRENT_OA_STORAGE_KEY, currentOaName.trim() ? currentOaName.trim() : 'zenghuayue');
@@ -349,93 +342,20 @@ export default function Projects() {
     setTeamMembersPage(totalPages);
   }, [selectedTeamMemberCount, teamMembersPage]);
 
-  const generatedAssets = useMemo(() => {
-    return visibleImages.filter((img) => projectById.get(img.projectId)?.sourceType === 'text-to-image');
-  }, [visibleImages, projectById]);
-
-  const editedAssets = useMemo(() => {
-    return visibleImages.filter((img) => projectById.get(img.projectId)?.sourceType !== 'text-to-image');
-  }, [visibleImages, projectById]);
-
-  const exportedAssets = useMemo(() => {
-    return visibleImages;
-  }, [visibleImages]);
-
-  const demoAuditedAssetIds = useMemo(() => {
-    return new Set(['demo-gen-2', 'demo-gen-5', 'demo-edit-1', 'demo-edit-4', 'demo-exp-3', 'demo-exp-6']);
-  }, []);
-
-  const demoGeneratedAssets = useMemo<SpaceImageRecord[]>(() => {
-    const now = Date.now();
-    return [
-      { id: 'demo-gen-1', url: 'https://picsum.photos/seed/deepcanvas-gen-1/900/1200', projectId: 'demo-gen', projectName: '生图示例 A', projectLastModified: now - 1000 * 60 * 12 },
-      { id: 'demo-gen-2', url: 'https://picsum.photos/seed/deepcanvas-gen-2/900/700', projectId: 'demo-gen', projectName: '生图示例 B', projectLastModified: now - 1000 * 60 * 40 },
-      { id: 'demo-gen-3', url: 'https://picsum.photos/seed/deepcanvas-gen-3/900/1400', projectId: 'demo-gen', projectName: '生图示例 C', projectLastModified: now - 1000 * 60 * 70 },
-      { id: 'demo-gen-4', url: 'https://picsum.photos/seed/deepcanvas-gen-4/900/900', projectId: 'demo-gen', projectName: '生图示例 D', projectLastModified: now - 1000 * 60 * 95 },
-      { id: 'demo-gen-5', url: 'https://picsum.photos/seed/deepcanvas-gen-5/900/1100', projectId: 'demo-gen', projectName: '生图示例 E', projectLastModified: now - 1000 * 60 * 160 },
-      { id: 'demo-gen-6', url: 'https://picsum.photos/seed/deepcanvas-gen-6/900/760', projectId: 'demo-gen', projectName: '生图示例 F', projectLastModified: now - 1000 * 60 * 210 },
-      { id: 'demo-gen-7', url: 'https://picsum.photos/seed/deepcanvas-gen-7/900/1320', projectId: 'demo-gen', projectName: '生图示例 G', projectLastModified: now - 1000 * 60 * 280 },
-      { id: 'demo-gen-8', url: 'https://picsum.photos/seed/deepcanvas-gen-8/900/820', projectId: 'demo-gen', projectName: '生图示例 H', projectLastModified: now - 1000 * 60 * 360 },
-    ];
-  }, []);
-
-  const demoEditedAssets = useMemo<SpaceImageRecord[]>(() => {
-    const now = Date.now();
-    return [
-      { id: 'demo-edit-1', url: 'https://picsum.photos/seed/deepcanvas-edit-1/900/980', projectId: 'demo-edit', projectName: '编辑示例 A', projectLastModified: now - 1000 * 60 * 15 },
-      { id: 'demo-edit-2', url: 'https://picsum.photos/seed/deepcanvas-edit-2/900/760', projectId: 'demo-edit', projectName: '编辑示例 B', projectLastModified: now - 1000 * 60 * 55 },
-      { id: 'demo-edit-3', url: 'https://picsum.photos/seed/deepcanvas-edit-3/900/1280', projectId: 'demo-edit', projectName: '编辑示例 C', projectLastModified: now - 1000 * 60 * 120 },
-      { id: 'demo-edit-4', url: 'https://picsum.photos/seed/deepcanvas-edit-4/900/700', projectId: 'demo-edit', projectName: '编辑示例 D', projectLastModified: now - 1000 * 60 * 200 },
-      { id: 'demo-edit-5', url: 'https://picsum.photos/seed/deepcanvas-edit-5/900/1180', projectId: 'demo-edit', projectName: '编辑示例 E', projectLastModified: now - 1000 * 60 * 300 },
-      { id: 'demo-edit-6', url: 'https://picsum.photos/seed/deepcanvas-edit-6/900/900', projectId: 'demo-edit', projectName: '编辑示例 F', projectLastModified: now - 1000 * 60 * 430 },
-    ];
-  }, []);
-
-  const demoExportedAssets = useMemo<SpaceImageRecord[]>(() => {
-    const now = Date.now();
-    return [
-      { id: 'demo-exp-1', url: 'https://picsum.photos/seed/deepcanvas-exp-1/900/760', projectId: 'demo-exp', projectName: '导出示例 A', projectLastModified: now - 1000 * 60 * 8 },
-      { id: 'demo-exp-2', url: 'https://picsum.photos/seed/deepcanvas-exp-2/900/1340', projectId: 'demo-exp', projectName: '导出示例 B', projectLastModified: now - 1000 * 60 * 32 },
-      { id: 'demo-exp-3', url: 'https://picsum.photos/seed/deepcanvas-exp-3/900/900', projectId: 'demo-exp', projectName: '导出示例 C', projectLastModified: now - 1000 * 60 * 88 },
-      { id: 'demo-exp-4', url: 'https://picsum.photos/seed/deepcanvas-exp-4/900/1120', projectId: 'demo-exp', projectName: '导出示例 D', projectLastModified: now - 1000 * 60 * 140 },
-      { id: 'demo-exp-5', url: 'https://picsum.photos/seed/deepcanvas-exp-5/900/740', projectId: 'demo-exp', projectName: '导出示例 E', projectLastModified: now - 1000 * 60 * 260 },
-      { id: 'demo-exp-6', url: 'https://picsum.photos/seed/deepcanvas-exp-6/900/1250', projectId: 'demo-exp', projectName: '导出示例 F', projectLastModified: now - 1000 * 60 * 420 },
-    ];
-  }, []);
-
-  const displayGeneratedAssets = useMemo(() => {
-    return generatedAssets.length > 0 ? generatedAssets : demoGeneratedAssets;
-  }, [generatedAssets, demoGeneratedAssets]);
-
-  const displayEditedAssets = useMemo(() => {
-    return editedAssets.length > 0 ? editedAssets : demoEditedAssets;
-  }, [editedAssets, demoEditedAssets]);
-
-  const displayExportedAssets = useMemo(() => {
-    return exportedAssets.length > 0 ? exportedAssets : demoExportedAssets;
-  }, [exportedAssets, demoExportedAssets]);
-
-  const shareTargetProject = useMemo(() => {
-    if (!shareProjectId) return null;
-    return projects.find(p => p.id === shareProjectId) || null;
-  }, [projects, shareProjectId]);
-
   const doToast = (message: string) => toast.show(message);
 
   useEffect(() => {
-    if (view !== 'gen-assets') {
-      setIsGenAssetsSelecting(false);
-      setSelectedGenAssetIds(new Set());
-    }
-    if (view !== 'edit-assets') {
-      setIsEditAssetsSelecting(false);
-      setSelectedEditAssetIds(new Set());
-    }
-    if (view !== 'export-assets') {
-      setIsExportAssetsSelecting(false);
-      setSelectedExportAssetIds(new Set());
+    if (view !== 'assets') {
+      setIsAssetsSelecting(false);
+      setSelectedAssetIds(new Set());
     }
   }, [view]);
+
+  useEffect(() => {
+    setIsAssetsSelecting(false);
+    setSelectedAssetIds(new Set());
+    setDraggingAssetId(null);
+  }, [assetsTab, selectedExportFolderId]);
 
   const persistPersonalSpaceTitle = (nextTitle: string) => {
     const normalized = nextTitle.trim() ? nextTitle.trim() : '个人空间';
@@ -444,57 +364,33 @@ export default function Projects() {
     localStorage.setItem(PERSONAL_SPACE_TITLE_STORAGE_KEY, normalized);
     doToast('标题已更新');
   };
+  const shareTargetProject = useMemo(() => {
+    if (!shareProjectId) return null;
+    return projects.find(p => p.id === shareProjectId) || null;
+  }, [projects, shareProjectId]);
 
-  const persistAssetAuditMap = (nextMap: Record<string, AssetAuditRecord>) => {
-    setAssetAuditMap(nextMap);
-    localStorage.setItem(SPACE_ASSET_AUDIT_MAP_STORAGE_KEY, JSON.stringify(nextMap));
-  };
+  const generatedAssetItems = useMemo(() => {
+    return personalAssets.filter((a) => a.kind === 'generated');
+  }, [personalAssets]);
 
-  const getAuditedLabel = (assetId: string) => {
-    const record = assetAuditMap[assetId];
-    if (!record && demoAuditedAssetIds.has(assetId)) return '已审核';
-    return record?.xiaobao && record?.experience ? '已审核' : '未审核';
-  };
+  const editedAssetItems = useMemo(() => {
+    return personalAssets.filter((a) => a.kind === 'edited');
+  }, [personalAssets]);
 
-  const markAssetsAudited = (type: keyof AssetAuditRecord) => {
-    const items =
-      view === 'gen-assets'
-        ? displayGeneratedAssets
-        : view === 'edit-assets'
-          ? displayEditedAssets
-          : view === 'export-assets'
-            ? displayExportedAssets
-            : [];
+  const exportedAssetItems = useMemo(() => {
+    return personalAssets.filter((a) => a.kind === 'exported');
+  }, [personalAssets]);
 
-    if (items.length === 0) {
-      doToast('当前没有可审核的资产');
-      return;
-    }
-
-    if (view !== 'gen-assets' && view !== 'edit-assets' && view !== 'export-assets') {
-      doToast('请先进入资产页');
-      return;
-    }
-
-    const nextMap: Record<string, AssetAuditRecord> = { ...assetAuditMap };
-    items.forEach((item) => {
-      const prev = nextMap[item.id] || { xiaobao: false, experience: false };
-      nextMap[item.id] = { ...prev, [type]: true };
-    });
-    persistAssetAuditMap(nextMap);
-    doToast(`已完成${type === 'xiaobao' ? '消保' : '体验'}审核`);
-  };
-
-  const toggleGenAssetsSelecting = () => {
-    setIsGenAssetsSelecting((prev) => {
+  const toggleAssetsSelecting = () => {
+    setIsAssetsSelecting((prev) => {
       const next = !prev;
-      if (!next) setSelectedGenAssetIds(new Set());
+      if (!next) setSelectedAssetIds(new Set());
       return next;
     });
   };
 
-  const toggleGenAssetSelected = (assetId: string) => {
-    setSelectedGenAssetIds((prev) => {
+  const toggleAssetSelected = (assetId: string) => {
+    setSelectedAssetIds((prev) => {
       const next = new Set(prev);
       if (next.has(assetId)) next.delete(assetId);
       else next.add(assetId);
@@ -502,70 +398,17 @@ export default function Projects() {
     });
   };
 
-  const toggleEditAssetsSelecting = () => {
-    setIsEditAssetsSelecting((prev) => {
-      const next = !prev;
-      if (!next) setSelectedEditAssetIds(new Set());
-      return next;
-    });
+  const createFolderFromDraft = () => {
+    const folder = createExportFolder(newExportFolderName);
+    setNewExportFolderName('');
+    setSelectedExportFolderId(folder.id);
   };
 
-  const toggleEditAssetSelected = (assetId: string) => {
-    setSelectedEditAssetIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(assetId)) next.delete(assetId);
-      else next.add(assetId);
-      return next;
-    });
-  };
-
-  const toggleExportAssetsSelecting = () => {
-    setIsExportAssetsSelecting((prev) => {
-      const next = !prev;
-      if (!next) setSelectedExportAssetIds(new Set());
-      return next;
-    });
-  };
-
-  const toggleExportAssetSelected = (assetId: string) => {
-    setSelectedExportAssetIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(assetId)) next.delete(assetId);
-      else next.add(assetId);
-      return next;
-    });
-  };
-
-  const sendSelectedAssetsToAudit = (type: keyof AssetAuditRecord) => {
-    if (view !== 'gen-assets' && view !== 'edit-assets' && view !== 'export-assets') {
-      doToast('请先进入资产页');
-      return;
-    }
-
-    const selectedIds =
-      view === 'gen-assets'
-        ? selectedGenAssetIds
-        : view === 'edit-assets'
-          ? selectedEditAssetIds
-          : selectedExportAssetIds;
-
-
-    if (selectedIds.size === 0) {
-      doToast('请先勾选资产');
-      return;
-    }
-
-    const nextMap: Record<string, AssetAuditRecord> = { ...assetAuditMap };
-    Array.from(selectedIds).forEach((assetId) => {
-      const prev = nextMap[assetId] || { xiaobao: false, experience: false };
-      nextMap[assetId] = { ...prev, [type]: true };
-    });
-    persistAssetAuditMap(nextMap);
-    doToast(`已送 ${selectedIds.size} 张到${type === 'xiaobao' ? '消保' : '体验'}审核`);
-
-    if (view === 'gen-assets') setSelectedGenAssetIds(new Set());
-    if (view === 'edit-assets') setSelectedEditAssetIds(new Set());
-    if (view === 'export-assets') setSelectedExportAssetIds(new Set());
+  const commitRenameFolder = () => {
+    if (!renamingFolderId) return;
+    renameExportFolder(renamingFolderId, renameFolderDraft);
+    setRenamingFolderId(null);
+    setRenameFolderDraft('');
   };
 
   const handleCreateNew = () => {
@@ -862,89 +705,341 @@ export default function Projects() {
   };
 
   const renderAssetsModule = () => {
-    const setAssetView = (next: 'gen-assets' | 'edit-assets' | 'export-assets') => setView(next);
-    const showSelection =
-      view === 'gen-assets' ? isGenAssetsSelecting : view === 'edit-assets' ? isEditAssetsSelecting : isExportAssetsSelecting;
-    const selectedIds =
-      view === 'gen-assets'
-        ? selectedGenAssetIds
-        : view === 'edit-assets'
-          ? selectedEditAssetIds
-          : selectedExportAssetIds;
-    const selectedCount = selectedIds.size;
-    const toggleSelecting =
-      view === 'gen-assets' ? toggleGenAssetsSelecting : view === 'edit-assets' ? toggleEditAssetsSelecting : toggleExportAssetsSelecting;
+    const normalizedQuery = assetSearchQuery.trim().toLowerCase();
+    const baseItems =
+      assetsTab === 'generated' ? generatedAssetItems : assetsTab === 'edited' ? editedAssetItems : exportedAssetItems;
+
+    const filteredByQuery = baseItems.filter((asset) => {
+      if (!normalizedQuery) return true;
+      const prompt = asset.prompt ? asset.prompt.toLowerCase() : '';
+      const tool = asset.tool ? asset.tool.toLowerCase() : '';
+      const url = asset.url.toLowerCase();
+      const metaSource = typeof asset.meta?.source === 'string' ? asset.meta.source.toLowerCase() : '';
+      return prompt.includes(normalizedQuery) || tool.includes(normalizedQuery) || metaSource.includes(normalizedQuery) || url.includes(normalizedQuery);
+    });
+
+    const filteredItems = (() => {
+      if (assetsTab !== 'exported') return filteredByQuery;
+      if (selectedExportFolderId === 'all') return filteredByQuery;
+      if (selectedExportFolderId === 'unassigned') {
+        return filteredByQuery.filter((a) => !exportFolderByAssetId[a.id]);
+      }
+      return filteredByQuery.filter((a) => exportFolderByAssetId[a.id] === selectedExportFolderId);
+    })();
+
+    const totalCount =
+      assetsTab === 'generated'
+        ? generatedAssetItems.length
+        : assetsTab === 'edited'
+          ? editedAssetItems.length
+          : exportedAssetItems.length;
+
+    const selectedCount = selectedAssetIds.size;
+
+    const folderCounts: Record<string, number> = {};
+    let unassignedExportCount = 0;
+    if (assetsTab === 'exported') {
+      exportedAssetItems.forEach((a) => {
+        const folderId = exportFolderByAssetId[a.id];
+        if (!folderId) {
+          unassignedExportCount += 1;
+          return;
+        }
+        folderCounts[folderId] = (folderCounts[folderId] || 0) + 1;
+      });
+    }
+
+    const renderAssetTitle = (asset: PersonalAssetRecord) => {
+      if (asset.kind === 'generated') return asset.prompt?.trim() ? asset.prompt.trim() : '文生图生成';
+      if (asset.kind === 'edited') return asset.meta?.tool || asset.tool || '编辑生成';
+      return asset.meta?.source || '导出';
+    };
+
+    const handleFolderDrop = (folderId: string | null) => (e: React.DragEvent) => {
+      e.preventDefault();
+      const draggedId = e.dataTransfer.getData('text/plain');
+      if (!draggedId) return;
+      const toMove =
+        selectedAssetIds.size > 0 && selectedAssetIds.has(draggedId)
+          ? Array.from(selectedAssetIds)
+          : [draggedId];
+      moveExportedAssetsToFolder(toMove, folderId);
+      setDraggingAssetId(null);
+    };
 
     return (
       <div className="space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <nav className="flex items-center gap-6">
-              <button
-                onClick={() => setAssetView('gen-assets')}
-                className={clsx(
-                  "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
-                  view === 'gen-assets'
-                    ? "border-gray-900 text-gray-900"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                )}
-                aria-selected={view === 'gen-assets'}
-              >
-                文生图历史
-              </button>
-              <button
-                onClick={() => setAssetView('edit-assets')}
-                className={clsx(
-                  "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
-                  view === 'edit-assets'
-                    ? "border-gray-900 text-gray-900"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                )}
-                aria-selected={view === 'edit-assets'}
-              >
-                AI生成
-              </button>
-              <button
-                onClick={() => setAssetView('export-assets')}
-                className={clsx(
-                  "h-10 px-0 text-sm font-semibold border-b-2 transition-colors",
-                  view === 'export-assets'
-                    ? "border-gray-900 text-gray-900"
-                    : "border-transparent text-gray-400 hover:text-gray-700"
-                )}
-                aria-selected={view === 'export-assets'}
-              >
-                导出资产
-              </button>
-            </nav>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-sm font-black text-gray-900">资产</div>
+            <div className="text-xs text-gray-500">共 {totalCount} 张</div>
+          </div>
 
-          <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={toggleSelecting}
-              className={clsx("btn-flat-neutral", showSelection && "bg-gray-50")}
-            >
-              {showSelection ? '取消' : '选择'}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={assetSearchQuery}
+                onChange={(e) => setAssetSearchQuery(e.target.value)}
+                placeholder={assetsTab === 'generated' ? '搜索提示词/URL' : '搜索来源/URL'}
+                className="h-9 w-60 pl-9 pr-3 rounded-xl border border-black/10 bg-white text-sm outline-none focus:border-black/25"
+              />
+            </div>
+
+            <button onClick={toggleAssetsSelecting} className={clsx("btn-flat-neutral", isAssetsSelecting && "bg-gray-50")}>
+              {isAssetsSelecting ? '取消' : '选择'}
             </button>
-            <button
-              onClick={() => (showSelection ? sendSelectedAssetsToAudit('xiaobao') : markAssetsAudited('xiaobao'))}
-              disabled={showSelection && selectedCount === 0}
-              className="btn-ion"
-            >
-              消保审核
-            </button>
-            <button
-              onClick={() => (showSelection ? sendSelectedAssetsToAudit('experience') : markAssetsAudited('experience'))}
-              disabled={showSelection && selectedCount === 0}
-              className="btn-ion"
-            >
-              体验审核
-            </button>
+
+            {isAssetsSelecting && (
+              <div className="h-9 px-3 inline-flex items-center rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-800">
+                已选 {selectedCount}
+              </div>
+            )}
           </div>
         </div>
 
-        <div>
-          {view === 'gen-assets' && renderAssetMasonry('文生图历史', displayGeneratedAssets, '暂无文生图历史', false)}
-          {view === 'edit-assets' && renderAssetMasonry('AI生成', displayEditedAssets, '暂无AI生成记录', false)}
-          {view === 'export-assets' && renderAssetMasonry('导出资产', displayExportedAssets, '暂无导出资产', false)}
+        <nav className="flex items-center gap-6 border-b border-black/5">
+          <button
+            onClick={() => setAssetsTab('generated')}
+            className={clsx(
+              "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+              assetsTab === 'generated' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
+            )}
+            aria-selected={assetsTab === 'generated'}
+          >
+            生图资产
+            <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{generatedAssetItems.length}</span>
+          </button>
+          <button
+            onClick={() => setAssetsTab('edited')}
+            className={clsx(
+              "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+              assetsTab === 'edited' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
+            )}
+            aria-selected={assetsTab === 'edited'}
+          >
+            编辑资产
+            <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{editedAssetItems.length}</span>
+          </button>
+          <button
+            onClick={() => setAssetsTab('exported')}
+            className={clsx(
+              "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+              assetsTab === 'exported' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
+            )}
+            aria-selected={assetsTab === 'exported'}
+          >
+            导出资产
+            <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{exportedAssetItems.length}</span>
+          </button>
+        </nav>
+
+        <div className={clsx(assetsTab === 'exported' && "grid grid-cols-1 lg:grid-cols-12 gap-6")}>
+          {assetsTab === 'exported' && (
+            <div className="lg:col-span-3 rounded-3xl border border-black/5 bg-white overflow-hidden">
+              <div className="p-4 border-b border-black/5">
+                <div className="text-xs font-black text-gray-900">文件夹</div>
+                <div className="mt-3 flex gap-2">
+                  <input
+                    value={newExportFolderName}
+                    onChange={(e) => setNewExportFolderName(e.target.value)}
+                    placeholder="新建文件夹"
+                    className="flex-1 h-9 px-3 rounded-xl border border-black/10 bg-white text-sm outline-none focus:border-black/25"
+                  />
+                  <button
+                    onClick={createFolderFromDraft}
+                    disabled={!newExportFolderName.trim()}
+                    className={clsx("h-9 px-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors", !newExportFolderName.trim() && "opacity-50")}
+                  >
+                    创建
+                  </button>
+                </div>
+              </div>
+              <div className="p-2 space-y-1">
+                <button
+                  onClick={() => setSelectedExportFolderId('all')}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleFolderDrop(null)}
+                  className={clsx(
+                    "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl text-sm font-semibold transition-colors",
+                    selectedExportFolderId === 'all' ? "bg-gray-50 text-gray-900" : "text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Folder size={16} className="opacity-70" />
+                    全部导出
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{exportedAssetItems.length}</span>
+                </button>
+
+                <button
+                  onClick={() => setSelectedExportFolderId('unassigned')}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleFolderDrop(null)}
+                  className={clsx(
+                    "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl text-sm font-semibold transition-colors",
+                    selectedExportFolderId === 'unassigned' ? "bg-gray-50 text-gray-900" : "text-gray-600 hover:bg-gray-50"
+                  )}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Folder size={16} className="opacity-40" />
+                    未归档
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{unassignedExportCount}</span>
+                </button>
+
+                <div className="h-px bg-black/5 my-2" />
+
+                {exportFolders.length === 0 ? (
+                  <div className="px-3 py-2 text-xs text-gray-400">暂无文件夹，可创建后拖拽图片归档</div>
+                ) : (
+                  exportFolders.map((folder) => {
+                    const isRenaming = renamingFolderId === folder.id;
+                    const isActive = selectedExportFolderId === folder.id;
+                    const count = folderCounts[folder.id] || 0;
+                    return (
+                      <div
+                        key={folder.id}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={handleFolderDrop(folder.id)}
+                        className={clsx(
+                          "w-full px-3 py-2 rounded-2xl transition-colors",
+                          draggingAssetId && "ring-1 ring-black/5",
+                          isActive ? "bg-gray-50" : "hover:bg-gray-50"
+                        )}
+                      >
+                        {isRenaming ? (
+                          <div className="flex items-center gap-2">
+                            <input
+                              value={renameFolderDraft}
+                              onChange={(e) => setRenameFolderDraft(e.target.value)}
+                              className="flex-1 h-9 px-3 rounded-xl border border-black/10 bg-white text-sm outline-none focus:border-black/25"
+                              autoFocus
+                            />
+                            <button
+                              onClick={commitRenameFolder}
+                              disabled={!renameFolderDraft.trim()}
+                              className={clsx("h-9 px-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors", !renameFolderDraft.trim() && "opacity-50")}
+                            >
+                              保存
+                            </button>
+                            <button
+                              onClick={() => {
+                                setRenamingFolderId(null);
+                                setRenameFolderDraft('');
+                              }}
+                              className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedExportFolderId(folder.id)}
+                            className="w-full flex items-center justify-between gap-2 text-sm font-semibold text-gray-700"
+                          >
+                            <span className="inline-flex items-center gap-2 min-w-0">
+                              <Folder size={16} className="opacity-70 shrink-0" />
+                              <span className="truncate">{folder.name}</span>
+                            </span>
+                            <span className="inline-flex items-center gap-2">
+                              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{count}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenamingFolderId(folder.id);
+                                  setRenameFolderDraft(folder.name);
+                                }}
+                                className="p-1 rounded-lg hover:bg-black/5 text-gray-400 hover:text-gray-700 transition-colors"
+                                title="重命名"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteExportFolder(folder.id);
+                                  if (selectedExportFolderId === folder.id) setSelectedExportFolderId('all');
+                                }}
+                                className="p-1 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
+                                title="删除文件夹"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className={clsx(assetsTab === 'exported' ? "lg:col-span-9" : "")}>
+            {filteredItems.length === 0 ? (
+              <div className="py-16 text-center text-gray-500">
+                {assetsTab === 'generated' ? '暂无生图资产（在文生图页生成后会自动出现在这里）' : assetsTab === 'edited' ? '暂无编辑资产（在编辑类工具生成后会自动出现在这里）' : '暂无导出资产（导出下载后会自动出现在这里）'}
+              </div>
+            ) : (
+              <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+                {filteredItems.map((asset) => (
+                  <div key={asset.id} className="mb-4 break-inside-avoid">
+                    <div
+                      draggable={assetsTab === 'exported'}
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/plain', asset.id);
+                        setDraggingAssetId(asset.id);
+                      }}
+                      onDragEnd={() => setDraggingAssetId(null)}
+                      onClick={() => {
+                        if (isAssetsSelecting) toggleAssetSelected(asset.id);
+                      }}
+                      className={clsx(
+                        "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
+                        isAssetsSelecting && "cursor-pointer select-none",
+                        isAssetsSelecting && selectedAssetIds.has(asset.id) && "ring-2 ring-gray-300 border-gray-200"
+                      )}
+                    >
+                      <div className="relative">
+                        <img src={asset.url} alt={renderAssetTitle(asset)} className="w-full h-auto object-cover" />
+                        {isAssetsSelecting && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAssetSelected(asset.id);
+                            }}
+                            className={clsx(
+                              "absolute top-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
+                              selectedAssetIds.has(asset.id)
+                                ? "bg-gray-800 border-gray-800 text-white"
+                                : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
+                            )}
+                            aria-pressed={selectedAssetIds.has(asset.id)}
+                            title={selectedAssetIds.has(asset.id) ? '取消勾选' : '勾选'}
+                          >
+                            <Check size={16} strokeWidth={3} />
+                          </button>
+                        )}
+                        {assetsTab === 'exported' && (
+                          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-black border shadow-md backdrop-blur bg-black/70 text-white border-white/20">
+                            拖拽归档
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3 space-y-1">
+                        <div className="text-xs font-bold text-gray-900 line-clamp-2">{renderAssetTitle(asset)}</div>
+                        <div className="text-[11px] text-gray-500">{new Date(asset.createdAt).toLocaleString()}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -1840,169 +1935,6 @@ export default function Projects() {
     );
   };
 
-  const renderAssetMasonry = (title: string, items: typeof visibleImages, emptyText: string, withToolbar: boolean = true) => {
-    if (items.length === 0) {
-      return (
-        <div className="py-16 text-center text-gray-500">
-          {emptyText}
-        </div>
-      );
-    }
-    const selectionEnabled = view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets';
-    const showSelection =
-      view === 'gen-assets' ? isGenAssetsSelecting : view === 'edit-assets' ? isEditAssetsSelecting : isExportAssetsSelecting;
-    const selectedIds =
-      view === 'gen-assets'
-        ? selectedGenAssetIds
-        : view === 'edit-assets'
-          ? selectedEditAssetIds
-          : selectedExportAssetIds;
-    const selectedCount = selectedIds.size;
-    const toggleSelecting =
-      view === 'gen-assets' ? toggleGenAssetsSelecting : view === 'edit-assets' ? toggleEditAssetsSelecting : toggleExportAssetsSelecting;
-    const toggleSelected =
-      view === 'gen-assets' ? toggleGenAssetSelected : view === 'edit-assets' ? toggleEditAssetSelected : toggleExportAssetSelected;
-    return (
-      <div className="space-y-5">
-        {withToolbar && (
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <div className="text-sm font-black text-gray-900">{title}</div>
-              <div className="text-xs text-gray-500">共 {items.length} 张</div>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectionEnabled && (
-                <>
-                  <button
-                    onClick={toggleSelecting}
-                    className={clsx("btn-ion", showSelection && "shadow-md")}
-                  >
-                    {showSelection ? '取消' : '选择'}
-                  </button>
-                  {showSelection && (
-                    <button
-                      onClick={() => sendSelectedAssetsToAudit('xiaobao')}
-                      disabled={selectedCount === 0}
-                      className="btn-ember"
-                    >
-                      送消保审核
-                      <span
-                        className={clsx(
-                          "px-2 py-0.5 rounded-full text-[11px] font-black",
-                          selectedCount === 0
-                            ? "bg-black/5 text-black/40"
-                            : "text-accent-promotion"
-                        )}
-                        style={
-                          selectedCount === 0
-                            ? undefined
-                            : { backgroundColor: 'color-mix(in srgb, var(--accent-promotion) 12%, white)' }
-                        }
-                      >
-                        {selectedCount}
-                      </span>
-                    </button>
-                  )}
-                  {showSelection && (
-                    <button
-                      onClick={() => sendSelectedAssetsToAudit('experience')}
-                      disabled={selectedCount === 0}
-                      className="btn-breeze"
-                    >
-                      送体验审核
-                      <span
-                        className={clsx(
-                          "px-2 py-0.5 rounded-full text-[11px] font-black",
-                          selectedCount === 0
-                            ? "bg-black/5 text-black/40"
-                            : "text-accent-minor"
-                        )}
-                        style={
-                          selectedCount === 0
-                            ? undefined
-                            : { backgroundColor: 'color-mix(in srgb, var(--accent-minor) 12%, white)' }
-                        }
-                      >
-                        {selectedCount}
-                      </span>
-                    </button>
-                  )}
-                </>
-              )}
-              <button
-                onClick={() => markAssetsAudited('xiaobao')}
-                disabled={showSelection}
-                className="btn-ion"
-              >
-                消保审核
-              </button>
-              <button
-                onClick={() => markAssetsAudited('experience')}
-                disabled={showSelection}
-                className="btn-ion"
-              >
-                体验审核
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
-          {items.map((image) => (
-            <div key={image.id} className="mb-4 break-inside-avoid">
-              <div
-                onClick={() => {
-                  if (showSelection) toggleSelected(image.id);
-                }}
-                className={clsx(
-                  "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
-                  showSelection && "cursor-pointer select-none",
-                  showSelection && selectedIds.has(image.id) && "ring-2 ring-gray-300 border-gray-200"
-                )}
-              >
-                <div className="relative">
-                  <img src={image.url} alt={image.projectName} className="w-full h-auto object-cover" />
-                  <div
-                    className={clsx(
-                      "absolute top-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-black border shadow-md backdrop-blur",
-                      getAuditedLabel(image.id) === '已审核'
-                        ? "bg-emerald-500/92 text-white border-emerald-300/80 shadow-emerald-500/30"
-                        : "bg-rose-500/92 text-white border-rose-300/80 shadow-rose-500/30"
-                    )}
-                  >
-                    {getAuditedLabel(image.id)}
-                  </div>
-                  {showSelection && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleSelected(image.id);
-                      }}
-                      className={clsx(
-                        "absolute top-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
-                        selectedIds.has(image.id)
-                          ? "bg-gray-800 border-gray-800 text-white"
-                          : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
-                      )}
-                      aria-pressed={selectedIds.has(image.id)}
-                      title={selectedIds.has(image.id) ? '取消勾选' : '勾选'}
-                    >
-                      <Check size={16} strokeWidth={3} />
-                    </button>
-                  )}
-                </div>
-                <div className="p-3">
-                  <div className="text-xs font-bold text-gray-900 truncate">{image.projectName}</div>
-                  <div className="text-[11px] text-gray-500 mt-1">{new Date(image.projectLastModified).toLocaleString()}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
   const renderP2PView = () => (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 rounded-3xl border border-black/5 bg-white overflow-hidden">
@@ -2101,7 +2033,7 @@ export default function Projects() {
                   )}
                 </div>
                 <div className="text-xs text-gray-400 font-medium">
-                  设计 {visibleProjects.length} · 生图 {displayGeneratedAssets.length} · 编辑 {displayEditedAssets.length} · 导出 {displayExportedAssets.length}
+                  设计 {visibleProjects.length} · 资产 {personalAssets.length} · 生图 {generatedAssetItems.length} · 编辑 {editedAssetItems.length} · 导出 {exportedAssetItems.length}
                 </div>
               </div>
             </div>
@@ -2156,16 +2088,16 @@ export default function Projects() {
                 个人设计
               </button>
               <button
-                onClick={() => setView('gen-assets')}
+                onClick={() => setView('assets')}
                 className={clsx(
                   "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-                  (view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets')
+                  view === 'assets'
                     ? "text-gray-700 border-gray-300"
                     : "text-gray-500 border-transparent hover:text-gray-700"
                 )}
-                aria-selected={(view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets')}
+                aria-selected={view === 'assets'}
               >
-                <Download size={16} className={clsx((view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets') ? "opacity-80" : "opacity-50")} />
+                <Download size={16} className={clsx(view === 'assets' ? "opacity-80" : "opacity-50")} />
                 历史资产
               </button>
               <button
@@ -2213,7 +2145,7 @@ export default function Projects() {
             <div>
               {space === 'public' && renderProjectsView()}
               {space === 'personal' && view === 'projects' && renderProjectsView()}
-              {space === 'personal' && (view === 'gen-assets' || view === 'edit-assets' || view === 'export-assets') && renderAssetsModule()}
+              {space === 'personal' && view === 'assets' && renderAssetsModule()}
               {space === 'personal' && view === 'favorites' && renderFavoritesModule()}
               {space === 'personal' && view === 'teams' && renderTeamsModule()}
               {space === 'personal' && view === 'p2p' && renderP2PView()}

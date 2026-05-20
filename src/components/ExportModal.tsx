@@ -32,8 +32,8 @@ export default function ExportModal({ isOpen, onClose, previewImage, onExport }:
 
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
-    onExport({
+  const handleConfirm = async () => {
+    const settings: ExportSettings = {
       watermarkText,
       watermarkColor,
       watermarkOpacity,
@@ -42,7 +42,34 @@ export default function ExportModal({ isOpen, onClose, previewImage, onExport }:
       customY,
       format,
       quality
-    });
+    };
+
+    onExport(settings);
+
+    const fileName = `deepcanvas-export-${Date.now()}.${settings.format}`;
+    const normalizedUrl = previewImage?.trim();
+    if (!normalizedUrl) return;
+
+    try {
+      const res = await fetch(normalizedUrl);
+      const blob = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objUrl);
+    } catch {
+      const a = document.createElement('a');
+      a.href = normalizedUrl;
+      a.download = fileName;
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
   };
 
   return (

@@ -1,20 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { 
-  Sparkles, 
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  ArrowUp,
+  Briefcase,
+  Building2,
   Folder,
-  Image as ImageIcon, 
-  PenTool, 
-  LayoutTemplate, 
-  Smartphone, 
-  FlaskConical, 
-  ArrowUpRight,
-  LayoutGrid,
-  Palette,
-  Settings,
-  Bell,
-  UserCircle,
-  ChevronDown,
+  Image as ImageIcon,
+  Plus,
+  Sparkles,
+  Users,
   Wand2,
   Eraser,
   Scissors,
@@ -24,9 +18,6 @@ import {
   ScanFace,
   History,
   MoreHorizontal,
-  LogOut,
-  User,
-  ArrowUp
 } from 'lucide-react';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -40,47 +31,31 @@ export default function Home() {
   const navigate = useNavigate();
   const toast = useToast();
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
-  const [isAdminMenuOpen, setIsAdminMenuOpen] = useState(false);
-  const adminMenuRef = useRef<HTMLDivElement>(null);
-  const [isPerspectiveOpen, setIsPerspectiveOpen] = useState(false);
-  const perspectiveRef = useRef<HTMLDivElement>(null);
-  const [userPerspective, setUserPerspective] = useState<'traffic' | 'loan'>(() => {
-    const raw = localStorage.getItem('trae_deepcanvas_home_perspective_v1');
-    return raw === 'loan' ? 'loan' : 'traffic';
-  });
   const [chatInput, setChatInput] = useState('');
+  const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
+  const createMenuRef = useRef<HTMLDivElement>(null);
 
   const handleChatSubmit = () => {
-    if (!chatInput.trim()) return;
-    navigate(`/public-canvas?q=${encodeURIComponent(chatInput)}`);
+    const q = chatInput.trim();
+    if (!q) return;
+    navigate(`/public-canvas?q=${encodeURIComponent(q)}`);
   };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (adminMenuRef.current && !adminMenuRef.current.contains(event.target as Node)) {
-        setIsAdminMenuOpen(false);
-      }
-      if (perspectiveRef.current && !perspectiveRef.current.contains(event.target as Node)) {
-        setIsPerspectiveOpen(false);
-      }
+      if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) setIsCreateMenuOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem('trae_deepcanvas_home_perspective_v1', userPerspective);
-  }, [userPerspective]);
   
   const isGlass = theme.id.includes('glass');
   const isOutlined = theme.id.includes('outlined');
 
-  // Apple-style glass effect classes
   const glassCardClasses = isGlass ? "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.4)] ring-1 ring-white/20 !bg-opacity-60 backdrop-blur-xl" : "";
   
-  // Tool Icon styles based on theme
   const getToolIconClasses = () => {
     if (isOutlined) return "bg-black/5 border-black/10 hover:bg-black/10 text-black";
     if (isGlass) return "bg-white/20 border-white/30 hover:bg-white/30 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2)]";
@@ -89,316 +64,186 @@ export default function Home() {
   
   const toolIconClass = getToolIconClasses();
 
+  const aiTools = useMemo(
+    () => [
+      { icon: Wand2, label: 'AI 改图', path: '/tools/ai-edit' },
+      { icon: Eraser, label: 'AI 擦除', path: '/tools/ai-erase' },
+      { icon: Scissors, label: 'AI 抠图', path: '/tools/ai-matting' },
+      { icon: Layers, label: 'AI 溶图', path: '/tools/ai-blend' },
+      { icon: FileText, label: 'md2Card', path: '/tools/md2card' },
+      { icon: Presentation, label: 'PPT 生成', path: '/tools/ppt-gen' },
+      { icon: ScanFace, label: '证件照生成', path: '/tools/id-photo' },
+      { icon: History, label: '老照片修复', path: '/tools/old-photo' },
+      { icon: MoreHorizontal, label: '结构化海报', path: '' },
+    ],
+    []
+  );
+
   return (
-    <div className="min-h-screen flex flex-col items-center bg-background p-8 pt-16 pb-32">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       <CreateCanvasModal 
         isOpen={isCanvasModalOpen} 
         onClose={() => setIsCanvasModalOpen(false)} 
       />
 
-      <div className="w-full max-w-[1000px] flex flex-col gap-10 mt-auto mb-auto">
-        <header className="relative flex items-start justify-center flex-shrink-0 pt-2">
-          <div className="flex flex-col items-center text-center pt-10">
-            <h1 className="text-5xl font-black relative inline-block mb-2">
-              <span className="relative z-10">Deepcanvas, 让设计更简单</span>
-              <svg className="absolute -bottom-2 right-0 w-32 h-4 z-0 text-accent-secondary" viewBox="0 0 100 10" preserveAspectRatio="none">
-                <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" className="opacity-50" />
-              </svg>
-              <span className="absolute -top-4 -right-8 text-4xl animate-bounce">✨</span>
-            </h1>
-            <p className="text-gray-500">What will you create today?</p>
-          </div>
+      <aside className="fixed left-0 top-0 h-screen w-20 bg-white border-r border-gray-100 z-50 flex flex-col items-center py-6 gap-3">
+        <Link to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-black/20">
+          D
+        </Link>
 
-          <div className="absolute right-0 top-0 flex items-center gap-3">
-            <div className="relative" ref={perspectiveRef}>
+        <div className="mt-4 flex flex-col items-center gap-2 w-full px-2">
+          <QuickActionLink icon={Briefcase} label="工作间" to="/workroom" />
+          <QuickActionLink icon={Folder} label="个人空间" to="/projects" />
+
+          <div className="relative w-full flex items-center justify-center" ref={createMenuRef}>
+            <Tooltip content="新建画布" position="right">
               <button
                 type="button"
-                onClick={() => setIsPerspectiveOpen((prev) => !prev)}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap"
+                onClick={() => setIsCreateMenuOpen((v) => !v)}
+                className={clsx(
+                  'p-3 rounded-xl transition-all duration-200 flex items-center justify-center w-full',
+                  isCreateMenuOpen ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
+                )}
+                aria-label="新建画布"
               >
-                <span className="text-[11px] font-bold text-gray-400">视角</span>
-                <span className="text-sm font-semibold text-gray-900">
-                  {userPerspective === 'traffic' ? '流量投放' : '贷款小程序'}
-                </span>
-                <ChevronDown size={16} className={clsx('text-gray-400 transition-transform', isPerspectiveOpen ? 'rotate-180' : 'rotate-0')} />
-              </button>
-
-              {isPerspectiveOpen && (
-                <div className="absolute left-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUserPerspective('traffic');
-                      setIsPerspectiveOpen(false);
-                    }}
-                    className={clsx(
-                      'w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-left',
-                      userPerspective === 'traffic' ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
-                    )}
-                  >
-                    <span>流量投放</span>
-                    {userPerspective === 'traffic' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-700">
-                        当前
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUserPerspective('loan');
-                      setIsPerspectiveOpen(false);
-                    }}
-                    className={clsx(
-                      'w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-colors text-left',
-                      userPerspective === 'loan' ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'
-                    )}
-                  >
-                    <span>贷款小程序</span>
-                    {userPerspective === 'loan' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full border bg-emerald-50 border-emerald-200 text-emerald-700">
-                        当前
-                      </span>
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-            <Link to="/projects" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
-              <Folder size={16} />
-              个人空间
-            </Link>
-            <Link to="/gallery" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
-              <LayoutGrid size={16} />
-              资产
-            </Link>
-            <Link to="/design-system" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-sm font-medium text-gray-700 shadow-sm whitespace-nowrap">
-              <Palette size={16} />
-              UI设计逻辑
-            </Link>
-            <Tooltip content="设置" position="bottom">
-              <Link to="/settings" className="flex items-center justify-center p-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm" aria-label="Settings">
-                <Settings size={20} />
-              </Link>
-            </Tooltip>
-            <div className="h-6 w-px bg-gray-200 mx-1" />
-            <Tooltip content="通知" position="bottom">
-              <button className="p-2 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm relative group" aria-label="Notifications">
-                 <Bell size={20} />
-                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white border-2 border-white">3</span>
+                <Plus size={22} />
               </button>
             </Tooltip>
-            <div className="relative" ref={adminMenuRef}>
-              <button 
-                onClick={() => setIsAdminMenuOpen(!isAdminMenuOpen)}
-                className="flex items-center gap-2 pl-2 pr-3 py-1.5 rounded-full bg-white border border-theme-border hover:bg-gray-50 transition-colors text-gray-700 shadow-sm group"
-              >
-                 <div className="w-6 h-6 rounded-full bg-black/5 flex items-center justify-center text-black">
-                   <UserCircle size={18} />
-                 </div>
-                 <span className="text-sm font-medium whitespace-nowrap">管理员</span>
-              </button>
-              
-              {isAdminMenuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/50 mb-1">
-                    <p className="text-sm font-bold text-gray-900">管理员</p>
-                    <p className="text-xs text-gray-500 truncate">admin@deepcanvas.com</p>
-                  </div>
-                  <div className="p-1 space-y-1">
-                    <button 
-                      onClick={() => navigate('/material-management')}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left group"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                        <Folder size={16} />
-                      </div>
-                      <div>
-                        <div className="text-gray-900">素材管理</div>
-                        <div className="text-[10px] text-gray-400 font-normal">管理全站素材与反馈</div>
-                      </div>
-                    </button>
-                    <button className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors text-left group">
-                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 transition-transform">
-                        <User size={16} />
-                      </div>
-                      <div>
-                        <div className="text-gray-900">个人中心</div>
-                        <div className="text-[10px] text-gray-400 font-normal">账号设置与偏好</div>
-                      </div>
-                    </button>
-                  </div>
-                  <div className="border-t border-gray-100 mt-1 p-1">
-                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors text-left">
-                      <LogOut size={16} />
-                      退出登录
-                    </button>
-                  </div>
-                </div>
+            {isCreateMenuOpen && (
+              <div className="absolute left-[76px] top-1/2 -translate-y-1/2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    setIsCanvasModalOpen(true);
+                  }}
+                  className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                >
+                  新建创建设计画布
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateMenuOpen(false);
+                    navigate('/public-canvas');
+                  }}
+                  className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                >
+                  新建无限画布
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="w-8 h-px bg-gray-100 my-1" />
+          <QuickActionLink icon={Sparkles} label="提示词灵感" to="/inspiration" />
+          <QuickActionLink icon={ImageIcon} label="文生图" to="/text-to-image" />
+          <QuickActionLink icon={Users} label="社区" to="/templates?scope=public" />
+          <QuickActionLink icon={Building2} label="团队" to="/templates?scope=team" />
+        </div>
+      </aside>
+
+      <main className="ml-20 min-h-screen flex items-center justify-center px-8 py-12">
+        <div className="w-full max-w-[980px] space-y-6">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div className="space-y-1">
+              <div className="text-2xl font-black text-gray-900">Deepcanvas</div>
+              <div className="text-sm text-gray-500">输入需求，直接开始创作。按 ⌘/Ctrl + Enter 发送。</div>
+            </div>
+            <Link to="/workroom" className="h-10 px-4 rounded-full bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700 flex items-center gap-2">
+              <Briefcase size={16} />
+              进入工作间
+            </Link>
+          </div>
+
+          <div className="w-full relative">
+            <div
+              className={clsx(
+                'absolute top-3 left-4 z-10 px-2 py-0.5 rounded-md border text-[11px] font-semibold tracking-wide pointer-events-none select-none',
+                isGlass ? 'bg-white/70 backdrop-blur-xl border-white/20 text-gray-700' : 'bg-white border-gray-200 text-gray-600'
               )}
+            >
+              Agent会话（内测）
+            </div>
+            <textarea
+              placeholder="告诉我你想设计什么，例如：帮我生成一张母亲节营销海报...\n也可以补充：目标人群/渠道/版式/风格/品牌色/CTA"
+              className={clsx(
+                'w-full min-h-[150px] pt-10 pb-14 px-4 rounded-3xl border shadow-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-base transition-all resize-none',
+                isGlass ? 'bg-white/60 backdrop-blur-xl border-white/20 text-black placeholder:text-gray-500' : 'bg-white border-gray-200 text-gray-900 placeholder:text-gray-400'
+              )}
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  handleChatSubmit();
+                }
+              }}
+            />
+            <button
+              onClick={handleChatSubmit}
+              className="absolute right-4 bottom-4 w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!chatInput.trim()}
+              aria-label="发送"
+            >
+              <ArrowUp size={18} className="translate-x-[-1px] translate-y-[1px]" />
+            </button>
+          </div>
+
+          <div className={clsx('rounded-3xl p-6 border', isGlass ? glassCardClasses : 'bg-white border-gray-200')}>
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <div>
+                <div className="text-sm font-semibold text-gray-900">玩转AI</div>
+                <div className="text-xs text-gray-500 mt-1">对话框下方直达所有工具</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => toast.show('更多工具规划中')}
+                className="h-9 px-4 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-sm font-semibold text-gray-800"
+              >
+                工具规划
+              </button>
+            </div>
+
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-3 mt-4">
+              {aiTools.map((t) => (
+                <ToolIcon
+                  key={t.label}
+                  icon={t.icon}
+                  label={t.label}
+                  className={toolIconClass}
+                  onClick={() => {
+                    if (!t.path) {
+                      toast.show('结构化海报功能开发中');
+                      return;
+                    }
+                    navigate(t.path);
+                  }}
+                />
+              ))}
             </div>
           </div>
-        </header>
-
-        {/* Global Chat Input */}
-        <div className="w-full max-w-[800px] mx-auto relative flex items-center group/chat">
-          <div
-            className={clsx(
-              "absolute top-0 left-6 -translate-y-full -mt-1 z-10 px-2 py-0.5 rounded-md border text-[11px] font-semibold tracking-wide pointer-events-none select-none",
-              isGlass ? "bg-white/70 backdrop-blur-xl border-white/20 text-gray-700" : "bg-white border-gray-200 text-gray-600"
-            )}
-          >
-            Agent会话（内测）
-          </div>
-          <input
-            type="text"
-            placeholder="告诉我你想设计什么，例如：帮我生成一张母亲节营销海报..."
-            className={clsx(
-              "w-full h-14 pl-6 pr-16 rounded-full border shadow-sm focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 text-base transition-all",
-              isGlass ? "bg-white/60 backdrop-blur-xl border-white/20 text-black placeholder:text-gray-500" : "bg-white border-gray-200 text-gray-900 placeholder:text-gray-400"
-            )}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleChatSubmit();
-              }
-            }}
-          />
-          <button
-            onClick={handleChatSubmit}
-            className="absolute right-2 w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center hover:bg-primary/90 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!chatInput.trim()}
-          >
-            <ArrowUp size={18} className="translate-x-[-1px] translate-y-[1px]" />
-          </button>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 w-full self-center">
-          {/* Inspiration - Large Card (Normal Level) */}
-          <BentoCard 
-            className={clsx("col-span-1 md:col-span-2 lg:col-span-2 bg-white border border-theme-border group cursor-pointer text-black", glassCardClasses)}
-            title="提示词灵感"
-            description="从海量创意中获取灵感火花，试试从这里快速开始体验！"
-            icon={Sparkles}
-            accentColor="text-black"
-            onClick={() => navigate('/inspiration')}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-              <ArrowUpRight className="text-black" />
-            </div>
-          </BentoCard>
-
-          {/* Text to Image (Normal Level) */}
-          <BentoCard 
-            className={clsx("col-span-1 md:col-span-1 bg-white border border-theme-border group hover:border-black/10 cursor-pointer overflow-hidden relative text-black", glassCardClasses)}
-            title="文生图"
-            description="智能文本转换图像生成核心——在这里，生成属于你的图片。"
-            icon={ImageIcon}
-            accentColor="text-black"
-            onClick={() => navigate('/text-to-image')}
-          >
-            <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-black/5 rounded-full blur-3xl group-hover:bg-black/10 transition-all duration-500" />
- 
-             <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-               <ArrowUpRight className="text-black opacity-50" />
-             </div>
-          </BentoCard>
-
-          {/* Canvas (Important Level = Primary) */}
-          <BentoCard 
-            className={clsx("col-span-1 md:col-span-1 bg-primary border border-primary-border text-primary-foreground group cursor-pointer !overflow-visible relative z-20", glassCardClasses)}
-            title="创建设计"
-            description="帮助你实现完整的营销海报设计"
-            icon={PenTool}
-            onClick={() => setIsCanvasModalOpen(true)}
-          >
-            {/* Floating Decoration - Unclipped */}
-            <div className="absolute right-[-20px] top-[-20px] w-32 h-32 z-50 pointer-events-none group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
-              <img src={`${import.meta.env.BASE_URL}figure/cloud-white.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
-            </div>
-
-            {/* Clipped Background Effects */}
-            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-              <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute right-4 bottom-4 bg-white/20 p-2 rounded-full backdrop-blur-sm">
-                 <ArrowUpRight size={16} />
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* Templates (Important Level = Primary) */}
-          <BentoCard 
-            className={clsx("col-span-1 md:col-span-1 bg-primary border border-primary-border text-primary-foreground group cursor-pointer !overflow-visible relative z-10", glassCardClasses)}
-            title="公共模版"
-            description="点击进入公共模板库"
-            icon={LayoutTemplate}
-            onClick={() => navigate('/templates?scope=public')}
-          >
-            <div className="absolute right-[-30px] top-1/2 -translate-y-1/2 w-32 h-32 z-50 pointer-events-none">
-              <div className="w-full h-full group-hover:scale-110 group-hover:-translate-y-2 transition-all duration-500">
-                <img src={`${import.meta.env.BASE_URL}figure/blue-cloud-v2.png`} alt="Decoration" className="w-full h-full object-contain drop-shadow-2xl opacity-90" />
-              </div>
-            </div>
-
-            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-              <div className="absolute -right-8 -bottom-8 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:bg-white/20 transition-all duration-500" />
-              <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                <ArrowUpRight className="text-current opacity-50" />
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* Banking (Minor Level) */}
-          <BentoCard 
-            className="col-span-1 md:col-span-1 bg-minor border border-minor-border text-minor-foreground group cursor-pointer"
-            title="AI广告设计助手"
-            description="一站式素材与项目协作空间"
-            icon={Smartphone}
-            onClick={() => navigate('/ai-ad-design-assistant')}
-          >
-            <div className="mt-4">
-               <div className="text-3xl font-bold">4</div>
-               <div className="text-xs opacity-70 mt-1">目前支持规范模版数量</div>
-            </div>
-          </BentoCard>
-
-          {/* Playground (Promotion Level) */}
-          <BentoCard 
-            className={clsx("col-span-1 md:col-span-2 bg-promotion border border-promotion-border text-promotion-foreground group cursor-default", glassCardClasses)}
-            title="玩转AI"
-            description="前沿AI模型与实验工具集"
-            icon={FlaskConical}
-            accentColor="text-current"
-            onClick={undefined}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <div className="absolute right-4 top-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-              <ArrowUpRight className="text-current" />
-            </div>
-            
-            {/* Tool Grid */}
-            <div className="grid grid-cols-5 gap-3 mt-4 relative z-10">
-              <ToolIcon icon={Wand2} label="AI 改图" className={toolIconClass} onClick={() => navigate('/tools/ai-edit')} />
-              <ToolIcon icon={Eraser} label="AI 擦除" className={toolIconClass} onClick={() => navigate('/tools/ai-erase')} />
-              <ToolIcon icon={Scissors} label="AI 抠图" className={toolIconClass} onClick={() => navigate('/tools/ai-matting')} />
-              <ToolIcon icon={Layers} label="AI 溶图" className={toolIconClass} onClick={() => navigate('/tools/ai-blend')} />
-              <ToolIcon icon={FileText} label="md2Card" className={toolIconClass} onClick={() => navigate('/tools/md2card')} />
-              <ToolIcon icon={Presentation} label="PPT 生成" className={toolIconClass} onClick={() => navigate('/tools/ppt-gen')} />
-              <ToolIcon icon={ScanFace} label="证件照生成" className={toolIconClass} onClick={() => navigate('/tools/id-photo')} />
-              <ToolIcon icon={History} label="老照片修复" className={toolIconClass} onClick={() => navigate('/tools/old-photo')} />
-              <ToolIcon icon={LayoutTemplate} label="结构化海报" className={toolIconClass} onClick={() => toast.show('结构化海报功能开发中')} />
-              <ToolIcon icon={MoreHorizontal} label="敬请期待" className={toolIconClass} onClick={() => {}} />
-            </div>
-          </BentoCard>
-        </div>
-      </div>
+      </main>
     </div>
   );
 }
 
-function ToolIcon({ icon: Icon, label, className, onClick }: { icon: React.ElementType, label: string, className?: string, onClick?: () => void }) {
+function QuickActionLink({ icon: Icon, label, to }: { icon: React.ElementType; label: string; to: string }) {
+  return (
+    <Tooltip content={label} position="right">
+      <Link
+        to={to}
+        className="p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center w-full text-gray-400 hover:bg-gray-100 hover:text-black"
+        aria-label={label}
+      >
+        <Icon size={22} strokeWidth={2} className="shrink-0" />
+      </Link>
+    </Tooltip>
+  );
+}
+
+function ToolIcon({ icon: Icon, label, className, onClick }: { icon: React.ElementType; label: string; className?: string; onClick?: () => void }) {
   return (
     <div 
       onClick={(e) => {
@@ -409,38 +254,6 @@ function ToolIcon({ icon: Icon, label, className, onClick }: { icon: React.Eleme
     >
       <Icon size={20} className="group-hover/icon:scale-110 transition-transform duration-300" />
       <span className="text-[11px] font-medium opacity-90 whitespace-nowrap">{label}</span>
-    </div>
-  );
-}
-
-interface BentoCardProps {
-  className?: string;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  children?: React.ReactNode;
-  accentColor?: string;
-  onClick?: () => void;
-}
-
-function BentoCard({ className, title, description, icon: Icon, children, accentColor, onClick }: BentoCardProps) {
-  return (
-    <div 
-      onClick={onClick}
-      className={clsx("relative rounded-2xl p-5 flex flex-col justify-between overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 backdrop-blur-xl", className)}
-    >
-      <div className="relative z-10 flex justify-between items-start">
-        <div className={clsx("p-2.5 rounded-xl bg-white/10 backdrop-blur-md w-fit", accentColor)}>
-          <Icon size={20} />
-        </div>
-      </div>
-      
-      {children}
-
-      <div className="relative z-10 mt-auto pt-6">
-        <h3 className="text-lg font-bold mb-1">{title}</h3>
-        <p className="text-xs opacity-70 font-medium leading-relaxed">{description}</p>
-      </div>
     </div>
   );
 }

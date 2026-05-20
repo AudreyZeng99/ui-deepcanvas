@@ -114,7 +114,7 @@ import { useProject } from '../context/ProjectContext';
 import { useToast } from '../components/ToastProvider';
 
 export default function Editor() {
-  const { currentProject, createProject, updateProject, saveProject, markAsDirty, isDirty, validateSave, projects } = useProject();
+  const { currentProject, createProject, updateProject, saveProject, markAsDirty, isDirty, validateSave, projects, recordExportedAsset } = useProject();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -3641,7 +3641,7 @@ export default function Editor() {
           onClose={() => setIsExportModalOpen(false)}
           previewImage={previewImage || 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80'}
           onExport={(settings) => {
-            console.log('Exporting with settings:', settings);
+            if (previewImage) recordExportedAsset(previewImage, { source: 'Editor', export: settings });
             setIsExportModalOpen(false);
             toast.success('导出成功');
           }}

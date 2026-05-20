@@ -4,10 +4,12 @@ import { Upload, Download, RefreshCw, Camera, Image as ImageIcon, X, ArrowLeft }
 import clsx from 'clsx';
 import ExportModal, { ExportSettings } from '../../components/ExportModal';
 import { useToast } from '../../components/ToastProvider';
+import { useProject } from '../../context/ProjectContext';
 
 export default function OldPhotoRestore() {
   const navigate = useNavigate();
   const toast = useToast();
+  const { recordEditedAsset, recordExportedAsset } = useProject();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [restoredUrl, setRestoredUrl] = useState<string | null>(null);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -44,6 +46,11 @@ export default function OldPhotoRestore() {
     }
   }, [developingProgress, previewUrl]);
 
+  useEffect(() => {
+    if (!restoredUrl) return;
+    recordEditedAsset(restoredUrl, 'editImage.upload', { tool: 'OldPhotoRestore' });
+  }, [restoredUrl, recordEditedAsset]);
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -67,7 +74,7 @@ export default function OldPhotoRestore() {
   };
 
   const handleExport = (settings: ExportSettings) => {
-    console.log('Exporting with settings:', settings);
+    if (restoredUrl) recordExportedAsset(restoredUrl, { source: 'OldPhotoRestore', export: settings });
     setIsExportModalOpen(false);
     toast.success('老照片已成功修复并导出');
   };
