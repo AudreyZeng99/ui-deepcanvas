@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ElementType } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
@@ -24,6 +24,29 @@ export default function Home() {
   const navigate = useNavigate();
   const toast = useToast();
   const [chatInput, setChatInput] = useState('');
+  const [workroomRole, setWorkroomRole] = useState<'ops' | 'business' | 'experience'>('business');
+
+  useEffect(() => {
+    const raw = localStorage.getItem('deepcanvas_workroom_identity_v1');
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      const role = parsed?.role;
+      if (role === 'ops' || role === 'business' || role === 'experience') setWorkroomRole(role);
+    } catch {
+      return;
+    }
+  }, []);
+
+  const applyWorkroomRole = (nextRole: 'ops' | 'business' | 'experience') => {
+    setWorkroomRole(nextRole);
+    const identity =
+      nextRole === 'business'
+        ? { role: 'business', businessOrg: 'other' }
+        : { role: nextRole };
+    localStorage.setItem('deepcanvas_workroom_identity_v1', JSON.stringify(identity));
+    toast.show(`已切换视角：${nextRole === 'ops' ? '运维' : nextRole === 'business' ? '业务' : '体验'}`);
+  };
 
   const handleChatSubmit = () => {
     const q = chatInput.trim();
@@ -78,10 +101,47 @@ export default function Home() {
                 <div className="text-sm text-gray-500">输入需求，直接开始创作。按 ⌘/Ctrl + Enter 发送。</div>
               </div>
             </div>
-            <Link to="/workroom" className="h-10 px-4 rounded-full bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700 flex items-center gap-2">
-              <Briefcase size={16} />
-              进入工作间
-            </Link>
+            <div className="flex items-center gap-3">
+              <div className="inline-flex items-center rounded-full bg-gray-100 p-1 border border-black/5">
+                <button
+                  type="button"
+                  onClick={() => applyWorkroomRole('ops')}
+                  className={clsx(
+                    'h-9 px-3 rounded-full text-sm font-semibold transition-all',
+                    workroomRole === 'ops' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  )}
+                >
+                  运维
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyWorkroomRole('business')}
+                  className={clsx(
+                    'h-9 px-3 rounded-full text-sm font-semibold transition-all',
+                    workroomRole === 'business' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  )}
+                >
+                  业务
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyWorkroomRole('experience')}
+                  className={clsx(
+                    'h-9 px-3 rounded-full text-sm font-semibold transition-all',
+                    workroomRole === 'experience' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                  )}
+                >
+                  体验
+                </button>
+              </div>
+              <Link
+                to="/workroom"
+                className="h-10 px-4 rounded-full bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700 flex items-center gap-2"
+              >
+                <Briefcase size={16} />
+                进入工作间
+              </Link>
+            </div>
           </div>
 
           <div className="w-full relative">
