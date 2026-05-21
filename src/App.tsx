@@ -28,6 +28,7 @@ import AIAdDesignAssistant from './pages/AIAdDesignAssistant';
 import AIAdProjectCanvas from './pages/AIAdProjectCanvas';
 import PublicCanvas from './pages/PublicCanvas';
 import Workroom from './pages/Workroom';
+import LayerLibrary from './pages/LayerLibrary';
 
 function Layout() {
   const location = useLocation();
@@ -49,6 +50,7 @@ function Layout() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/workroom/*" element={<Workroom />} />
+          <Route path="/layer-library" element={<LayerLibrary />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/public" element={<Projects />} />
           <Route path="/public-canvas" element={<PublicCanvas />} />

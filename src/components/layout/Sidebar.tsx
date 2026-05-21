@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ElementType } from 'react';
-import { Briefcase, Building2, Folder, Home, Image as ImageIcon, Plus, Sparkles, Users } from 'lucide-react';
+import { Briefcase, Building2, Folder, Home, Image as ImageIcon, Layers, Plus, Sparkles, Users } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -39,6 +39,7 @@ export default function Sidebar() {
         <IconNavLink icon={Home} label="首页" to="/" />
         <IconNavLink icon={Briefcase} label="工作间" to="/workroom" />
         <IconNavLink icon={Folder} label="个人空间" to="/projects" />
+        <IconNavLink icon={Layers} label="图层库" to="/layer-library" />
 
         <div className="relative w-full flex items-center justify-center" ref={createMenuRef}>
           <Tooltip content="新建画布" position="right">
