@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useParams, type NavigateFunction } from 'react-router-dom';
 import clsx from 'clsx';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { useProject } from '../context/ProjectContext';
 import { useToast } from '../components/ToastProvider';
 
@@ -54,6 +54,21 @@ const LIBRARIES_KEY = 'deepcanvas_workroom_libraries_v1';
 const ASSETS_KEY = 'deepcanvas_workroom_assets_v1';
 const HISTORY_KEY = 'deepcanvas_workroom_asset_history_v1';
 const PROJECTS_KEY = 'deepcanvas_workroom_projects_v1';
+const BUSINESS_PROJECTS_KEY = 'deepcanvas_workroom_business_projects_v1';
+
+type BusinessProjectSpec = 'banner' | 'poster' | 'splash';
+
+type BusinessProject = {
+  id: string;
+  name: string;
+  createdAt: number;
+};
+
+const BUSINESS_SPECS: Array<{ id: BusinessProjectSpec; label: string; dimension: string }> = [
+  { id: 'banner', label: '横幅banner', dimension: '1920x480' },
+  { id: 'poster', label: '长图海报', dimension: '1080x1920' },
+  { id: 'splash', label: '首页弹屏', dimension: '1080x1920' },
+];
 
 function safeParseJson<T>(raw: string | null, fallback: T): T {
   if (!raw) return fallback;
@@ -137,6 +152,40 @@ function readAssets(): LayerAsset[] {
 
 function writeAssets(next: LayerAsset[]) {
   localStorage.setItem(ASSETS_KEY, JSON.stringify(next));
+}
+
+function makeId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function seedBusinessProjectsIfMissing() {
+  const existing = safeParseJson<BusinessProject[] | null>(localStorage.getItem(BUSINESS_PROJECTS_KEY), null);
+  if (Array.isArray(existing) && existing.length > 0) return;
+  const now = Date.now();
+  const seed: BusinessProject[] = [
+    { id: 'bp-shenxiang-fuli', name: '深享福利周周有礼', createdAt: now - 1000 * 60 * 60 * 24 * 7 },
+    { id: 'bp-fenhang-jianbu', name: '分行健步走', createdAt: now - 1000 * 60 * 60 * 24 * 5 },
+    { id: 'bp-denglu-youli', name: '登陆有礼', createdAt: now - 1000 * 60 * 60 * 24 * 3 },
+  ];
+  localStorage.setItem(BUSINESS_PROJECTS_KEY, JSON.stringify(seed));
+}
+
+function readBusinessProjects(): BusinessProject[] {
+  seedBusinessProjectsIfMissing();
+  const parsed = safeParseJson<BusinessProject[]>(localStorage.getItem(BUSINESS_PROJECTS_KEY), []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .filter((p) => p && typeof p.id === 'string' && typeof p.name === 'string')
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      createdAt: typeof p.createdAt === 'number' ? p.createdAt : Date.now(),
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+function writeBusinessProjects(next: BusinessProject[]) {
+  localStorage.setItem(BUSINESS_PROJECTS_KEY, JSON.stringify(next));
 }
 
 function readHistoryMap(): Record<string, AssetHistoryEvent[]> {
@@ -446,18 +495,12 @@ function readProjects(): WorkroomProject[] {
 
 function BusinessEntry() {
   const identity = readIdentity();
-  const { teams } = useProject();
   const libs = useMemo(() => Object.values(readLibraries()), []);
 
-  useEffect(() => {
-    seedProjectsFromTeams(teams.map((t) => ({ id: t.id, name: t.name })));
-  }, [teams]);
-
-  const [projects, setProjects] = useState<WorkroomProject[]>(() => readProjects());
-
-  useEffect(() => {
-    setProjects(readProjects());
-  }, [teams]);
+  const toast = useToast();
+  const navigate = useNavigate();
+  const [projects, setProjects] = useState<BusinessProject[]>(() => readBusinessProjects());
+  const [expandedProjectIds, setExpandedProjectIds] = useState<Set<string>>(() => new Set(projects.slice(0, 1).map((p) => p.id)));
 
   const accessibleLibraries = useMemo(() => {
     if (!identity) return [];
@@ -466,32 +509,163 @@ function BusinessEntry() {
 
   if (!identity || identity.role !== 'business') return null;
 
+  const allAssets = readAssets();
+
+  const assetsByProjectAndSpec = (projectId: string, specId: BusinessProjectSpec) => {
+    return allAssets.filter((a) => a.meta?.businessProjectId === projectId && a.meta?.businessSpecId === specId);
+  };
+
+  const toggleExpanded = (projectId: string) => {
+    setExpandedProjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectId)) next.delete(projectId);
+      else next.add(projectId);
+      return next;
+    });
+  };
+
+  const createProject = () => {
+    const name = window.prompt('请输入项目名称');
+    if (!name || !name.trim()) return;
+    const next: BusinessProject = { id: makeId('bp'), name: name.trim(), createdAt: Date.now() };
+    const nextList = [next, ...projects];
+    writeBusinessProjects(nextList);
+    setProjects(nextList);
+    setExpandedProjectIds((prev) => new Set([next.id, ...prev]));
+    toast.show('已新建项目');
+  };
+
+  const createSpecItem = (project: BusinessProject, spec: { id: BusinessProjectSpec; label: string; dimension: string }) => {
+    const now = Date.now();
+    const urlPool: Record<BusinessProjectSpec, string> = {
+      banner: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1400&auto=format&fit=crop',
+      poster: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
+      splash: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=1200&auto=format&fit=crop',
+    };
+    const nextAssets = readAssets();
+    const asset: LayerAsset = {
+      id: makeId('asset'),
+      name: `${project.name}｜${spec.label}`,
+      url: urlPool[spec.id],
+      createdAt: now,
+      spec: spec.dimension,
+      source: 'seed',
+      meta: {
+        businessProjectId: project.id,
+        businessSpecId: spec.id,
+        businessSpecLabel: spec.label,
+        status: '进行中',
+      },
+    };
+    writeAssets([asset, ...nextAssets]);
+    toast.show('已新增一张规格图片（模拟）');
+    navigate(`/workroom/canvas/${encodeURIComponent(asset.id)}`);
+  };
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-      <div className="xl:col-span-2 bg-white border border-gray-100 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-end justify-between gap-3 flex-wrap">
-          <div>
-            <div className="text-lg font-semibold">项目（按规格）</div>
-            <div className="text-sm text-gray-500 mt-1">业务登录后绑定机构，直接展示机构下项目，无需展示团队切换。</div>
+      <div className="xl:col-span-2 space-y-3">
+        <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold text-gray-900">项目</div>
+            <div className="text-xs px-2.5 py-1 rounded-full bg-gray-100 border border-black/5 text-gray-700 font-semibold">
+              {identity.businessOrg === 'shenzhen' ? '深圳分行' : '机构'}
+            </div>
           </div>
-          <div className="text-xs px-2.5 py-1 rounded-full bg-gray-100 border border-black/5 text-gray-700 font-semibold">
-            当前机构：{identity.businessOrg === 'shenzhen' ? '深圳分行' : '其他'}
-          </div>
+          <button
+            type="button"
+            onClick={createProject}
+            className="inline-flex items-center gap-2 h-9 px-3 rounded-lg bg-black text-white text-sm font-semibold hover:bg-gray-900 transition"
+          >
+            <Plus size={16} />
+            新建项目
+          </button>
         </div>
-        <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+
+        <div className="space-y-2">
           {projects.length === 0 ? (
-            <div className="text-sm text-gray-500">暂无项目</div>
+            <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm text-sm text-gray-500">暂无项目</div>
           ) : (
-            projects.map((p) => (
-              <Link
-                key={p.id}
-                to={`/workroom/projects/${encodeURIComponent(p.id)}`}
-                className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition p-4"
-              >
-                <div className="font-semibold">{p.name}</div>
-                <div className="text-sm text-gray-500 mt-1">规格：{p.specs.join(' / ')}</div>
-              </Link>
-            ))
+            projects.map((p) => {
+              const expanded = expandedProjectIds.has(p.id);
+              return (
+                <div key={p.id} className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => toggleExpanded(p.id)}
+                    className="w-full px-4 py-3 flex items-center justify-between gap-3 hover:bg-gray-50 transition text-left"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 border border-black/5 flex items-center justify-center text-gray-700">
+                        {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold text-gray-900 truncate">{p.name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          项目ID：{p.id}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-500 whitespace-nowrap">{formatTime(p.createdAt)}</div>
+                  </button>
+
+                  {expanded && (
+                    <div className="px-4 pb-4">
+                      <div className="space-y-4">
+                        {BUSINESS_SPECS.map((spec) => {
+                          const items = assetsByProjectAndSpec(p.id, spec.id);
+                          return (
+                            <div key={spec.id} className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+                              <div className="px-4 py-3 flex items-center justify-between gap-3 bg-gray-50/60 border-b border-gray-200">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-semibold text-gray-900">{spec.label}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">{spec.dimension}</div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => createSpecItem(p, spec)}
+                                  className="h-9 px-3 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition text-sm font-semibold text-gray-800"
+                                >
+                                  新建图片
+                                </button>
+                              </div>
+
+                              <div className="p-4">
+                                {items.length === 0 ? (
+                                  <div className="text-sm text-gray-500">暂无图片，点击右上角新建。</div>
+                                ) : (
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {items.map((a) => (
+                                      <button
+                                        key={a.id}
+                                        type="button"
+                                        onClick={() => navigate(`/workroom/canvas/${encodeURIComponent(a.id)}`)}
+                                        className="text-left rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 transition overflow-hidden"
+                                      >
+                                        <div className="aspect-[16/10] bg-gray-50">
+                                          <img src={a.url} alt={a.name} className="w-full h-full object-cover" />
+                                        </div>
+                                        <div className="p-3">
+                                          <div className="text-sm font-semibold text-gray-900 line-clamp-1">{a.name}</div>
+                                          <div className="text-xs text-gray-500 mt-1 flex items-center justify-between gap-2">
+                                            <span>{a.meta?.status || '进行中'}</span>
+                                            <span>{formatTime(a.createdAt)}</span>
+                                          </div>
+                                        </div>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
