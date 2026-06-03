@@ -2,6 +2,7 @@ import { useMemo, useRef, useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowUp, 
+  Home,
   Layers, 
   MousePointer2, 
   Type, 
@@ -9,12 +10,12 @@ import {
   Square, 
   MapPin, 
   ChevronRight, 
-  ChevronLeft,
   X,
   Bot,
   SplitSquareVertical
 } from 'lucide-react';
 import clsx from 'clsx';
+import { useToast } from '../components/ToastProvider';
 
 interface ChatMessage {
   id: string;
@@ -107,10 +108,32 @@ const mockTextImageLayering = (
 export default function PublicCanvas() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const initialQuery = searchParams.get('q') || '';
   const materialSrc = searchParams.get('src') || '';
   const materialName = searchParams.get('name') || '';
   const materialId = searchParams.get('id') || '';
+
+  const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
+  const appMenuRef = useRef<HTMLDivElement | null>(null);
+  const openInNewTab = (path: string) => {
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  useEffect(() => {
+    if (!isAppMenuOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (appMenuRef.current && appMenuRef.current.contains(target)) return;
+      setIsAppMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAppMenuOpen]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -252,24 +275,84 @@ export default function PublicCanvas() {
 
   return (
     <div className="w-full h-screen bg-[#F8F9FA] overflow-hidden flex flex-col relative">
-      {/* Top Header/Nav (Optional, minimal) */}
-      <header className="absolute top-0 left-0 w-full h-14 bg-white/80 backdrop-blur-md border-b border-black/5 flex items-center px-4 z-20 justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-black/5 rounded-lg transition-colors">
-            <ChevronLeft size={20} />
-          </button>
-          <div className="min-w-0">
-            <div className="font-bold text-gray-800 truncate">公共无限画布</div>
-            {(materialName || materialId) && <div className="text-[11px] text-gray-500 truncate">{materialName} {materialId ? `· ${materialId}` : ''}</div>}
+      <div ref={appMenuRef} className="fixed top-4 left-4 z-30">
+        <button
+          type="button"
+          onClick={() => setIsAppMenuOpen((v) => !v)}
+          className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center"
+          aria-label="Deepcanvas 菜单"
+        >
+          <Home size={20} />
+        </button>
+        {isAppMenuOpen && (
+          <div className="mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                navigate('/');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              返回首页
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                openInNewTab('/editor');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              新建画布
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                const query = searchParams.toString();
+                openInNewTab(`/public-canvas${query ? `?${query}` : ''}`);
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              新建副本
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                toast.show('无限画布暂不支持保存');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              保存
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                toast.show('无限画布暂不支持另存为');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              另存为
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                navigate('/projects');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              前往个人设计
+            </button>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Add more header actions here if needed */}
-        </div>
-      </header>
+        )}
+      </div>
 
       {/* Main Workspace Area */}
-      <div className="flex-1 w-full h-full pt-14 relative flex">
+      <div className="flex-1 w-full h-full relative flex pt-16">
         
         <div
           ref={viewportRef}

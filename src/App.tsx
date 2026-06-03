@@ -27,14 +27,17 @@ import { ToastProvider } from './components/ToastProvider';
 import AIAdDesignAssistant from './pages/AIAdDesignAssistant';
 import AIAdProjectCanvas from './pages/AIAdProjectCanvas';
 import PublicCanvas from './pages/PublicCanvas';
-import Workroom from './pages/Workroom';
 import LayerLibrary from './pages/LayerLibrary';
 
 function Layout() {
   const location = useLocation();
   const isMaterialManagement = location.pathname === '/material-management';
   const isAIAdDesignAssistant = location.pathname.startsWith('/ai-ad-design-assistant');
-  const showSidebar = !isMaterialManagement && !isAIAdDesignAssistant;
+  const isCanvasLike =
+    location.pathname === '/editor' ||
+    location.pathname === '/public-canvas' ||
+    location.pathname === '/material-editor';
+  const showSidebar = !isMaterialManagement && !isAIAdDesignAssistant && !isCanvasLike;
 
   return (
     <div className="flex min-h-screen bg-background text-foreground font-sans">
@@ -49,7 +52,6 @@ function Layout() {
       >
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/workroom/*" element={<Workroom />} />
           <Route path="/layer-library" element={<LayerLibrary />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/public" element={<Projects />} />
@@ -64,6 +66,7 @@ function Layout() {
           <Route path="/inspiration" element={<Inspiration />} />
           <Route path="/text-to-image" element={<TextToImage />} />
           <Route path="/templates" element={<Templates />} />
+          <Route path="/team-templates" element={<Templates scope="team" />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/feedback" element={<Feedback />} />
           

@@ -983,28 +983,22 @@ export default function MaterialEditor() {
       )}
 
       {/* Top Bar - Level 1: File & Main Actions */}
-      <header className="h-14 border-b border-black/5 bg-white/30 backdrop-blur-md px-4 flex items-center justify-between z-20">
+      <header className="h-14 border-b border-black/5 bg-white/30 backdrop-blur-md pr-4 pl-20 flex items-center justify-between z-20">
         <div className="flex items-center gap-3">
-          <Tooltip content="新建画布" position="bottom">
-            <button 
-              onClick={() => setIsCanvasModalOpen(true)}
-              className="p-1.5 bg-accent-primary text-white rounded-lg hover:opacity-90 transition-all flex items-center gap-2 text-sm font-medium pr-3"
-            >
-              <Plus size={16} />
-              New Canvas
-            </button>
-          </Tooltip>
-          <div className="h-5 w-px bg-black/10" />
-          <h1 className="font-semibold text-base">{currentProject?.name || 'Untitled Project'}</h1>
+          <h1 className="inline-flex items-center h-9 font-semibold text-base leading-none">
+            <span className="text-gray-500">个人设计</span>
+            <span className="text-gray-300 mx-1">/</span>
+            <span className="text-gray-900">{currentProject?.name || 'Untitled Project'}</span>
+          </h1>
           <div className={clsx(
-            "px-2 py-0.5 rounded text-[10px] font-medium",
+            "h-7 inline-flex items-center px-2 rounded text-[10px] font-medium leading-none",
             isDirty ? "bg-yellow-100 text-yellow-600" : "bg-green-100 text-green-600"
           )}>
             {isDirty ? '正在编辑' : '已保存'}
           </div>
           
           {/* Canvas Size Display (Moved to Top) */}
-          <div className="ml-4 flex items-center gap-2 text-xs font-medium text-gray-500 bg-black/5 px-2 py-1 rounded-md">
+          <div className="ml-4 h-7 inline-flex items-center gap-2 text-xs font-medium text-gray-500 bg-black/5 px-2 rounded-md">
              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
              <span>{currentProject?.width || 1920} x {currentProject?.height || 1080} px</span>
           </div>

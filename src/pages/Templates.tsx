@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Search, Camera, ChevronRight, Play, Heart, ChevronDown, Plus, Share2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Search, Camera, ChevronRight, Play, Heart, ChevronDown, Plus, Share2, PencilLine } from 'lucide-react';
 import clsx from 'clsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
@@ -100,7 +100,12 @@ const generateMockData = (): Section[] => {
 
 const sections = generateMockData();
 
-const TemplateCard = ({ item }: { item: Template }) => {
+type TemplateCardProps = {
+  item: Template;
+  onDoSame: (item: Template) => void;
+};
+
+const TemplateCard = ({ item, onDoSame }: TemplateCardProps) => {
   const toast = useToast();
   return (
     <div className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2">
@@ -114,6 +119,20 @@ const TemplateCard = ({ item }: { item: Template }) => {
         
         {/* Overlays */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDoSame(item);
+          }}
+          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label="做同款"
+        >
+          <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
+            做同款
+          </div>
+        </button>
         
         {item.type === 'video' && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -264,9 +283,10 @@ type TrafficTemplateCardProps = {
   template: TrafficTeamTemplate;
   isFavorite: boolean;
   onToggleFavorite: (templateId: string) => void;
+  onDoSame: (template: TrafficTeamTemplate) => void;
 };
 
-const TrafficTemplateCard = ({ template, isFavorite, onToggleFavorite }: TrafficTemplateCardProps) => {
+const TrafficTemplateCard = ({ template, isFavorite, onToggleFavorite, onDoSame }: TrafficTemplateCardProps) => {
   const clickRateText = `${(template.clickRate * 100).toFixed(1)}%`;
   const useRateText = `${(template.useRate * 100).toFixed(0)}%`;
 
@@ -276,6 +296,19 @@ const TrafficTemplateCard = ({ template, isFavorite, onToggleFavorite }: Traffic
         <div className="relative aspect-[16/9] bg-gray-100">
           <img src={template.previewUrl} alt={template.title} className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDoSame(template);
+            }}
+            className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+            aria-label="做同款"
+          >
+            <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
+              做同款
+            </div>
+          </button>
           <button
             type="button"
             onClick={(e) => {
@@ -308,9 +341,10 @@ type TeamTemplateCardProps = {
   title: string;
   previewUrl?: string;
   teamName: string;
+  onDoSame: (payload: { title: string; previewUrl?: string }) => void;
 };
 
-const TeamTemplateCard = ({ title, previewUrl, teamName }: TeamTemplateCardProps) => {
+const TeamTemplateCard = ({ title, previewUrl, teamName, onDoSame }: TeamTemplateCardProps) => {
   return (
     <div className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2">
       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
@@ -325,6 +359,19 @@ const TeamTemplateCard = ({ title, previewUrl, teamName }: TeamTemplateCardProps
           </div>
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDoSame({ title, previewUrl });
+          }}
+          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          aria-label="做同款"
+        >
+          <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
+            做同款
+          </div>
+        </button>
       </div>
 
       <div className="flex items-center gap-2 px-1">
@@ -337,13 +384,76 @@ const TeamTemplateCard = ({ title, previewUrl, teamName }: TeamTemplateCardProps
   );
 };
 
-export default function Templates() {
+type TemplatesScope = 'public' | 'team';
+
+type FakeTemplateResult = {
+  id: string;
+  title: string;
+  previewUrl: string;
+  elements: string[];
+};
+
+function buildMockSvgDataUrl(seed: string, title: string) {
+  const safeTitle = title.replace(/[<>&"]/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1600" viewBox="0 0 900 1600">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8F7AFB" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#111827" stop-opacity="0.90"/>
+    </linearGradient>
+    <filter id="n" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" seed="${seed}"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.12 0"/>
+    </filter>
+  </defs>
+  <rect width="900" height="1600" fill="url(#g)"/>
+  <rect width="900" height="1600" filter="url(#n)" opacity="0.6"/>
+  <rect x="48" y="64" width="804" height="120" rx="32" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.22)"/>
+  <text x="84" y="140" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="44" font-weight="800" fill="white">${safeTitle}</text>
+  <text x="84" y="220" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="28" font-weight="600" fill="rgba(255,255,255,0.78)">可复用模板 · Fake Search Result</text>
+  <rect x="48" y="280" width="804" height="1240" rx="48" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.18)"/>
+  <text x="84" y="360" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="30" font-weight="700" fill="rgba(255,255,255,0.92)">预览图</text>
+  <text x="84" y="410" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="22" font-weight="600" fill="rgba(255,255,255,0.7)">seed: ${seed}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function buildFakeTemplateResults(query: string, count: number): FakeTemplateResult[] {
+  const q = query.trim() || '小狗';
+  const baseElements = [
+    `主体：${q}`,
+    '风格：清爽极简',
+    '色彩：紫色点缀',
+    '版式：竖版 9:16',
+  ];
+  return Array.from({ length: count }).map((_, i) => {
+    const seed = `${q}-${i + 1}`;
+    const title = `${q} 模板 ${i + 1}`;
+    const elements = [
+      ...baseElements,
+      i % 2 === 0 ? '元素：标题文案' : '元素：卖点标签',
+      i % 3 === 0 ? '元素：按钮 CTA' : '元素：角标',
+    ];
+    return {
+      id: `fake-${seed}`,
+      title,
+      previewUrl: buildMockSvgDataUrl(seed, title),
+      elements,
+    };
+  });
+}
+
+export default function Templates({ scope: scopeOverride }: { scope?: TemplatesScope }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { teams, projects } = useProject();
+  const { createProject, saveProject } = useProject();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [visibleSectionsCount, setVisibleSectionsCount] = useState(3);
   const [trafficRankTab, setTrafficRankTab] = useState<'click' | 'use'>('click');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [elementDraftById, setElementDraftById] = useState<Record<string, string>>({});
+  const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const [teamTemplateFavorites, setTeamTemplateFavorites] = useState<Set<string>>(() => {
     const raw = localStorage.getItem(TEAM_TEMPLATE_FAVORITES_KEY);
     if (!raw) return new Set();
@@ -357,8 +467,24 @@ export default function Templates() {
   });
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const scope = searchParams.get('scope') === 'team' ? 'team' : 'public';
   const teamId = searchParams.get('teamId') || 'team-1';
+  const scope: TemplatesScope = scopeOverride ?? (location.pathname === '/team-templates' ? 'team' : 'public');
+
+  useEffect(() => {
+    if (scopeOverride) return;
+    const params = new URLSearchParams(location.search);
+    const legacyScope = params.get('scope');
+    if (location.pathname === '/templates' && legacyScope === 'team') {
+      params.delete('scope');
+      if (!params.get('teamId')) params.set('teamId', 'team-1');
+      navigate({ pathname: '/team-templates', search: params.toString() }, { replace: true });
+      return;
+    }
+    if (location.pathname === '/team-templates' && legacyScope === 'public') {
+      params.delete('scope');
+      navigate({ pathname: '/templates', search: params.toString() }, { replace: true });
+    }
+  }, [location.pathname, location.search, navigate, scopeOverride]);
 
   const projectById = useMemo(() => {
     return new Map(projects.map(project => [project.id, project]));
@@ -415,17 +541,6 @@ export default function Templates() {
     navigate({ pathname: location.pathname, search: nextParams.toString() }, { replace: false });
   };
 
-  const handleScopeChange = (nextScope: 'public' | 'team') => {
-    const nextParams = new URLSearchParams(location.search);
-    nextParams.set('scope', nextScope);
-    if (nextScope === 'public') {
-      nextParams.delete('teamId');
-    } else if (!nextParams.get('teamId')) {
-      nextParams.set('teamId', 'team-1');
-    }
-    navigate({ pathname: location.pathname, search: nextParams.toString() }, { replace: false });
-  };
-
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -461,76 +576,73 @@ export default function Templates() {
       .filter(section => section.items.length > 0);
   }, [projectById, resolvedTeamId, teams]);
 
+  const trimmedQuery = searchQuery.trim();
+
+  const fakeSearchResults = useMemo(() => {
+    if (!trimmedQuery) return [];
+    return buildFakeTemplateResults(trimmedQuery, 10);
+  }, [trimmedQuery]);
+
+  const openInNewTab = (path: string) => {
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const doSameFromPreview = (title: string, previewUrl: string, width: number, height: number) => {
+    const id = crypto.randomUUID();
+    const name = title.trim() ? `${title}（同款）` : '同款设计';
+    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    createProject(width, height, name, {
+      id,
+      elements: makeTemplateElements(previewUrl, width, height),
+      thumbnail: previewUrl,
+      sourceType: 'manual',
+    });
+    requestAnimationFrame(() => {
+      saveProject();
+      if (popup) popup.location.href = `${window.location.origin}${import.meta.env.BASE_URL}#/editor?projectId=${encodeURIComponent(id)}`;
+      else openInNewTab(`/editor?projectId=${encodeURIComponent(id)}`);
+    });
+  };
+
+  const handleDoSameTemplateCard = (item: Template) => {
+    doSameFromPreview(item.title, item.imageUrl, 1080, 1920);
+  };
+
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden">
       {/* Content Scroll Area */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-[1320px] mx-auto w-full px-8 py-6 space-y-10 pb-20">
-          
-          {/* Standard Header */}
-          <header className="mb-8 flex items-start justify-between gap-4">
-            <div className="space-y-3">
-              <div className="text-xl text-gray-500 font-medium">
-                {scope === 'public' ? (
-                  <>
-                    模版社区 <span className="mx-2">|</span> 探索高质量设计模版，激发无限创意
-                  </>
-                ) : (
-                  <>
-                    团队模版 <span className="mx-2">|</span> 在团队内复用设计资产
-                  </>
-                )}
-              </div>
-              <div className="inline-flex items-center rounded-full bg-gray-100 p-1 border border-black/5">
-                <button
-                  type="button"
-                  onClick={() => handleScopeChange('public')}
-                  className={clsx(
-                    'h-9 px-4 rounded-full text-sm font-medium transition-all',
-                    scope === 'public' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                  )}
-                >
-                  公共模板
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleScopeChange('team')}
-                  className={clsx(
-                    'h-9 px-4 rounded-full text-sm font-medium transition-all',
-                    scope === 'team' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                  )}
-                >
-                  我的团队模版
-                </button>
-              </div>
-            </div>
-            <button onClick={() => navigate('/editor')} className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-300">
-              <Plus size={20} />
-              创建新设计
-            </button>
-          </header>
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="relative group max-w-2xl flex-1 min-w-[280px]">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
-                <Search size={20} />
+            <div className="flex items-center gap-3 flex-1 min-w-[280px]">
+              <div className="relative group max-w-2xl flex-1 min-w-[280px]">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
+                  <Search size={20} />
+                </div>
+                <input
+                  type="text"
+                  placeholder={scope === 'public' ? '搜索公共模板…' : '搜索团队模板…'}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-12 pl-12 pr-12 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-xl outline-none transition-all text-sm"
+                />
+                <button
+                  type="button"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
+                  aria-label="以图搜图"
+                >
+                  <Camera size={20} />
+                </button>
               </div>
-              <input
-                type="text"
-                placeholder={scope === 'public' ? '搜索模版、风格或场景...' : '搜索团队模版...'}
-                className="w-full h-12 pl-12 pr-12 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-xl outline-none transition-all text-sm"
-              />
-              <button className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors">
-                <Camera size={20} />
-              </button>
-            </div>
-            {scope === 'team' && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">团队</span>
+              {scope === 'team' && (
                 <select
                   value={resolvedTeamId}
                   onChange={(e) => updateSearchParam('teamId', e.target.value)}
-                  className="h-10 px-4 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-full outline-none transition-all text-sm text-gray-700"
+                  className="h-12 px-4 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-xl outline-none transition-all text-sm text-gray-700"
+                  aria-label="选择团队"
                 >
                   {teamOptions.map(option => (
                     <option key={option.id} value={option.id}>
@@ -538,11 +650,111 @@ export default function Templates() {
                     </option>
                   ))}
                 </select>
-              </div>
-            )}
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const url = `${window.location.origin}${import.meta.env.BASE_URL}#/editor`;
+                window.open(url, '_blank', 'noopener,noreferrer');
+              }}
+              className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition-colors"
+            >
+              <Plus size={20} />
+              创建新设计
+            </button>
           </div>
 
-          {scope === 'public' ? (
+          {trimmedQuery ? (
+            <section className="space-y-4">
+              <div className="flex items-end justify-between gap-4 flex-wrap">
+                <div className="space-y-1">
+                  <h2 className="text-xl font-bold text-gray-900">搜索结果</h2>
+                  <p className="text-xs text-gray-500">关键词：{trimmedQuery} · {fakeSearchResults.length} 条</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    setEditingElementId(null);
+                  }}
+                  className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  清除
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {fakeSearchResults.map((item) => {
+                  const draft = elementDraftById[item.id] ?? item.elements.join('，');
+                  const isEditing = editingElementId === item.id;
+                  const elements = (elementDraftById[item.id] ?? item.elements.join('，'))
+                    .split(/[,，、\n]/g)
+                    .map((x) => x.trim())
+                    .filter(Boolean)
+                    .slice(0, 12);
+
+                  return (
+                    <div key={item.id} className="group flex flex-col gap-2">
+                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
+                        <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                        <button
+                          type="button"
+                          onClick={() => doSameFromPreview(item.title, item.previewUrl, 1080, 1920)}
+                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
+                            做同款
+                          </div>
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-sm font-semibold text-gray-900 truncate">{item.title}</div>
+                          <button
+                            type="button"
+                            onClick={() => setEditingElementId((prev) => (prev === item.id ? null : item.id))}
+                            className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                            aria-label="编辑元素字段"
+                            title="编辑元素字段"
+                          >
+                            <PencilLine size={16} />
+                          </button>
+                        </div>
+
+                        {isEditing ? (
+                          <input
+                            value={draft}
+                            onChange={(e) => setElementDraftById((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') setEditingElementId(null);
+                            }}
+                            onBlur={() => setEditingElementId(null)}
+                            className="w-full h-10 px-3 rounded-xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm"
+                            placeholder="元素：主体、背景、风格…（用逗号分隔）"
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {elements.map((el) => (
+                              <span
+                                key={`${item.id}-${el}`}
+                                className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
+                              >
+                                {el}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ) : scope === 'public' ? (
             <>
               {sections.slice(0, visibleSectionsCount).map((section) => (
                 <section key={section.id} className="space-y-4">
@@ -565,7 +777,7 @@ export default function Templates() {
 
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300">
                     {(expandedSections[section.id] ? section.items : section.items.slice(0, 6)).map((item) => (
-                      <TemplateCard key={item.id} item={item} />
+                      <TemplateCard key={item.id} item={item} onDoSame={handleDoSameTemplateCard} />
                     ))}
                   </div>
                 </section>
@@ -623,6 +835,7 @@ export default function Templates() {
                         template={template}
                         isFavorite={teamTemplateFavorites.has(template.id)}
                         onToggleFavorite={toggleTeamTemplateFavorite}
+                        onDoSame={(t) => doSameFromPreview(t.title, t.previewUrl, 1920, 1080)}
                       />
                     ))}
                   </div>
@@ -658,6 +871,10 @@ export default function Templates() {
                           title={item.title}
                           previewUrl={item.previewUrl}
                           teamName={item.teamName}
+                          onDoSame={(payload) => {
+                            const url = payload.previewUrl || buildMockSvgDataUrl(payload.title, payload.title);
+                            doSameFromPreview(payload.title, url, 1080, 1920);
+                          }}
                         />
                       ))}
                     </div>

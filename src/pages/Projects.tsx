@@ -81,7 +81,7 @@ function getDefaultPublicProjects(): PublicProject[] {
   return [
     {
       id: 'public-1',
-      name: '电商大促主视觉',
+      name: '双11 电商大促主视觉',
       width: 1920,
       height: 1080,
       thumbnail: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80',
@@ -91,7 +91,7 @@ function getDefaultPublicProjects(): PublicProject[] {
     },
     {
       id: 'public-2',
-      name: '新品发布长图',
+      name: '春节 新品发布长图',
       width: 1080,
       height: 1920,
       thumbnail: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&q=80',
@@ -101,7 +101,7 @@ function getDefaultPublicProjects(): PublicProject[] {
     },
     {
       id: 'public-3',
-      name: '品牌KV留白版',
+      name: '情人节 品牌KV留白版',
       width: 1920,
       height: 1080,
       thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200&q=80',
@@ -111,13 +111,93 @@ function getDefaultPublicProjects(): PublicProject[] {
     },
     {
       id: 'public-4',
-      name: '活动海报模板',
+      name: '母亲节 活动海报模板',
       width: 1242,
       height: 2208,
       thumbnail: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 30,
       authorName: '社区作者D',
+    },
+    {
+      id: 'public-5',
+      name: '端午 节日促销海报（国潮）',
+      width: 1242,
+      height: 2208,
+      thumbnail: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 40,
+      authorName: '社区作者E',
+    },
+    {
+      id: 'public-6',
+      name: '中秋 团圆礼盒 Banner（红金）',
+      width: 1920,
+      height: 1080,
+      thumbnail: 'https://images.unsplash.com/photo-1548625361-9f9392e2133f?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 52,
+      authorName: '社区作者F',
+    },
+    {
+      id: 'public-7',
+      name: '国庆 出游季营销KV（清爽）',
+      width: 1920,
+      height: 1080,
+      thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 70,
+      authorName: '社区作者G',
+    },
+    {
+      id: 'public-8',
+      name: '圣诞 节日氛围海报（雪景）',
+      width: 1242,
+      height: 2208,
+      thumbnail: 'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 90,
+      authorName: '社区作者H',
+    },
+    {
+      id: 'public-9',
+      name: '元旦 新年倒计时海报（极简）',
+      width: 1242,
+      height: 2208,
+      thumbnail: 'https://images.unsplash.com/photo-1545231097-cbd796f1d95d?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 110,
+      authorName: '社区作者I',
+    },
+    {
+      id: 'public-10',
+      name: '元宵 灯会活动宣传（暖色）',
+      width: 1242,
+      height: 2208,
+      thumbnail: 'https://images.unsplash.com/photo-1516455207990-7a41ce80f7ee?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 130,
+      authorName: '社区作者J',
+    },
+    {
+      id: 'public-11',
+      name: '三八 女神节 会员福利海报',
+      width: 1242,
+      height: 2208,
+      thumbnail: 'https://images.unsplash.com/photo-1520975916090-3105956dac38?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 150,
+      authorName: '社区作者K',
+    },
+    {
+      id: 'public-12',
+      name: '五一 劳动节 出游攻略长图',
+      width: 1080,
+      height: 1920,
+      thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80',
+      elements: [],
+      publishedAt: now - 1000 * 60 * 60 * 170,
+      authorName: '社区作者L',
     },
   ];
 }
@@ -146,7 +226,6 @@ export default function Projects() {
     exportFolderByAssetId,
     currentProject,
     isDirty,
-    loadProject,
     deleteProject,
     createProject,
     updateProject,
@@ -161,6 +240,14 @@ export default function Projects() {
   const space: SpaceMode = location.pathname.startsWith('/public') ? 'public' : 'personal';
   const [view, setView] = useState<SpaceView>('projects');
   const [favoritesTab, setFavoritesTab] = useState<'inspiration' | 'prompts' | 'templates'>('inspiration');
+  const publicTemplateQuery = useMemo(() => {
+    if (space !== 'public') return '';
+    const params = new URLSearchParams(location.search);
+    return params.get('q') || '';
+  }, [space, location.search]);
+  const [publicSearchDraft, setPublicSearchDraft] = useState('');
+  const [publicTemplateElementDraftById, setPublicTemplateElementDraftById] = useState<Record<string, string>>({});
+  const [editingPublicTemplateElementId, setEditingPublicTemplateElementId] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const [isCreateCanvasModalOpen, setIsCreateCanvasModalOpen] = useState(false);
   const [personalSpaceTitle, setPersonalSpaceTitle] = useState(() => {
@@ -220,6 +307,29 @@ export default function Projects() {
   const visibleProjects = useMemo(() => {
     return space === 'public' ? publicProjects : projects;
   }, [space, publicProjects, projects]);
+  const filteredVisibleProjects = useMemo(() => {
+    if (space !== 'public') return visibleProjects;
+    const normalized = publicTemplateQuery.trim().toLowerCase();
+    if (!normalized) return visibleProjects;
+    return visibleProjects.filter((p: any) => {
+      const name = typeof p?.name === 'string' ? p.name.toLowerCase() : '';
+      return name.includes(normalized);
+    });
+  }, [space, visibleProjects, publicTemplateQuery]);
+
+  useEffect(() => {
+    if (space !== 'public') return;
+    setPublicSearchDraft(publicTemplateQuery);
+  }, [space, publicTemplateQuery]);
+
+  const commitPublicSearch = (value: string) => {
+    const next = value.trim();
+    if (!next) {
+      navigate('/public?module=projects');
+      return;
+    }
+    navigate(`/public?module=projects&q=${encodeURIComponent(next)}`);
+  };
 
   const selectedTeam = useMemo(() => {
     if (!selectedTeamId) return null;
@@ -421,8 +531,9 @@ export default function Projects() {
   };
 
   const handleProjectClick = (id: string) => {
-    loadProject(id);
-    navigate('/editor');
+    const path = `/editor?projectId=${encodeURIComponent(id)}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
@@ -596,29 +707,177 @@ export default function Projects() {
       doToast('已达到个人文件数量上限 (5个)');
       return;
     }
-    const name = `${publicProject.name}（复用）`;
+    const id = crypto.randomUUID();
+    const name = `${publicProject.name}（同款）`;
+    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
     createProject(publicProject.width, publicProject.height, name, {
+      id,
       elements: publicProject.elements || [],
       thumbnail: publicProject.thumbnail,
       sourceType: publicProject.sourceType,
       aiResizeBinding: publicProject.aiResizeBinding,
     });
-    saveProject();
-    navigate('/editor');
+    requestAnimationFrame(() => {
+      saveProject();
+      const path = `/editor?projectId=${encodeURIComponent(id)}`;
+      const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
+      if (popup) popup.location.href = url;
+      else window.open(url, '_blank', 'noopener,noreferrer');
+    });
+  };
+
+  const doSameFromPreview = (title: string, previewUrl: string, width: number, height: number) => {
+    if (projects.length >= 5) {
+      doToast('已达到个人文件数量上限 (5个)');
+      return;
+    }
+    const id = crypto.randomUUID();
+    const name = title.trim() ? `${title}（同款）` : '同款设计';
+    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    createProject(width, height, name, {
+      id,
+      elements: makeTemplateElements(previewUrl, width, height),
+      thumbnail: previewUrl,
+      sourceType: 'manual',
+    });
+    requestAnimationFrame(() => {
+      saveProject();
+      const path = `/editor?projectId=${encodeURIComponent(id)}`;
+      const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
+      if (popup) popup.location.href = url;
+      else window.open(url, '_blank', 'noopener,noreferrer');
+    });
   };
 
   const renderProjectsView = () => {
-    if (visibleProjects.length === 0) {
-      if (space === 'public') {
+    const projectsToRender = space === 'public' ? filteredVisibleProjects : visibleProjects;
+
+    if (projectsToRender.length === 0 && space === 'public') {
+      const q = publicTemplateQuery.trim();
+      if (q) {
+        const buildMockSvgDataUrl = (seed: string, title: string) => {
+          const safeTitle = title.replace(/[<>&"]/g, '');
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8F7AFB" stop-opacity="0.94"/>
+      <stop offset="1" stop-color="#111827" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="n" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" seed="${seed}"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.10 0"/>
+    </filter>
+  </defs>
+  <rect width="900" height="1200" fill="url(#g)"/>
+  <rect width="900" height="1200" filter="url(#n)" opacity="0.55"/>
+  <rect x="44" y="54" width="812" height="108" rx="28" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.22)"/>
+  <text x="84" y="126" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="42" font-weight="900" fill="white">${safeTitle}</text>
+  <text x="84" y="192" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="22" font-weight="700" fill="rgba(255,255,255,0.78)">Fake 公共模板搜索结果</text>
+  </svg>`;
+          return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        };
+
+        const fakeResults = Array.from({ length: 10 }).map((_, i) => {
+          const title = `${q} 模板 ${i + 1}`;
+          const id = `fake-public-${q}-${i + 1}`;
+          const previewUrl = buildMockSvgDataUrl(`${q}-${i + 1}`, title);
+          const elements = [
+            `主体：${q}`,
+            '风格：清爽极简',
+            '色彩：紫色点缀',
+            '元素：标题文案',
+            i % 2 === 0 ? '元素：卖点标签' : '元素：角标',
+            i % 3 === 0 ? '元素：CTA' : '元素：日期/价格',
+          ];
+          return { id, title, previewUrl, elements };
+        });
+
         return (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <h3 className="text-lg font-semibold text-gray-900">公共空间暂无作品</h3>
-            <p className="text-sm text-gray-500 max-w-sm mt-2">
-              先在个人空间把设计发布到公共空间，这里会展示社区作品。
-            </p>
+          <div className="space-y-4">
+            <div className="flex items-end justify-between gap-3 flex-wrap">
+              <div className="space-y-1">
+                <div className="text-sm font-semibold text-gray-900">搜索结果：{q}</div>
+                <div className="text-xs text-gray-500">为你生成了 {fakeResults.length} 条假结果</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {fakeResults.map((item) => {
+                const draft = publicTemplateElementDraftById[item.id] ?? item.elements.join('，');
+                const isEditing = editingPublicTemplateElementId === item.id;
+                const chips = draft
+                  .split(/[,，、\n]/g)
+                  .map((x) => x.trim())
+                  .filter(Boolean)
+                  .slice(0, 12);
+                return (
+                  <div key={item.id} className="group relative rounded-2xl border border-black/5 bg-white overflow-hidden hover:border-black/10 hover:shadow-sm transition-all duration-200">
+                    <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                      <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      <button
+                        type="button"
+                        onClick={() => doSameFromPreview(item.title, item.previewUrl, 1080, 1920)}
+                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="做同款"
+                      >
+                        <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
+                          做同款
+                        </div>
+                      </button>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="text-sm font-semibold text-gray-900 truncate">{item.title}</div>
+                        <button
+                          type="button"
+                          onClick={() => setEditingPublicTemplateElementId((prev) => (prev === item.id ? null : item.id))}
+                          className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                          aria-label="编辑元素字段"
+                          title="编辑元素字段"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      </div>
+                      {isEditing ? (
+                        <input
+                          value={draft}
+                          onChange={(e) => setPublicTemplateElementDraftById((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') setEditingPublicTemplateElementId(null);
+                          }}
+                          onBlur={() => setEditingPublicTemplateElementId(null)}
+                          className="w-full h-10 px-3 rounded-xl bg-white border border-black/10 outline-none focus:border-black/20 text-sm"
+                          placeholder="主体、背景、风格…（用逗号分隔）"
+                          autoFocus
+                        />
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {chips.map((c) => (
+                            <span
+                              key={`${item.id}-${c}`}
+                              className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
+                            >
+                              {c}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       }
+      return (
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <h3 className="text-lg font-semibold text-gray-900">公共空间暂无作品</h3>
+          <p className="text-sm text-gray-500 max-w-sm mt-2">
+            先在个人空间把设计发布到公共空间，这里会展示社区作品。
+          </p>
+        </div>
+      );
     }
 
     return (
@@ -645,7 +904,7 @@ export default function Projects() {
             </div>
           </button>
         )}
-        {visibleProjects.map((project: any) => (
+        {projectsToRender.map((project: any) => (
           <div
             key={project.id}
             onClick={() => {
@@ -671,12 +930,19 @@ export default function Projects() {
                   <Share2 size={16} />
                 </button>
               ) : (
-                <div className="absolute left-3 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-white/90 border border-black/10 text-gray-900 text-xs font-semibold">
-                    <PackagePlus size={14} />
-                    一键复用
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleForkPublicProject(project as PublicProject);
+                  }}
+                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="做同款"
+                >
+                  <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
+                    做同款
                   </div>
-                </div>
+                </button>
               )}
             </div>
 
@@ -697,6 +963,82 @@ export default function Projects() {
                 <Clock size={12} />
                 <span>{new Date(space === 'public' ? project.publishedAt : project.lastModified).toLocaleDateString()}</span>
               </div>
+              {space === 'public' && publicTemplateQuery.trim() && (
+                <div className="mt-3">
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {Array.from({ length: 10 }).map((_, i) => {
+                      const base = typeof project.thumbnail === 'string' && project.thumbnail ? project.thumbnail : 'https://images.unsplash.com/photo-1548625361-9f9392e2133f?w=1200&q=80';
+                      const src = base.includes('?')
+                        ? `${base}&sig=${encodeURIComponent(`${project.id}-${publicTemplateQuery}-${i}`)}`
+                        : `${base}?sig=${encodeURIComponent(`${project.id}-${publicTemplateQuery}-${i}`)}`;
+                      return (
+                        <div key={`${project.id}-${i}`} className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-black/5">
+                          <img src={src} alt="" className="w-full h-full object-cover" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3">
+                    {(() => {
+                      const fallback = `主体：${publicTemplateQuery.trim() || project.name}，风格：清爽极简，背景：纯色，元素：标题文案，元素：卖点标签，元素：CTA`;
+                      const draft = publicTemplateElementDraftById[project.id] ?? fallback;
+                      const isEditing = editingPublicTemplateElementId === project.id;
+                      const chips = draft
+                        .split(/[,，、\n]/g)
+                        .map((x) => x.trim())
+                        .filter(Boolean)
+                        .slice(0, 12);
+                      return (
+                        <div
+                          className="rounded-2xl bg-gray-50 border border-black/5 p-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs font-semibold text-gray-700">元素</div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingPublicTemplateElementId((prev) => (prev === project.id ? null : project.id));
+                              }}
+                              className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                              aria-label="编辑元素字段"
+                              title="编辑元素字段"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                          </div>
+                          {isEditing ? (
+                            <input
+                              value={draft}
+                              onChange={(e) => setPublicTemplateElementDraftById((prev) => ({ ...prev, [project.id]: e.target.value }))}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') setEditingPublicTemplateElementId(null);
+                              }}
+                              onBlur={() => setEditingPublicTemplateElementId(null)}
+                              onClick={(e) => e.stopPropagation()}
+                              className="mt-2 w-full h-10 px-3 rounded-xl bg-white border border-black/10 outline-none focus:border-black/20 text-sm"
+                              placeholder="主体、背景、风格…（用逗号分隔）"
+                              autoFocus
+                            />
+                          ) : (
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {chips.map((c) => (
+                                <span
+                                  key={`${project.id}-${c}`}
+                                  className="inline-flex items-center h-6 px-2 rounded-full bg-white border border-black/5 text-[11px] font-semibold text-gray-700"
+                                >
+                                  {c}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -2059,7 +2401,7 @@ export default function Projects() {
                 公共空间 <span className="mx-2">|</span> 社区作品浏览与复用
               </div>
               <div className="text-xs text-gray-400 mt-2">
-                作品 {visibleProjects.length}
+                作品 {filteredVisibleProjects.length}
               </div>
             </div>
             <button
@@ -2143,7 +2485,67 @@ export default function Projects() {
             </div>
           ) : (
             <div>
-              {space === 'public' && renderProjectsView()}
+              {space === 'public' && (
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-gray-900">
+                        {publicTemplateQuery.trim() ? `搜索结果：${publicTemplateQuery.trim()}` : '搜索公共模板'}
+                      </div>
+                      {publicTemplateQuery.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => commitPublicSearch('')}
+                          className="text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+                        >
+                          清除搜索
+                        </button>
+                      )}
+                    </div>
+                    <div className="relative">
+                      <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        value={publicSearchDraft}
+                        onChange={(e) => setPublicSearchDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') commitPublicSearch(publicSearchDraft);
+                        }}
+                        placeholder="搜索节日模板：春节 / 情人节 / 母亲节 / 端午 / 中秋 / 国庆 / 双11 / 圣诞 ..."
+                        className="w-full h-12 pl-11 pr-24 rounded-2xl border border-black/10 bg-white focus:border-black/25 outline-none text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => commitPublicSearch(publicSearchDraft)}
+                        disabled={!publicSearchDraft.trim()}
+                        className={clsx(
+                          'absolute right-2 top-1/2 -translate-y-1/2 h-9 px-4 rounded-xl text-sm font-semibold transition-colors',
+                          publicSearchDraft.trim()
+                            ? 'bg-black text-white hover:bg-gray-900'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        )}
+                      >
+                        搜索
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {['春节', '元宵', '情人节', '女神节', '母亲节', '端午', '中秋', '国庆', '双11', '圣诞', '元旦'].map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => commitPublicSearch(k)}
+                          className="h-8 px-3 rounded-full text-xs font-semibold bg-gray-50 border border-black/10 text-gray-700 hover:bg-gray-100 transition-colors"
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      共 {filteredVisibleProjects.length} 个结果
+                    </div>
+                  </div>
+                  {renderProjectsView()}
+                </div>
+              )}
               {space === 'personal' && view === 'projects' && renderProjectsView()}
               {space === 'personal' && view === 'assets' && renderAssetsModule()}
               {space === 'personal' && view === 'favorites' && renderFavoritesModule()}

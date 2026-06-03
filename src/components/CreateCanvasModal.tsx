@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { X, Layout, Smartphone, Monitor, AlertCircle, ArrowRight } from 'lucide-react';
 import clsx from 'clsx';
 import { useProject } from '../context/ProjectContext';
@@ -31,8 +30,7 @@ const PRESETS = {
 };
 
 export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModalProps) {
-  const navigate = useNavigate();
-  const { isDirty, createProject } = useProject();
+  const { isDirty } = useProject();
   const [step, setStep] = useState<Step>('selection');
   const [activeTab, setActiveTab] = useState<Tab>('common');
   const [selectedSize, setSelectedSize] = useState<{ width: number; height: number } | null>(null);
@@ -63,9 +61,10 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
     }
 
     if (width && height) {
-      createProject(width, height);
+      const path = `/editor?width=${encodeURIComponent(String(width))}&height=${encodeURIComponent(String(height))}`;
+      const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
       handleClose();
-      navigate('/editor');
     }
   };
 
@@ -75,7 +74,6 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
 
   const handleResumeEditing = () => {
     onClose();
-    navigate('/editor');
   };
 
   const handleClose = () => {
@@ -116,7 +114,7 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
             </div>
             <h2 className="text-2xl font-bold">Create New Canvas?</h2>
             <div className="text-gray-500 max-w-sm">
-              <p className="inline">新建画布将清空</p>
+              <p className="inline">当前画布有未保存改动。新建画布会在新标签页打开，不会影响</p>
               <button 
                 onClick={handleResumeEditing}
                 className="inline-flex items-center gap-1 mx-1 text-accent-primary font-medium hover:underline align-baseline"
@@ -124,14 +122,14 @@ export default function CreateCanvasModal({ isOpen, onClose }: CreateCanvasModal
                 当前画布
                 <ArrowRight size={14} />
               </button>
-              <p className="inline">内容，此操作无法撤销。是否确认继续？</p>
+              <p className="inline">。</p>
             </div>
             <div className="flex gap-4 mt-4">
               <button 
                 onClick={handleResumeEditing}
                 className="btn-secondary min-w-[120px]"
               >
-                取消
+                继续编辑
               </button>
               <button 
                 onClick={handleWarningConfirm}

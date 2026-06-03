@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ElementType } from 'react';
-import { Briefcase, Building2, Folder, Home, Image as ImageIcon, Layers, Plus, Sparkles, Users } from 'lucide-react';
+import { Building2, Folder, Home, Image as ImageIcon, Layers, Plus, Sparkles, Users } from 'lucide-react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 
@@ -13,6 +13,11 @@ export default function Sidebar() {
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
+  const openInNewTab = (path: string) => {
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -24,20 +29,16 @@ export default function Sidebar() {
     };
   }, []);
 
-  const searchParams = new URLSearchParams(location.search);
-  const templateScope = searchParams.get('scope') === 'team' ? 'team' : 'public';
-
   return (
     <aside className="fixed left-0 top-0 h-screen w-20 bg-white border-r border-gray-100 z-50 flex flex-col items-center py-6 gap-3">
       <CreateCanvasModal isOpen={isCanvasModalOpen} onClose={() => setIsCanvasModalOpen(false)} />
 
-      <NavLink to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-black/20">
+      <NavLink to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl">
         D
       </NavLink>
 
       <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2">
         <IconNavLink icon={Home} label="首页" to="/" />
-        <IconNavLink icon={Briefcase} label="工作间" to="/workroom" />
         <IconNavLink icon={Folder} label="个人空间" to="/projects" />
         <IconNavLink icon={Layers} label="图层库" to="/layer-library" />
 
@@ -47,8 +48,8 @@ export default function Sidebar() {
               type="button"
               onClick={() => setIsCreateMenuOpen((v) => !v)}
               className={clsx(
-                'p-3 rounded-xl transition-all duration-200 flex items-center justify-center w-full',
-                isCreateMenuOpen ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
+                'p-3 rounded-xl transition-colors duration-200 flex items-center justify-center w-full',
+                isCreateMenuOpen ? 'bg-black text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
               )}
               aria-label="新建画布"
             >
@@ -71,7 +72,7 @@ export default function Sidebar() {
                 type="button"
                 onClick={() => {
                   setIsCreateMenuOpen(false);
-                  navigate('/public-canvas');
+                  openInNewTab('/public-canvas');
                 }}
                 className="w-full px-3 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
               >
@@ -88,14 +89,12 @@ export default function Sidebar() {
         <IconNavLink
           icon={Users}
           label="社区"
-          to="/templates?scope=public"
-          forceActive={location.pathname === '/templates' && templateScope === 'public'}
+          to="/templates"
         />
         <IconNavLink
           icon={Building2}
           label="团队"
-          to="/templates?scope=team"
-          forceActive={location.pathname === '/templates' && templateScope === 'team'}
+          to="/team-templates"
         />
       </nav>
     </aside>
@@ -119,8 +118,8 @@ function IconNavLink({
         to={to}
         className={({ isActive }) =>
           clsx(
-            'p-3 rounded-xl transition-all duration-200 group relative flex items-center justify-center w-full',
-            forceActive ?? isActive ? 'bg-black text-white shadow-lg shadow-black/20' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
+            'p-3 rounded-xl transition-colors duration-200 group relative flex items-center justify-center w-full',
+            forceActive ?? isActive ? 'bg-black text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
           )
         }
         aria-label={label}

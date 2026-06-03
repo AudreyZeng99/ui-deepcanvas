@@ -3,7 +3,7 @@ import { Wand2, LayoutTemplate, Share2 } from 'lucide-react';
 import { useToast } from '../components/ToastProvider';
 import { createP2PShareRecord } from '../utils/p2pShare';
 
-const inspirationCategories = [
+export const inspirationCategories = [
   {
     id: 'backgrounds',
     title: '背景底图',

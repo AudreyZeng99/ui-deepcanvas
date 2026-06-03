@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   MousePointer2, 
   Hand, 
@@ -114,9 +115,15 @@ import { useProject } from '../context/ProjectContext';
 import { useToast } from '../components/ToastProvider';
 
 export default function Editor() {
-  const { currentProject, createProject, updateProject, saveProject, markAsDirty, isDirty, validateSave, projects, recordExportedAsset } = useProject();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { currentProject, createProject, updateProject, saveProject, loadProject, markAsDirty, isDirty, validateSave, projects, recordExportedAsset } = useProject();
   const toast = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
+  const appMenuRef = useRef<HTMLDivElement | null>(null);
+  const [pendingAutoSaveElements, setPendingAutoSaveElements] = useState<any[] | null>(null);
+  const [pendingAutoSaveName, setPendingAutoSaveName] = useState<string | null>(null);
   
   // Element Management
   interface CanvasElement {
@@ -134,6 +141,25 @@ export default function Editor() {
   const elementsRef = useRef<CanvasElement[]>([]);
   const isUpdatingSelection = useRef(false);
   const handleSaveWrapperRef = useRef<() => void>(() => {});
+
+  const openInNewTab = (path: string) => {
+    const normalized = path.startsWith('/') ? path : `/${path}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  useEffect(() => {
+    if (!isAppMenuOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      const target = event.target as Node;
+      if (appMenuRef.current && appMenuRef.current.contains(target)) return;
+      setIsAppMenuOpen(false);
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isAppMenuOpen]);
 
   const isFirstRender = useRef(true);
   const [showRenameModal, setShowRenameModal] = useState(false);
@@ -316,10 +342,55 @@ export default function Editor() {
   }, [dragState, selectedElement, zoom]);
 
   useEffect(() => {
-    if (!currentProject) {
-      createProject(1920, 1080);
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('projectId');
+    const duplicateOf = params.get('duplicateOf');
+    const width = Number(params.get('width') || 0);
+    const height = Number(params.get('height') || 0);
+
+    if (projectId) {
+      if (currentProject?.id === projectId) return;
+      const exists = projects.some((p) => p.id === projectId);
+      if (exists) {
+        loadProject(projectId);
+        return;
+      }
     }
-  }, []);
+
+    if (duplicateOf) {
+      if (currentProject) return;
+      const source = projects.find((p) => p.id === duplicateOf);
+      if (source) {
+        const baseName = source.name.trim() ? source.name.trim() : '未命名设计';
+        const existsName = (n: string) => projects.some((p) => p.name === n);
+        let nextName = `${baseName}（副本）`;
+        if (existsName(nextName)) {
+          let i = 2;
+          while (existsName(`${baseName}（副本 ${i}）`) && i < 50) i += 1;
+          nextName = i >= 50 ? `${baseName}（副本 ${Date.now()}）` : `${baseName}（副本 ${i}）`;
+        }
+
+        const sourceElements = Array.isArray(source.elements) ? source.elements : [];
+        createProject(source.width, source.height, nextName, {
+          elements: sourceElements,
+          thumbnail: source.thumbnail || undefined,
+          sourceType: source.sourceType,
+          aiResizeBinding: source.aiResizeBinding,
+        });
+        setPendingAutoSaveElements(sourceElements);
+        setPendingAutoSaveName(nextName);
+        return;
+      }
+    }
+
+    if (!currentProject) {
+      if (width > 0 && height > 0) {
+        createProject(width, height);
+      } else {
+        createProject(1920, 1080);
+      }
+    }
+  }, [location.search, projects, currentProject, createProject, loadProject]);
 
   useEffect(() => {
     if (!currentProject) return;
@@ -347,6 +418,21 @@ export default function Editor() {
   useEffect(() => {
     elementsRef.current = elements;
   }, [elements]);
+
+  useEffect(() => {
+    if (!currentProject) return;
+    if (!pendingAutoSaveElements || !pendingAutoSaveName) return;
+    const exists = projects.some((p) => p.id === currentProject.id);
+    if (exists) {
+      setPendingAutoSaveElements(null);
+      setPendingAutoSaveName(null);
+      return;
+    }
+    saveProject({ name: pendingAutoSaveName, elements: pendingAutoSaveElements });
+    setPendingAutoSaveElements(null);
+    setPendingAutoSaveName(null);
+    toast.show('已生成副本');
+  }, [currentProject?.id, pendingAutoSaveElements, pendingAutoSaveName, projects, saveProject]);
 
   // Track changes to element properties to mark as dirty
   useEffect(() => {
@@ -1073,6 +1159,95 @@ export default function Editor() {
         onClose={() => setIsCanvasModalOpen(false)} 
       />
 
+      <div ref={appMenuRef} className="fixed top-4 left-4 z-[70]">
+        <button
+          type="button"
+          onClick={() => setIsAppMenuOpen((v) => !v)}
+          className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center"
+          aria-label="Deepcanvas 菜单"
+        >
+          <Home size={20} />
+        </button>
+        {isAppMenuOpen && (
+          <div className="mt-2 w-52 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                navigate('/');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              返回首页
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                setIsCanvasModalOpen(true);
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              新建画布
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentProject) return;
+                setIsAppMenuOpen(false);
+                openInNewTab(`/editor?duplicateOf=${encodeURIComponent(currentProject.id)}`);
+              }}
+              disabled={!currentProject}
+              className={clsx(
+                "w-full px-4 py-2.5 text-sm font-medium transition-colors text-left",
+                currentProject ? "text-gray-800 hover:bg-gray-50" : "text-gray-300 cursor-not-allowed"
+              )}
+            >
+              新建副本
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                handleSaveWrapperRef.current();
+              }}
+              disabled={!currentProject}
+              className={clsx(
+                "w-full px-4 py-2.5 text-sm font-medium transition-colors text-left",
+                currentProject ? "text-gray-800 hover:bg-gray-50" : "text-gray-300 cursor-not-allowed"
+              )}
+            >
+              保存
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!currentProject) return;
+                setIsAppMenuOpen(false);
+                openInNewTab(`/editor?duplicateOf=${encodeURIComponent(currentProject.id)}`);
+              }}
+              disabled={!currentProject}
+              className={clsx(
+                "w-full px-4 py-2.5 text-sm font-medium transition-colors text-left",
+                currentProject ? "text-gray-800 hover:bg-gray-50" : "text-gray-300 cursor-not-allowed"
+              )}
+            >
+              另存为
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppMenuOpen(false);
+                navigate('/projects');
+              }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors text-left"
+            >
+              前往个人设计
+            </button>
+          </div>
+        )}
+      </div>
+
       {isSaveLogicVisible && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none">
           <div className="w-full max-w-2xl mx-6 rounded-3xl bg-yellow-200/60 backdrop-blur-md border border-yellow-300/70 shadow-2xl shadow-yellow-500/10 p-6 text-gray-900">
@@ -1169,28 +1344,22 @@ export default function Editor() {
       )}
 
       {/* Top Bar - Level 1: File & Main Actions */}
-      <header className="h-14 border-b border-black/5 bg-white/30 backdrop-blur-md px-4 flex items-center justify-between z-20">
+      <header className="h-14 border-b border-black/5 bg-white/30 backdrop-blur-md pr-4 pl-20 flex items-center justify-between z-20">
         <div className="flex items-center gap-3">
-          <Tooltip content="新建画布" position="bottom">
-            <button 
-              onClick={() => setIsCanvasModalOpen(true)}
-              className="p-1.5 bg-accent-primary text-white rounded-lg hover:opacity-90 transition-all flex items-center gap-2 text-sm font-medium pr-3"
-            >
-              <Plus size={16} />
-              New Canvas
-            </button>
-          </Tooltip>
-          <div className="h-5 w-px bg-black/10" />
-          <h1 className="font-semibold text-base">{currentProject?.name || 'Untitled Project'}</h1>
+          <h1 className="inline-flex items-center h-9 font-semibold text-base leading-none">
+            <span className="text-gray-500">个人设计</span>
+            <span className="text-gray-300 mx-1">/</span>
+            <span className="text-gray-900">{currentProject?.name || 'Untitled Project'}</span>
+          </h1>
           <div className={clsx(
-            "px-2 py-0.5 rounded text-[10px] font-medium",
+            "h-7 inline-flex items-center px-2 rounded text-[10px] font-medium leading-none",
             isDirty ? "bg-yellow-100 text-yellow-600" : "bg-green-100 text-green-600"
           )}>
             {isDirty ? '正在编辑' : '已保存'}
           </div>
           
           {/* Canvas Size Display (Moved to Top) */}
-          <div className="ml-4 flex items-center gap-2 text-xs font-medium text-gray-500 bg-black/5 px-2 py-1 rounded-md">
+          <div className="ml-4 h-7 inline-flex items-center gap-2 text-xs font-medium text-gray-500 bg-black/5 px-2 rounded-md">
              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
              <span>{currentProject?.width || 1920} x {currentProject?.height || 1080} px</span>
           </div>
