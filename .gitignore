@@ -120,3 +120,6 @@ dist
 # macOS
 .DS_Store
 .vercel
+
+# Local knowledge notes (keep out of repo)
+知识库/

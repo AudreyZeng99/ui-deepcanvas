@@ -61,13 +61,19 @@ export default function Home() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const handleSearchSubmit = () => {
-    const q = searchInput.trim();
+  const submitSearch = (value: string) => {
+    const q = value.trim();
     if (!q) return;
     navigate(`/public?module=projects&q=${encodeURIComponent(q)}`);
   };
+
+  const handleSearchSubmit = () => {
+    submitSearch(searchInput);
+  };
   
   const toolIconClass = "bg-transparent hover:bg-gray-50 text-gray-900";
+
+  const commonSearchKeywords = useMemo(() => ['国庆节', '培训海报', '坐席图', '招聘', '粘土风', '中秋'], []);
 
   const aiTools = useMemo(
     () => [
@@ -95,17 +101,19 @@ export default function Home() {
       className="min-h-screen bg-gradient-to-b from-white via-white to-purple-50/40"
       style={{
         ['--home-tool-bg' as any]: purple.softBg,
+        ['--home-tool-bg-hover' as any]: purple.softBgHover,
         ['--home-tool-border' as any]: purple.softBorder,
+        ['--home-tool-border-hover' as any]: 'rgba(143, 122, 251, 0.38)',
         ['--home-tool-fg' as any]: purple.text,
       }}
     >
-      <div className="max-w-[1120px] mx-auto px-6 pt-20 pb-12 space-y-10">
-        <header className="flex flex-col items-center text-center gap-2 pb-2">
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-gray-950">Deepcanvas</h1>
-          <div className="text-xl md:text-2xl font-bold text-gray-900/85 max-w-[720px] leading-snug">让设计更简单</div>
+      <div className="max-w-[1120px] mx-auto px-6 pt-12 pb-12 space-y-8">
+        <header className="flex flex-col items-center text-center gap-1">
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight text-gray-950">Deepcanvas</h1>
+          <div className="text-lg md:text-xl font-semibold text-gray-700 max-w-[720px] leading-snug">让设计更简单</div>
         </header>
 
-        <section className="rounded-3xl bg-white/0 mt-4">
+        <section className="rounded-3xl bg-white border border-black/5 shadow-sm">
           <div className="p-5 md:p-6 flex flex-col items-center text-center gap-2">
             <div className="inline-flex items-center rounded-full p-1 bg-gray-100">
               <button
@@ -132,7 +140,7 @@ export default function Home() {
               </button>
             </div>
             <div className="text-xs text-gray-500">
-              {centerMode === 'search' ? '在公共模板里搜关键词' : '写清楚需求，生成后进入无限画布'}
+              {centerMode === 'search' ? '在公共模板里搜关键词' : '输入提示词，点击发送进入无限画布'}
             </div>
           </div>
 
@@ -140,8 +148,8 @@ export default function Home() {
             {centerMode === 'search' ? (
               <div className="relative">
                 <input
-                  placeholder="搜索公共模板，例如：母亲节 海报 红金"
-                  className="w-full h-14 pl-12 pr-28 rounded-2xl border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-4 text-base text-gray-900 placeholder:text-gray-400 transition-all"
+                  placeholder="搜索公共模板，例如：母亲节海报 / 小狗 / 红金风格"
+                  className="w-full h-12 pl-11 pr-24 rounded-2xl border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-4 text-sm text-gray-900 placeholder:text-gray-400 transition-all"
                   style={{
                     ['--tw-ring-color' as any]: purple.softBg,
                     ['--tw-ring-opacity' as any]: '1',
@@ -166,7 +174,7 @@ export default function Home() {
                 </div>
                 <button
                   onClick={handleSearchSubmit}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 h-10 px-4 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-9 px-4 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   disabled={!searchInput.trim()}
                   style={{ backgroundColor: purple.solid }}
                   onMouseEnter={(e) => {
@@ -179,15 +187,40 @@ export default function Home() {
                 >
                   搜索
                 </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {commonSearchKeywords.map((keyword) => {
+                    const isActive = searchInput.trim() === keyword;
+                    return (
+                      <button
+                        key={keyword}
+                        type="button"
+                        onClick={() => {
+                          setSearchInput(keyword);
+                          submitSearch(keyword);
+                        }}
+                        className={clsx(
+                          'h-8 px-3 rounded-full border text-xs font-semibold transition-colors',
+                          isActive ? 'text-gray-900' : 'bg-gray-50 text-gray-700 border-black/5 hover:bg-gray-100'
+                        )}
+                        style={
+                          isActive
+                            ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
+                            : undefined
+                        }
+                      >
+                        {keyword}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
-              <div className="relative">
+              <div className="relative rounded-3xl border overflow-hidden bg-white shadow-[0_18px_60px_-35px_rgba(88,28,135,0.45)]" style={{ borderColor: purple.softBorder }}>
                 <textarea
                   ref={chatInputRef}
-                  placeholder="告诉我你想设计什么，例如：帮我生成一张母亲节营销海报...\n也可以补充：目标人群/渠道/版式/风格/品牌色/CTA"
-                  className="w-full min-h-[180px] pt-5 pb-16 px-5 rounded-3xl border shadow-[0_18px_60px_-35px_rgba(88,28,135,0.45)] focus:outline-none focus:ring-4 text-base text-gray-900 placeholder:text-gray-400 transition-all resize-none leading-relaxed"
+                  placeholder="例如：帮我生成一张母亲节营销海报，风格清爽高级，渠道小红书，品牌色紫，包含 CTA 按钮"
+                  className="w-full min-h-[148px] pt-4 pb-16 px-5 bg-white focus:outline-none focus:ring-4 text-sm text-gray-900 placeholder:text-gray-400 transition-all resize-none leading-snug"
                   style={{
-                    borderColor: purple.softBorder,
                     backgroundColor: '#ffffff',
                     ['--tw-ring-color' as any]: purple.softBg,
                     ['--tw-ring-opacity' as any]: '1',
@@ -201,11 +234,8 @@ export default function Home() {
                     }
                   }}
                 />
-                <div className="absolute left-4 bottom-4 flex items-center gap-2">
-                  <div
-                    className="h-10 flex items-center gap-2 px-3 rounded-xl bg-white/80 backdrop-blur border shadow-sm"
-                    style={{ borderColor: purple.softBorder }}
-                  >
+                <div className="absolute left-3 right-3 bottom-3 flex items-center justify-between gap-3">
+                  <div className="h-10 inline-flex items-center gap-2 px-3 rounded-2xl bg-gray-50 border border-black/5">
                     <select
                       value={selectedSize}
                       onChange={(e) => setSelectedSize(e.target.value as any)}
@@ -217,7 +247,7 @@ export default function Home() {
                       <option value="1080x1080">1080×1080 px</option>
                       <option value="1200x628">1200×628 px</option>
                     </select>
-                    <div className="w-px h-5 bg-gray-200" />
+                    <div className="w-px h-5 bg-black/10" />
                     <input
                       value={seedValue}
                       onChange={(e) => {
@@ -232,7 +262,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={() => setSeedValue(String(Math.floor(Math.random() * 1_000_000_000)))}
-                      className="w-8 h-8 rounded-lg text-gray-500 flex items-center justify-center transition-colors"
+                      className="w-8 h-8 rounded-xl text-gray-500 flex items-center justify-center transition-colors"
                       aria-label="随机生成种子"
                       style={{ backgroundColor: 'transparent' }}
                       onMouseEnter={(e) => {
@@ -245,40 +275,47 @@ export default function Home() {
                       <RotateCw size={14} />
                     </button>
                   </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="hidden md:flex items-center gap-2 text-xs font-semibold" style={{ color: purple.text }}>
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: purple.solid }} />
+                      <span>Ctrl+Enter 发送</span>
+                    </div>
+                    <button
+                      onClick={handleChatSubmit}
+                      className="w-11 h-11 rounded-2xl text-white flex items-center justify-center transition-colors shadow-[0_12px_28px_-12px_rgba(88,28,135,0.6)] disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!chatInput.trim()}
+                      aria-label="发送"
+                      style={{ backgroundColor: purple.solid }}
+                      onMouseEnter={(e) => {
+                        if ((e.currentTarget as HTMLButtonElement).disabled) return;
+                        e.currentTarget.style.backgroundColor = purple.solidHover;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = purple.solid;
+                      }}
+                    >
+                      <ArrowUp size={18} />
+                    </button>
+                  </div>
                 </div>
-                <button
-                  onClick={handleChatSubmit}
-                  className="absolute right-4 bottom-4 w-11 h-11 rounded-2xl text-white flex items-center justify-center transition-colors shadow-[0_12px_28px_-12px_rgba(88,28,135,0.6)] disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!chatInput.trim()}
-                  aria-label="发送"
-                  style={{ backgroundColor: purple.solid }}
-                  onMouseEnter={(e) => {
-                    if ((e.currentTarget as HTMLButtonElement).disabled) return;
-                    e.currentTarget.style.backgroundColor = purple.solidHover;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = purple.solid;
-                  }}
-                >
-                  <ArrowUp size={18} />
-                </button>
               </div>
             )}
           </div>
         </section>
 
-        <section className="rounded-3xl bg-white/0">
-          <div className="p-5 md:p-6 flex items-end justify-between gap-3 flex-wrap">
+        <section className="pt-6 border-t border-black/5">
+          <div className="flex items-end justify-between gap-3 flex-wrap">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: purple.solid }} />
-                <div className="text-sm font-semibold text-gray-900">玩转 AI 工具</div>
+                <div className="text-base font-semibold text-gray-900">玩转 AI 工具</div>
               </div>
-              <div className="text-xs text-gray-500">常用小工具入口，一键直达</div>
+              <div className="text-sm text-gray-500">常用小工具入口，一键直达</div>
             </div>
           </div>
-          <div className="px-5 md:px-6 pb-6">
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-3">
+          <div className="mt-4">
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
               {aiTools.map((t) => (
                 <ToolIcon
                   key={t.label}
@@ -298,10 +335,10 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section className="pt-6 border-t border-black/5 space-y-4">
           <div className="flex items-end justify-between gap-4 flex-wrap">
             <div className="space-y-1">
-              <div className="text-lg font-semibold text-gray-900">提示词灵感</div>
+              <div className="text-base font-semibold text-gray-900">提示词灵感</div>
               <div className="text-sm text-gray-500">不会写提示词？这里有为你准备好的背景底图～</div>
             </div>
           </div>
@@ -311,9 +348,9 @@ export default function Home() {
               const isBroken = brokenInspirationImageIds.has(item.id);
               return (
                 <div key={item.id} className="mb-4 break-inside-avoid">
-                  <div className="group relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-                    <div className={clsx('w-full', item.imageUrl ? 'aspect-[4/3]' : 'aspect-[4/3]', item.imageUrl ? 'bg-gray-100' : item.image)}>
-                      {item.imageUrl && !isBroken && (
+                  <div className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white">
+                    <div className={clsx('w-full aspect-[4/3]', item.imageUrl ? 'bg-gray-100' : item.image)}>
+                      {item.imageUrl && !isBroken ? (
                         <img
                           src={item.imageUrl}
                           alt={item.title}
@@ -324,6 +361,13 @@ export default function Home() {
                               next.add(item.id);
                               return next;
                             });
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="w-full h-full"
+                          style={{
+                            background: `linear-gradient(135deg, ${purple.softBg} 0%, rgba(17, 24, 39, 0.06) 100%)`,
                           }}
                         />
                       )}
@@ -368,21 +412,16 @@ function ToolIcon({ icon: Icon, label, className, onClick }: { icon: ElementType
         onClick?.();
       }}
       className={clsx(
-        "flex flex-col items-center justify-center gap-1.5 p-2.5 rounded-2xl transition-all duration-200 cursor-pointer group/icon",
+        "flex flex-col items-center justify-center gap-2 p-3 rounded-2xl transition-colors duration-200 cursor-pointer group/icon hover:bg-[rgba(143,122,251,0.08)]",
         className
       )}
     >
       <div
-        className="w-9 h-9 rounded-xl border flex items-center justify-center transition-colors"
-        style={{
-          backgroundColor: 'var(--home-tool-bg, rgba(147, 51, 234, 0.10))',
-          borderColor: 'var(--home-tool-border, rgba(147, 51, 234, 0.22))',
-          color: 'var(--home-tool-fg, #7E22CE)',
-        }}
+        className="w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors bg-[var(--home-tool-bg)] border-[var(--home-tool-border)] text-[var(--home-tool-fg)] group-hover/icon:bg-[var(--home-tool-bg-hover)] group-hover/icon:border-[var(--home-tool-border-hover)]"
       >
-        <Icon size={20} />
+        <Icon size={22} strokeWidth={2.2} />
       </div>
-      <span className="text-[11px] font-semibold text-gray-700 whitespace-nowrap">{label}</span>
+      <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">{label}</span>
     </button>
   );
 }

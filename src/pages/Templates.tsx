@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Search, Camera, ChevronRight, Play, Heart, ChevronDown, Plus, Share2, PencilLine } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, Camera, ChevronRight, Heart, Plus, Share2, PencilLine, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
@@ -102,13 +102,36 @@ const sections = generateMockData();
 
 type TemplateCardProps = {
   item: Template;
-  onDoSame: (item: Template) => void;
+  onUseTemplate: (detail: PublicTemplateDetail) => void;
+  onOpenDetail: (detail: PublicTemplateDetail) => void;
 };
 
-const TemplateCard = ({ item, onDoSame }: TemplateCardProps) => {
+type PublicTemplateDetail = {
+  id: string;
+  title: string;
+  previewUrl: string;
+  authorName: string;
+  width: number;
+  height: number;
+  elements: string[];
+};
+
+const TemplateCard = ({ item, onUseTemplate, onOpenDetail }: TemplateCardProps) => {
   const toast = useToast();
+  const detail: PublicTemplateDetail = {
+    id: item.id,
+    title: item.title,
+    previewUrl: item.imageUrl,
+    authorName: item.author.name,
+    width: 1080,
+    height: 1920,
+    elements: ['元素：海报'],
+  };
   return (
-    <div className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2">
+    <div
+      className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2"
+      onClick={() => onOpenDetail(detail)}
+    >
       {/* Card Image Container */}
       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
         <img 
@@ -120,28 +143,19 @@ const TemplateCard = ({ item, onDoSame }: TemplateCardProps) => {
         {/* Overlays */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onDoSame(item);
-          }}
-          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-          aria-label="做同款"
-        >
-          <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
-            做同款
-          </div>
-        </button>
-        
-        {item.type === 'video' && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md flex items-center justify-center text-white">
-              <Play size={20} fill="currentColor" />
-            </div>
-          </div>
-        )}
-
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onUseTemplate(detail);
+            }}
+            className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+            aria-label="使用该模板"
+          >
+            使用该模板
+          </button>
+        </div>
         <button
           onClick={async (e) => {
             e.stopPropagation();
@@ -170,13 +184,6 @@ const TemplateCard = ({ item, onDoSame }: TemplateCardProps) => {
         >
           <Share2 size={16} />
         </button>
-
-        {/* Hover Actions - Optional */}
-        <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-           <button className="p-1.5 bg-white rounded-full shadow-sm hover:bg-gray-50 text-gray-700">
-             <Heart size={14} />
-           </button>
-        </div>
       </div>
 
       {/* Footer Info */}
@@ -278,6 +285,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
 ];
 
 const TEAM_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_team_template_favorites_v1';
+const PUBLIC_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_public_template_favorites_v1';
 
 type TrafficTemplateCardProps = {
   template: TrafficTeamTemplate;
@@ -390,6 +398,7 @@ type FakeTemplateResult = {
   id: string;
   title: string;
   previewUrl: string;
+  authorName: string;
   elements: string[];
 };
 
@@ -419,25 +428,17 @@ function buildMockSvgDataUrl(seed: string, title: string) {
 }
 
 function buildFakeTemplateResults(query: string, count: number): FakeTemplateResult[] {
-  const q = query.trim() || '小狗';
-  const baseElements = [
-    `主体：${q}`,
-    '风格：清爽极简',
-    '色彩：紫色点缀',
-    '版式：竖版 9:16',
-  ];
+  const baseElements = ['元素：小狗'];
+  const authors = ['社区作者A', '社区作者B', '社区作者C', '社区作者D', '社区作者E', '社区作者F', '社区作者G'];
   return Array.from({ length: count }).map((_, i) => {
-    const seed = `${q}-${i + 1}`;
-    const title = `${q} 模板 ${i + 1}`;
-    const elements = [
-      ...baseElements,
-      i % 2 === 0 ? '元素：标题文案' : '元素：卖点标签',
-      i % 3 === 0 ? '元素：按钮 CTA' : '元素：角标',
-    ];
+    const seed = `小狗-${i + 1}`;
+    const title = `小狗 模板 ${i + 1}`;
+    const elements = [...baseElements];
     return {
       id: `fake-${seed}`,
       title,
       previewUrl: buildMockSvgDataUrl(seed, title),
+      authorName: authors[i % authors.length],
       elements,
     };
   });
@@ -446,6 +447,7 @@ function buildFakeTemplateResults(query: string, count: number): FakeTemplateRes
 export default function Templates({ scope: scopeOverride }: { scope?: TemplatesScope }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const toast = useToast();
   const { teams, projects } = useProject();
   const { createProject, saveProject } = useProject();
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
@@ -454,6 +456,9 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   const [searchQuery, setSearchQuery] = useState('');
   const [elementDraftById, setElementDraftById] = useState<Record<string, string>>({});
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement | null>(null);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
   const [teamTemplateFavorites, setTeamTemplateFavorites] = useState<Set<string>>(() => {
     const raw = localStorage.getItem(TEAM_TEMPLATE_FAVORITES_KEY);
     if (!raw) return new Set();
@@ -465,6 +470,18 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
       return new Set();
     }
   });
+  const [publicTemplateFavorites, setPublicTemplateFavorites] = useState<Set<string>>(() => {
+    const raw = localStorage.getItem(PUBLIC_TEMPLATE_FAVORITES_KEY);
+    if (!raw) return new Set();
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.filter((id: any) => typeof id === 'string'));
+    } catch {
+      return new Set();
+    }
+  });
+  const [activeTemplateDetail, setActiveTemplateDetail] = useState<PublicTemplateDetail | null>(null);
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const teamId = searchParams.get('teamId') || 'team-1';
@@ -552,6 +569,16 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     setVisibleSectionsCount(prev => Math.min(prev + 3, sections.length));
   };
 
+  const resetToTemplateHome = () => {
+    setSearchQuery('');
+    setEditingElementId(null);
+    setExpandedSections({});
+    setVisibleSectionsCount(3);
+    requestAnimationFrame(() => {
+      scrollAreaRef.current?.scrollTo({ top: 0 });
+    });
+  };
+
   const teamSections = useMemo(() => {
     const selectedTeams = teams.filter(t => t.id === resolvedTeamId);
     return selectedTeams
@@ -577,6 +604,43 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   }, [projectById, resolvedTeamId, teams]);
 
   const trimmedQuery = searchQuery.trim();
+
+  const lastTrimmedQueryRef = useRef<string>('');
+  useEffect(() => {
+    if (lastTrimmedQueryRef.current === trimmedQuery) return;
+    lastTrimmedQueryRef.current = trimmedQuery;
+    setElementDraftById({});
+    setEditingElementId(null);
+  }, [trimmedQuery]);
+
+  useEffect(() => {
+    const canLoadMore = scope === 'public' && !trimmedQuery && visibleSectionsCount < sections.length;
+    if (!canLoadMore) return;
+    const root = scrollAreaRef.current;
+    const target = loadMoreSentinelRef.current;
+    if (!root || !target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        if (loadingMoreRef.current) return;
+        loadingMoreRef.current = true;
+        handleLoadMore();
+        requestAnimationFrame(() => {
+          loadingMoreRef.current = false;
+        });
+      },
+      {
+        root,
+        rootMargin: '320px 0px',
+        threshold: 0.01,
+      }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [scope, trimmedQuery, visibleSectionsCount]);
 
   const fakeSearchResults = useMemo(() => {
     if (!trimmedQuery) return [];
@@ -606,14 +670,51 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     });
   };
 
-  const handleDoSameTemplateCard = (item: Template) => {
-    doSameFromPreview(item.title, item.imageUrl, 1080, 1920);
+  const togglePublicTemplateFavorite = (templateId: string) => {
+    setPublicTemplateFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      localStorage.setItem(PUBLIC_TEMPLATE_FAVORITES_KEY, JSON.stringify(Array.from(next)));
+      return next;
+    });
   };
+
+  const openTemplateInPublicCanvas = (detail: PublicTemplateDetail) => {
+    const params = new URLSearchParams();
+    params.set('src', detail.previewUrl);
+    params.set('name', detail.title);
+    params.set('id', detail.id);
+    params.set('q', detail.title);
+    openInNewTab(`/public-canvas?${params.toString()}`);
+  };
+
+  const shareTemplate = async (detail: PublicTemplateDetail) => {
+    const record = createP2PShareRecord({
+      kind: 'public_template',
+      payload: {
+        title: detail.title,
+        previewImageUrl: detail.previewUrl,
+        width: detail.width,
+        height: detail.height,
+        elements: makeTemplateElements(detail.previewUrl, detail.width, detail.height),
+        sourceLabel: '公共模板',
+      },
+    });
+    try {
+      await navigator.clipboard.writeText(record.code);
+      toast.show('口令已复制到剪切板');
+    } catch {
+      toast.show('口令已复制到剪切板');
+    }
+  };
+
+  const closeTemplateDetail = () => setActiveTemplateDetail(null);
 
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden">
       {/* Content Scroll Area */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar">
+      <div ref={scrollAreaRef} className="flex-1 overflow-y-auto custom-scrollbar">
         <div className="max-w-[1320px] mx-auto w-full px-8 py-6 space-y-10 pb-20">
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -652,17 +753,28 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                 </select>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                const url = `${window.location.origin}${import.meta.env.BASE_URL}#/editor`;
-                window.open(url, '_blank', 'noopener,noreferrer');
-              }}
-              className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition-colors"
-            >
-              <Plus size={20} />
-              创建新设计
-            </button>
+            <div className="flex items-center gap-2">
+              {trimmedQuery && (
+                <button
+                  type="button"
+                  onClick={resetToTemplateHome}
+                  className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors px-2 py-2"
+                >
+                  清空搜索
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  const url = `${window.location.origin}${import.meta.env.BASE_URL}#/editor`;
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-full hover:bg-gray-800 transition-colors"
+              >
+                <Plus size={20} />
+                创建新设计
+              </button>
+            </div>
           </div>
 
           {trimmedQuery ? (
@@ -672,82 +784,59 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                   <h2 className="text-xl font-bold text-gray-900">搜索结果</h2>
                   <p className="text-xs text-gray-500">关键词：{trimmedQuery} · {fakeSearchResults.length} 条</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery('');
-                    setEditingElementId(null);
-                  }}
-                  className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
-                >
-                  清除
-                </button>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
                 {fakeSearchResults.map((item) => {
-                  const draft = elementDraftById[item.id] ?? item.elements.join('，');
-                  const isEditing = editingElementId === item.id;
-                  const elements = (elementDraftById[item.id] ?? item.elements.join('，'))
-                    .split(/[,，、\n]/g)
-                    .map((x) => x.trim())
-                    .filter(Boolean)
-                    .slice(0, 12);
+                  const detail: PublicTemplateDetail = {
+                    id: item.id,
+                    title: item.title,
+                    previewUrl: item.previewUrl,
+                    authorName: item.authorName,
+                    width: 1080,
+                    height: 1920,
+                    elements: item.elements,
+                  };
 
                   return (
-                    <div key={item.id} className="group flex flex-col gap-2">
-                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
+                    <div
+                      key={item.id}
+                      className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2"
+                      onClick={() => setActiveTemplateDetail(detail)}
+                    >
+                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
                         <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openTemplateInPublicCanvas(detail);
+                            }}
+                            className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                            aria-label="使用该模板"
+                          >
+                            使用该模板
+                          </button>
+                        </div>
                         <button
-                          type="button"
-                          onClick={() => doSameFromPreview(item.title, item.previewUrl, 1080, 1920)}
-                          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await shareTemplate(detail);
+                          }}
+                          className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+                          title="分享口令"
                         >
-                          <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
-                            做同款
-                          </div>
+                          <Share2 size={16} />
                         </button>
                       </div>
 
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-semibold text-gray-900 truncate">{item.title}</div>
-                          <button
-                            type="button"
-                            onClick={() => setEditingElementId((prev) => (prev === item.id ? null : item.id))}
-                            className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
-                            aria-label="编辑元素字段"
-                            title="编辑元素字段"
-                          >
-                            <PencilLine size={16} />
-                          </button>
+                      <div className="flex items-center gap-2 px-1">
+                        <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                          {item.authorName.trim().slice(0, 1)}
                         </div>
-
-                        {isEditing ? (
-                          <input
-                            value={draft}
-                            onChange={(e) => setElementDraftById((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') setEditingElementId(null);
-                            }}
-                            onBlur={() => setEditingElementId(null)}
-                            className="w-full h-10 px-3 rounded-xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm"
-                            placeholder="元素：主体、背景、风格…（用逗号分隔）"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex flex-wrap gap-1.5">
-                            {elements.map((el) => (
-                              <span
-                                key={`${item.id}-${el}`}
-                                className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
-                              >
-                                {el}
-                              </span>
-                            ))}
-                          </div>
-                        )}
+                        <span className="text-xs text-gray-500 truncate flex-1">{item.authorName}</span>
                       </div>
                     </div>
                   );
@@ -777,23 +866,23 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
 
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300">
                     {(expandedSections[section.id] ? section.items : section.items.slice(0, 6)).map((item) => (
-                      <TemplateCard key={item.id} item={item} onDoSame={handleDoSameTemplateCard} />
+                      <TemplateCard
+                        key={item.id}
+                        item={item}
+                        onUseTemplate={openTemplateInPublicCanvas}
+                        onOpenDetail={(detail) => setActiveTemplateDetail(detail)}
+                      />
                     ))}
                   </div>
                 </section>
               ))}
 
-              {visibleSectionsCount < sections.length && (
-                <div className="flex justify-center pt-8">
-                  <button
-                    onClick={handleLoadMore}
-                    className="flex items-center gap-2 px-6 py-3 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-full font-medium transition-colors"
-                  >
-                    展开更多
-                    <ChevronDown size={18} />
-                  </button>
-                </div>
-              )}
+              <div className="pt-6">
+                <div ref={loadMoreSentinelRef} className="h-10" />
+                {visibleSectionsCount >= sections.length && (
+                  <div className="text-center text-xs text-gray-400 py-6">没有更多了</div>
+                )}
+              </div>
             </>
           ) : (
             <div className="space-y-10">
@@ -885,6 +974,146 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
           )}
         </div>
       </div>
+
+      {activeTemplateDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/30" onClick={closeTemplateDetail} />
+          <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <button
+              type="button"
+              onClick={closeTemplateDetail}
+              className="absolute top-4 right-4 w-10 h-10 rounded-2xl hover:bg-black/5 text-gray-500 flex items-center justify-center transition-colors"
+              aria-label="关闭"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              <div className="p-6 bg-black/[0.02] border-r border-black/5">
+                <div className="aspect-[9/16] rounded-2xl bg-white border border-black/10 overflow-hidden flex items-center justify-center">
+                  <img
+                    src={activeTemplateDetail.previewUrl}
+                    alt={activeTemplateDetail.title}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="flex items-start justify-between gap-4 pr-10">
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500">{activeTemplateDetail.authorName}</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900 truncate">{activeTemplateDetail.title}</div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      {activeTemplateDetail.width}×{activeTemplateDetail.height} px
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => shareTemplate(activeTemplateDetail)}
+                      className="w-10 h-10 rounded-2xl border border-black/10 bg-white hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-colors"
+                      title="分享"
+                      aria-label="分享"
+                    >
+                      <Share2 size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePublicTemplateFavorite(activeTemplateDetail.id)}
+                      className={clsx(
+                        "w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors",
+                        publicTemplateFavorites.has(activeTemplateDetail.id)
+                          ? "bg-gray-900 text-white border-gray-900 hover:bg-gray-800"
+                          : "bg-white text-gray-700 border-black/10 hover:bg-gray-50"
+                      )}
+                      title="收藏"
+                      aria-label="收藏"
+                    >
+                      <Heart size={18} fill={publicTemplateFavorites.has(activeTemplateDetail.id) ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-gray-900">元素信息</div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingElementId((prev) => (prev === activeTemplateDetail.id ? null : activeTemplateDetail.id))}
+                      className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                      aria-label="编辑元素信息"
+                      title="编辑元素信息"
+                    >
+                      <PencilLine size={16} />
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const fallback = activeTemplateDetail.elements.join('，');
+                    const draft = elementDraftById[activeTemplateDetail.id] ?? fallback;
+                    const isEditing = editingElementId === activeTemplateDetail.id;
+                    const chips = draft
+                      .split(/[,，、\n]/g)
+                      .map((x) => x.trim())
+                      .filter(Boolean)
+                      .slice(0, 12);
+
+                    return isEditing ? (
+                      <input
+                        value={draft}
+                        onChange={(e) => setElementDraftById((prev) => ({ ...prev, [activeTemplateDetail.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') setEditingElementId(null);
+                        }}
+                        onBlur={() => setEditingElementId(null)}
+                        className="w-full h-11 px-4 rounded-2xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm"
+                        placeholder="元素：小狗（用逗号分隔）"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {chips.map((c) => (
+                          <span
+                            key={`${activeTemplateDetail.id}-${c}`}
+                            className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="mt-8 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openTemplateInPublicCanvas(activeTemplateDetail);
+                      closeTemplateDetail();
+                    }}
+                    className="flex-1 justify-center px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
+                  >
+                    使用该模板
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      doSameFromPreview(activeTemplateDetail.title, activeTemplateDetail.previewUrl, activeTemplateDetail.width, activeTemplateDetail.height);
+                      closeTemplateDetail();
+                    }}
+                    className="flex-1 justify-center px-4 py-3 rounded-2xl bg-white text-gray-900 border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    应用到创建设计画布
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

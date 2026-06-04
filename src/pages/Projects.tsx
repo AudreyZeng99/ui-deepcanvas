@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Clock, Trash2, Folder, Share2, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
+import { Plus, Clock, Trash2, Folder, Share2, Heart, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
 import { Project, useProject, type PersonalAssetRecord } from '../context/ProjectContext';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -21,7 +21,18 @@ type PublicProject = Pick<
   sourceProjectId?: string;
 };
 
+type PublicTemplateDetail = {
+  id: string;
+  title: string;
+  previewUrl: string;
+  authorName: string;
+  width: number;
+  height: number;
+  elements: string[];
+};
+
 const PUBLIC_PROJECTS_STORAGE_KEY = 'trae_deepcanvas_public_projects_v1';
+const PUBLIC_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_public_template_favorites_v1';
 const PERSONAL_SPACE_TITLE_STORAGE_KEY = 'trae_deepcanvas_personal_space_title_v1';
 const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams_v1';
 const CURRENT_OA_STORAGE_KEY = 'trae_deepcanvas_current_oa_v1';
@@ -248,6 +259,18 @@ export default function Projects() {
   const [publicSearchDraft, setPublicSearchDraft] = useState('');
   const [publicTemplateElementDraftById, setPublicTemplateElementDraftById] = useState<Record<string, string>>({});
   const [editingPublicTemplateElementId, setEditingPublicTemplateElementId] = useState<string | null>(null);
+  const [publicTemplateFavorites, setPublicTemplateFavorites] = useState<Set<string>>(() => {
+    const raw = localStorage.getItem(PUBLIC_TEMPLATE_FAVORITES_KEY);
+    if (!raw) return new Set();
+    try {
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return new Set();
+      return new Set(parsed.filter((id: any) => typeof id === 'string'));
+    } catch {
+      return new Set();
+    }
+  });
+  const [activePublicTemplateDetail, setActivePublicTemplateDetail] = useState<PublicTemplateDetail | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const [isCreateCanvasModalOpen, setIsCreateCanvasModalOpen] = useState(false);
   const [personalSpaceTitle, setPersonalSpaceTitle] = useState(() => {
@@ -749,6 +772,49 @@ export default function Projects() {
     });
   };
 
+  const openPublicCanvasFromTemplate = (detail: PublicTemplateDetail) => {
+    const params = new URLSearchParams();
+    params.set('src', detail.previewUrl);
+    params.set('name', detail.title);
+    params.set('id', detail.id);
+    params.set('q', detail.title);
+    const path = `/public-canvas?${params.toString()}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const togglePublicTemplateFavorite = (templateId: string) => {
+    setPublicTemplateFavorites((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      localStorage.setItem(PUBLIC_TEMPLATE_FAVORITES_KEY, JSON.stringify(Array.from(next)));
+      return next;
+    });
+  };
+
+  const sharePublicTemplate = async (detail: PublicTemplateDetail) => {
+    const record = createP2PShareRecord({
+      kind: 'public_template',
+      payload: {
+        title: detail.title,
+        previewImageUrl: detail.previewUrl,
+        width: detail.width,
+        height: detail.height,
+        elements: makeTemplateElements(detail.previewUrl, detail.width, detail.height),
+        sourceLabel: '公共模板',
+      },
+    });
+    try {
+      await navigator.clipboard.writeText(record.code);
+      doToast('口令已复制到剪切板');
+    } catch {
+      doToast('口令已复制到剪切板');
+    }
+  };
+
+  const closePublicTemplateDetail = () => setActivePublicTemplateDetail(null);
+
   const renderProjectsView = () => {
     const projectsToRender = space === 'public' ? filteredVisibleProjects : visibleProjects;
 
@@ -781,92 +847,44 @@ export default function Projects() {
           const title = `${q} 模板 ${i + 1}`;
           const id = `fake-public-${q}-${i + 1}`;
           const previewUrl = buildMockSvgDataUrl(`${q}-${i + 1}`, title);
-          const elements = [
-            `主体：${q}`,
-            '风格：清爽极简',
-            '色彩：紫色点缀',
-            '元素：标题文案',
-            i % 2 === 0 ? '元素：卖点标签' : '元素：角标',
-            i % 3 === 0 ? '元素：CTA' : '元素：日期/价格',
-          ];
+          const elements = ['元素：小狗'];
           return { id, title, previewUrl, elements };
         });
 
         return (
-          <div className="space-y-4">
-            <div className="flex items-end justify-between gap-3 flex-wrap">
-              <div className="space-y-1">
-                <div className="text-sm font-semibold text-gray-900">搜索结果：{q}</div>
-                <div className="text-xs text-gray-500">为你生成了 {fakeResults.length} 条假结果</div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {fakeResults.map((item) => {
-                const draft = publicTemplateElementDraftById[item.id] ?? item.elements.join('，');
-                const isEditing = editingPublicTemplateElementId === item.id;
-                const chips = draft
-                  .split(/[,，、\n]/g)
-                  .map((x) => x.trim())
-                  .filter(Boolean)
-                  .slice(0, 12);
-                return (
-                  <div key={item.id} className="group relative rounded-2xl border border-black/5 bg-white overflow-hidden hover:border-black/10 hover:shadow-sm transition-all duration-200">
-                    <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center relative overflow-hidden">
-                      <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300">
+            {fakeResults.map((item) => {
+              const detail: PublicTemplateDetail = {
+                id: item.id,
+                title: item.title,
+                previewUrl: item.previewUrl,
+                authorName: '社区作者',
+                width: 1080,
+                height: 1920,
+                elements: item.elements,
+              };
+              return (
+                <div key={item.id} className="group flex flex-col gap-2 cursor-pointer" onClick={() => setActivePublicTemplateDetail(detail)}>
+                  <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
+                    <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <button
                         type="button"
-                        onClick={() => doSameFromPreview(item.title, item.previewUrl, 1080, 1920)}
-                        className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="做同款"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPublicCanvasFromTemplate(detail);
+                        }}
+                        className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                        aria-label="使用该模板"
                       >
-                        <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
-                          做同款
-                        </div>
+                        使用该模板
                       </button>
                     </div>
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="text-sm font-semibold text-gray-900 truncate">{item.title}</div>
-                        <button
-                          type="button"
-                          onClick={() => setEditingPublicTemplateElementId((prev) => (prev === item.id ? null : item.id))}
-                          className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
-                          aria-label="编辑元素字段"
-                          title="编辑元素字段"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                      </div>
-                      {isEditing ? (
-                        <input
-                          value={draft}
-                          onChange={(e) => setPublicTemplateElementDraftById((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') setEditingPublicTemplateElementId(null);
-                          }}
-                          onBlur={() => setEditingPublicTemplateElementId(null)}
-                          className="w-full h-10 px-3 rounded-xl bg-white border border-black/10 outline-none focus:border-black/20 text-sm"
-                          placeholder="主体、背景、风格…（用逗号分隔）"
-                          autoFocus
-                        />
-                      ) : (
-                        <div className="flex flex-wrap gap-1.5">
-                          {chips.map((c) => (
-                            <span
-                              key={`${item.id}-${c}`}
-                              className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
-                            >
-                              {c}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
         );
       }
@@ -880,8 +898,70 @@ export default function Projects() {
       );
     }
 
+    const renderPublicTemplateCard = (project: any) => {
+      const title = typeof project?.name === 'string' && project.name.trim() ? project.name.trim() : '公共模板';
+      const previewUrl = typeof project?.thumbnail === 'string' ? project.thumbnail : '';
+      const authorName = typeof project?.authorName === 'string' && project.authorName.trim() ? project.authorName.trim() : '社区作者';
+      const width = typeof project?.width === 'number' && project.width > 0 ? project.width : 1080;
+      const height = typeof project?.height === 'number' && project.height > 0 ? project.height : 1920;
+      const elementChips = ['元素：小狗'];
+
+      const detail: PublicTemplateDetail = {
+        id: project.id,
+        title,
+        previewUrl,
+        authorName,
+        width,
+        height,
+        elements: elementChips,
+      };
+
+      return (
+        <div
+          key={project.id}
+          className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2"
+          onClick={() => setActivePublicTemplateDetail(detail)}
+        >
+          <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
+            {previewUrl ? (
+              <img src={previewUrl} alt={title} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                <Folder size={32} className="text-gray-300" />
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openPublicCanvasFromTemplate(detail);
+                }}
+                className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                aria-label="使用该模板"
+              >
+                使用该模板
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+              {authorName.trim().slice(0, 1)}
+            </div>
+            <span className="text-xs text-gray-500 truncate flex-1">{authorName}</span>
+          </div>
+        </div>
+      );
+    };
+
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className={clsx(
+        space === 'public'
+          ? "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300"
+          : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+      )}>
         {space !== 'public' && (
           <button
             onClick={handleCreateNew}
@@ -905,23 +985,24 @@ export default function Projects() {
           </button>
         )}
         {projectsToRender.map((project: any) => (
-          <div
-            key={project.id}
-            onClick={() => {
-              if (space === 'public') handleForkPublicProject(project as PublicProject);
-              else handleProjectClick(project.id);
-            }}
-            className="group relative rounded-2xl border border-black/5 bg-white overflow-hidden hover:border-black/10 hover:shadow-sm transition-all duration-200 cursor-pointer"
-          >
-            <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center relative overflow-hidden">
-              {project.thumbnail ? (
-                <img src={project.thumbnail} alt={project.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
-                  <Folder size={32} className="text-gray-300" />
-                </div>
-              )}
-              {space !== 'public' ? (
+          space === 'public' ? (
+            renderPublicTemplateCard(project)
+          ) : (
+            <div
+              key={project.id}
+              onClick={() => {
+                handleProjectClick(project.id);
+              }}
+              className="group relative rounded-2xl border border-black/5 bg-white overflow-hidden hover:border-black/10 hover:shadow-sm transition-all duration-200 cursor-pointer"
+            >
+              <div className="aspect-[4/3] bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                {project.thumbnail ? (
+                  <img src={project.thumbnail} alt={project.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+                    <Folder size={32} className="text-gray-300" />
+                  </div>
+                )}
                 <button
                   onClick={(e) => openShareModal(e, project.id)}
                   className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white"
@@ -929,27 +1010,11 @@ export default function Projects() {
                 >
                   <Share2 size={16} />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleForkPublicProject(project as PublicProject);
-                  }}
-                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label="做同款"
-                >
-                  <div className="px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg">
-                    做同款
-                  </div>
-                </button>
-              )}
-            </div>
+              </div>
 
-            <div className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="text-sm font-semibold text-gray-900 truncate">{project.name}</h3>
-                {space !== 'public' && (
+              <div className="p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-sm font-semibold text-gray-900 truncate">{project.name}</h3>
                   <button
                     onClick={(e) => handleDelete(e, project.id)}
                     className="p-2 -m-2 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -957,90 +1022,14 @@ export default function Projects() {
                   >
                     <Trash2 size={16} />
                   </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
-                <Clock size={12} />
-                <span>{new Date(space === 'public' ? project.publishedAt : project.lastModified).toLocaleDateString()}</span>
-              </div>
-              {space === 'public' && publicTemplateQuery.trim() && (
-                <div className="mt-3">
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {Array.from({ length: 10 }).map((_, i) => {
-                      const base = typeof project.thumbnail === 'string' && project.thumbnail ? project.thumbnail : 'https://images.unsplash.com/photo-1548625361-9f9392e2133f?w=1200&q=80';
-                      const src = base.includes('?')
-                        ? `${base}&sig=${encodeURIComponent(`${project.id}-${publicTemplateQuery}-${i}`)}`
-                        : `${base}?sig=${encodeURIComponent(`${project.id}-${publicTemplateQuery}-${i}`)}`;
-                      return (
-                        <div key={`${project.id}-${i}`} className="aspect-square rounded-lg overflow-hidden bg-gray-100 border border-black/5">
-                          <img src={src} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3">
-                    {(() => {
-                      const fallback = `主体：${publicTemplateQuery.trim() || project.name}，风格：清爽极简，背景：纯色，元素：标题文案，元素：卖点标签，元素：CTA`;
-                      const draft = publicTemplateElementDraftById[project.id] ?? fallback;
-                      const isEditing = editingPublicTemplateElementId === project.id;
-                      const chips = draft
-                        .split(/[,，、\n]/g)
-                        .map((x) => x.trim())
-                        .filter(Boolean)
-                        .slice(0, 12);
-                      return (
-                        <div
-                          className="rounded-2xl bg-gray-50 border border-black/5 p-3"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-xs font-semibold text-gray-700">元素</div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingPublicTemplateElementId((prev) => (prev === project.id ? null : project.id));
-                              }}
-                              className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
-                              aria-label="编辑元素字段"
-                              title="编辑元素字段"
-                            >
-                              <Pencil size={16} />
-                            </button>
-                          </div>
-                          {isEditing ? (
-                            <input
-                              value={draft}
-                              onChange={(e) => setPublicTemplateElementDraftById((prev) => ({ ...prev, [project.id]: e.target.value }))}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') setEditingPublicTemplateElementId(null);
-                              }}
-                              onBlur={() => setEditingPublicTemplateElementId(null)}
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-2 w-full h-10 px-3 rounded-xl bg-white border border-black/10 outline-none focus:border-black/20 text-sm"
-                              placeholder="主体、背景、风格…（用逗号分隔）"
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="mt-2 flex flex-wrap gap-1.5">
-                              {chips.map((c) => (
-                                <span
-                                  key={`${project.id}-${c}`}
-                                  className="inline-flex items-center h-6 px-2 rounded-full bg-white border border-black/5 text-[11px] font-semibold text-gray-700"
-                                >
-                                  {c}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
                 </div>
-              )}
+                <div className="flex items-center gap-2 text-xs text-gray-400 mt-2">
+                  <Clock size={12} />
+                  <span>{new Date(project.lastModified).toLocaleDateString()}</span>
+                </div>
+              </div>
             </div>
-          </div>
+          )
         ))}
       </div>
     );
@@ -2324,10 +2313,15 @@ export default function Projects() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={clsx("min-h-screen", space === 'public' ? "bg-white" : "bg-background")}>
       <CreateCanvasModal isOpen={isCreateCanvasModalOpen} onClose={() => setIsCreateCanvasModalOpen(false)} />
-      <div className="max-w-[1320px] mx-auto px-8 py-12 space-y-10">
-        {space === 'personal' ? (
+      <div
+        className={clsx(
+          "max-w-[1320px] mx-auto px-8",
+          space === 'public' ? "py-6 space-y-6 pb-20" : "py-12 space-y-10"
+        )}
+      >
+        {space === 'personal' && (
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div className="space-y-1">
               <div className="text-[11px] font-medium tracking-widest text-gray-400 uppercase">个人空间</div>
@@ -2394,23 +2388,6 @@ export default function Projects() {
               </button>
             </div>
           </div>
-        ) : (
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-xl text-gray-500 font-medium">
-                公共空间 <span className="mx-2">|</span> 社区作品浏览与复用
-              </div>
-              <div className="text-xs text-gray-400 mt-2">
-                作品 {filteredVisibleProjects.length}
-              </div>
-            </div>
-            <button
-              onClick={() => navigate('/projects')}
-              className="btn-secondary px-4 py-2 rounded-xl"
-            >
-              返回个人空间
-            </button>
-          </div>
         )}
 
         {space === 'personal' && (
@@ -2473,7 +2450,7 @@ export default function Projects() {
           </div>
         )}
 
-        <div className="rounded-3xl border border-black/5 bg-white p-8">
+        <div className={clsx(space === 'public' ? "pt-0" : "rounded-3xl border border-black/5 bg-white p-8")}>
           {isHydrating ? (
             <div className="animate-pulse space-y-6">
               <div className="h-7 w-48 rounded-xl bg-black/5" />
@@ -2486,32 +2463,20 @@ export default function Projects() {
           ) : (
             <div>
               {space === 'public' && (
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="text-sm font-semibold text-gray-900">
-                        {publicTemplateQuery.trim() ? `搜索结果：${publicTemplateQuery.trim()}` : '搜索公共模板'}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="relative group max-w-2xl flex-1 min-w-[280px]">
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
+                        <Search size={20} />
                       </div>
-                      {publicTemplateQuery.trim() && (
-                        <button
-                          type="button"
-                          onClick={() => commitPublicSearch('')}
-                          className="text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
-                        >
-                          清除搜索
-                        </button>
-                      )}
-                    </div>
-                    <div className="relative">
-                      <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         value={publicSearchDraft}
                         onChange={(e) => setPublicSearchDraft(e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') commitPublicSearch(publicSearchDraft);
                         }}
-                        placeholder="搜索节日模板：春节 / 情人节 / 母亲节 / 端午 / 中秋 / 国庆 / 双11 / 圣诞 ..."
-                        className="w-full h-12 pl-11 pr-24 rounded-2xl border border-black/10 bg-white focus:border-black/25 outline-none text-sm"
+                        placeholder="搜索公共模板…"
+                        className="w-full h-12 pl-12 pr-24 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-xl outline-none transition-all text-sm"
                       />
                       <button
                         type="button"
@@ -2521,27 +2486,21 @@ export default function Projects() {
                           'absolute right-2 top-1/2 -translate-y-1/2 h-9 px-4 rounded-xl text-sm font-semibold transition-colors',
                           publicSearchDraft.trim()
                             ? 'bg-black text-white hover:bg-gray-900'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         )}
                       >
                         搜索
                       </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {['春节', '元宵', '情人节', '女神节', '母亲节', '端午', '中秋', '国庆', '双11', '圣诞', '元旦'].map((k) => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => commitPublicSearch(k)}
-                          className="h-8 px-3 rounded-full text-xs font-semibold bg-gray-50 border border-black/10 text-gray-700 hover:bg-gray-100 transition-colors"
-                        >
-                          {k}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      共 {filteredVisibleProjects.length} 个结果
-                    </div>
+                    {publicTemplateQuery.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => commitPublicSearch('')}
+                        className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+                      >
+                        清除
+                      </button>
+                    )}
                   </div>
                   {renderProjectsView()}
                 </div>
@@ -2555,6 +2514,152 @@ export default function Projects() {
           )}
         </div>
       </div>
+
+      {activePublicTemplateDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/30" onClick={closePublicTemplateDetail} />
+          <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <button
+              type="button"
+              onClick={closePublicTemplateDetail}
+              className="absolute top-4 right-4 w-10 h-10 rounded-2xl hover:bg-black/5 text-gray-500 flex items-center justify-center transition-colors"
+              aria-label="关闭"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
+              <div className="p-6 bg-black/[0.02] border-r border-black/5">
+                <div className="aspect-[9/16] rounded-2xl bg-white border border-black/10 overflow-hidden flex items-center justify-center">
+                  {activePublicTemplateDetail.previewUrl ? (
+                    <img
+                      src={activePublicTemplateDetail.previewUrl}
+                      alt={activePublicTemplateDetail.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                      <Folder size={32} className="text-gray-300" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="flex items-start justify-between gap-4 pr-10">
+                  <div className="min-w-0">
+                    <div className="text-xs text-gray-500">{activePublicTemplateDetail.authorName}</div>
+                    <div className="mt-1 text-lg font-semibold text-gray-900 truncate">{activePublicTemplateDetail.title}</div>
+                    <div className="mt-2 text-xs text-gray-500">
+                      {activePublicTemplateDetail.width}×{activePublicTemplateDetail.height} px
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => sharePublicTemplate(activePublicTemplateDetail)}
+                      className="w-10 h-10 rounded-2xl border border-black/10 bg-white hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-colors"
+                      title="分享"
+                      aria-label="分享"
+                    >
+                      <Share2 size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => togglePublicTemplateFavorite(activePublicTemplateDetail.id)}
+                      className={clsx(
+                        "w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors",
+                        publicTemplateFavorites.has(activePublicTemplateDetail.id)
+                          ? "bg-gray-900 text-white border-gray-900 hover:bg-gray-800"
+                          : "bg-white text-gray-700 border-black/10 hover:bg-gray-50"
+                      )}
+                      title="收藏"
+                      aria-label="收藏"
+                    >
+                      <Heart size={18} fill={publicTemplateFavorites.has(activePublicTemplateDetail.id) ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-gray-900">元素信息</div>
+                    <button
+                      type="button"
+                      onClick={() => setEditingPublicTemplateElementId((prev) => (prev === activePublicTemplateDetail.id ? null : activePublicTemplateDetail.id))}
+                      className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                      aria-label="编辑元素信息"
+                      title="编辑元素信息"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  </div>
+
+                  {(() => {
+                    const fallback = activePublicTemplateDetail.elements.join('，');
+                    const draft = publicTemplateElementDraftById[activePublicTemplateDetail.id] ?? fallback;
+                    const isEditing = editingPublicTemplateElementId === activePublicTemplateDetail.id;
+                    const chips = draft
+                      .split(/[,，、\n]/g)
+                      .map((x) => x.trim())
+                      .filter(Boolean)
+                      .slice(0, 12);
+
+                    return isEditing ? (
+                      <input
+                        value={draft}
+                        onChange={(e) => setPublicTemplateElementDraftById((prev) => ({ ...prev, [activePublicTemplateDetail.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') setEditingPublicTemplateElementId(null);
+                        }}
+                        onBlur={() => setEditingPublicTemplateElementId(null)}
+                        className="w-full h-11 px-4 rounded-2xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm"
+                        placeholder="元素：小狗（用逗号分隔）"
+                        autoFocus
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {chips.map((c) => (
+                          <span
+                            key={`${activePublicTemplateDetail.id}-${c}`}
+                            className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
+                          >
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <div className="mt-8 flex flex-col sm:flex-row gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openPublicCanvasFromTemplate(activePublicTemplateDetail);
+                      closePublicTemplateDetail();
+                    }}
+                    className="flex-1 justify-center px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
+                  >
+                    使用该模板
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      doSameFromPreview(activePublicTemplateDetail.title, activePublicTemplateDetail.previewUrl, activePublicTemplateDetail.width, activePublicTemplateDetail.height);
+                      closePublicTemplateDetail();
+                    }}
+                    className="flex-1 justify-center px-4 py-3 rounded-2xl bg-white text-gray-900 border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    应用到创建设计画布
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isShareModalOpen && shareTargetProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">

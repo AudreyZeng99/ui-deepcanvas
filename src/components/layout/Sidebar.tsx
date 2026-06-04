@@ -33,9 +33,15 @@ export default function Sidebar() {
     <aside className="fixed left-0 top-0 h-screen w-20 bg-white border-r border-gray-100 z-50 flex flex-col items-center py-6 gap-3">
       <CreateCanvasModal isOpen={isCanvasModalOpen} onClose={() => setIsCanvasModalOpen(false)} />
 
-      <NavLink to="/" className="w-10 h-10 bg-black rounded-xl flex items-center justify-center text-white font-bold text-xl">
-        D
-      </NavLink>
+      <div className="w-full px-2">
+        <NavLink
+          to="/"
+          className="w-full p-3 rounded-xl bg-black text-white flex items-center justify-center font-black text-lg"
+          aria-label="返回首页"
+        >
+          D
+        </NavLink>
+      </div>
 
       <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2">
         <IconNavLink icon={Home} label="首页" to="/" />
