@@ -33,34 +33,34 @@ interface Section {
 const generateMockData = (): Section[] => {
   const categories = [
     {
-      id: 'new-arrivals',
-      title: '新品推荐',
-      subtitle: '模板上新，爆款来袭',
+      id: 'festival',
+      title: '节日活动图',
+      subtitle: '可复用与节日相关营销活动、坐席图、宣传图等',
     },
     {
-      id: 'cny-2026',
-      title: '抢占春节流量C位',
-      subtitle: '2026马年爆款营销案例持续更新',
+      id: 'ad-banner',
+      title: '投放位 banner',
+      subtitle: '渠道投放与信息流常用 Banner 物料',
     },
     {
-      id: 'daily-hot',
-      title: '每日热门',
-      subtitle: '今日最受欢迎的设计模板',
+      id: 'internal',
+      title: '内部宣传',
+      subtitle: '面向行内/部门/园区的公告与活动宣传',
     },
     {
-      id: 'marketing-banner',
-      title: '营销Banner',
-      subtitle: '高点击率电商营销Banner',
+      id: 'party-building',
+      title: '党建活动',
+      subtitle: '党建主题活动海报、展板与宣发物料',
     },
     {
-      id: 'social-media',
-      title: '社媒配图',
-      subtitle: '朋友圈、小红书吸粉神器',
+      id: 'marketing',
+      title: '营销活动',
+      subtitle: '拉新促活、转化召回等通用活动物料',
     },
     {
-      id: 'poster-design',
-      title: '海报设计',
-      subtitle: '活动宣传、节日祝福海报',
+      id: 'other',
+      title: '其他',
+      subtitle: '通用底图、信息排版与未归类模板',
     }
   ];
 
@@ -83,19 +83,76 @@ const generateMockData = (): Section[] => {
     'https://images.unsplash.com/photo-1548126959-1c9f71c4c95f?q=80&w=400&auto=format&fit=crop', // Lanterns
   ];
 
-  return categories.map((cat, catIndex) => ({
-    ...cat,
-    items: Array.from({ length: 12 }).map((_, i) => ({
-      id: `${cat.id}-${i}`,
-      title: `CNY Template ${i}`,
-      imageUrl: cnyImages[(catIndex * 8 + i) % cnyImages.length],
-      type: i % 3 === 0 ? 'video' : 'image',
-      author: authors[i % authors.length],
-      stats: {
-        views: Math.floor(Math.random() * 10000),
-      },
-    })),
-  }));
+  const bannerImages = [
+    'https://images.unsplash.com/photo-1557683311-eac922347aa1?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1557682260-96773eb01377?q=80&w=400&auto=format&fit=crop',
+  ];
+
+  const internalImages = [
+    'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1498050108023-c5249f4df085?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1523475472560-d2df97ec485c?q=80&w=400&auto=format&fit=crop',
+  ];
+
+  const partyBuildingImages = [
+    'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1455849318743-b2233052fcff?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1520975682031-a29e9f3492b7?q=80&w=400&auto=format&fit=crop',
+  ];
+
+  const marketingImages = [
+    'https://images.unsplash.com/photo-1518600570419-86927d7f7e0b?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1611003446057-08c35359146c?q=80&w=400&auto=format&fit=crop',
+  ];
+
+  const otherImages = [
+    'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=400&auto=format&fit=crop',
+  ];
+
+  const templateTitlesByCategory: Record<string, string[]> = {
+    festival: ['春节主视觉长图', '元宵节活动海报', '端午国潮促销海报', '中秋团圆KV', '国庆活动海报', '双11大促主视觉', '圣诞节活动长图', '跨年倒计时海报'],
+    'ad-banner': ['渠道投放横版 Banner', '信息流竖版 Banner', 'APP 开屏 Banner', '活动转化 Banner', '品牌曝光 Banner', '强利益点 Banner', '强 CTA Banner', '产品导向 Banner'],
+    internal: ['内部活动通知海报', '园区公告长图', '培训报名海报', '会议议程长图', '员工关怀活动海报', '安全生产宣传海报', '周报/月报封面', '内宣活动长图'],
+    'party-building': ['党建主题活动海报', '党员学习日海报', '主题党日活动长图', '先进典型宣传海报', '组织生活会海报', '志愿服务活动海报', '红色教育活动长图', '党建展板封面'],
+    marketing: ['拉新福利海报', '会员日活动长图', '限时秒杀海报', '新品发布KV', '裂变助力海报', '到店有礼海报', '抽奖活动长图', '召回优惠海报'],
+    other: ['通用信息排版模板', '标题留白版海报', '多模块长图排版', '产品信息卡片', '活动日历海报', '直播预告海报', '图文混排长图', '通用背景底图'],
+  };
+
+  const imagePoolsByCategory: Record<string, string[]> = {
+    festival: cnyImages,
+    'ad-banner': bannerImages,
+    internal: internalImages,
+    'party-building': partyBuildingImages,
+    marketing: marketingImages,
+    other: otherImages,
+  };
+
+  return categories.map((cat) => {
+    const titlePool = templateTitlesByCategory[cat.id] || ['公共模板'];
+    const imagePool = imagePoolsByCategory[cat.id] || cnyImages;
+    return {
+      ...cat,
+      items: Array.from({ length: 12 }).map((_, i) => ({
+        id: `${cat.id}-${i}`,
+        title: titlePool[i % titlePool.length],
+        imageUrl: imagePool[i % imagePool.length],
+        type: i % 3 === 0 ? 'video' : 'image',
+        author: authors[i % authors.length],
+        stats: {
+          views: Math.floor(Math.random() * 10000),
+        },
+      })),
+    };
+  });
 };
 
 const sections = generateMockData();

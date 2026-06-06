@@ -129,6 +129,111 @@ function extractImageUrlsFromElements(elements: any[] | undefined): string[] {
   return Array.from(urls);
 }
 
+function makeMockSvgDataUrl(title: string, subtitle: string, accent: string) {
+  const safeTitle = title.replace(/[<>]/g, '');
+  const safeSubtitle = subtitle.replace(/[<>]/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b1220"/>
+      <stop offset="1" stop-color="#111827"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="${accent}"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1080" height="1920" fill="url(#bg)"/>
+  <circle cx="920" cy="220" r="220" fill="${accent}" opacity="0.15"/>
+  <circle cx="180" cy="1560" r="260" fill="${accent}" opacity="0.12"/>
+  <rect x="120" y="280" width="840" height="8" rx="4" fill="url(#accent)" opacity="0.9"/>
+  <text x="120" y="420" fill="#ffffff" font-size="72" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="800">${safeTitle}</text>
+  <text x="120" y="520" fill="#cbd5e1" font-size="36" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="600">${safeSubtitle}</text>
+  <rect x="120" y="1480" width="420" height="96" rx="48" fill="${accent}" opacity="0.95"/>
+  <text x="160" y="1542" fill="#0b1220" font-size="34" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="900">DeepCanvas</text>
+  <text x="120" y="1650" fill="#94a3b8" font-size="28" font-family="ui-sans-serif, system-ui, -apple-system" font-weight="600">Mock Asset</text>
+</svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+function seedPersonalAssets(): PersonalAssetRecord[] {
+  const now = Date.now();
+  const orgs = ['深圳分行', '青岛分行', '海南分行', '上海分行'];
+  const accents = ['#f59e0b', '#3b82f6', '#10b981', '#a855f7'];
+  const teams = ['team-1', 'team-2', 'team-3'];
+  const makeId = (prefix: string) => `${prefix}-${now}-${Math.random().toString(16).slice(2)}`;
+  const mk = (
+    kind: PersonalAssetKind,
+    title: string,
+    orgCode: string,
+    complianceStatus: 'unprotected' | 'processing' | 'protected',
+    extra?: Partial<PersonalAssetRecord>
+  ): PersonalAssetRecord => {
+    const accent = accents[orgs.indexOf(orgCode) >= 0 ? orgs.indexOf(orgCode) : 0] || accents[0];
+    const url = makeMockSvgDataUrl(title, `${orgCode} · ${complianceStatus === 'unprotected' ? '未消保' : complianceStatus === 'processing' ? '消保中' : '已消保'}`, accent);
+    const teamId = Math.random() < 0.72 ? teams[Math.floor(Math.random() * teams.length)] : undefined;
+    return {
+      id: makeId(kind),
+      url,
+      kind,
+      createdAt: now - Math.floor(Math.random() * 1000 * 60 * 60 * 72),
+      ...(extra || {}),
+      meta: {
+        ...(extra?.meta || {}),
+        seed: 'mock_asset_v2',
+        teamId,
+        orgCode,
+        complianceStatus,
+      },
+    };
+  };
+
+  const promptPool = [
+    '红金风，强 CTA，高对比，大标题',
+    '国潮插画，留白版，信息区模块化',
+    '渐变氛围，品牌调性，主副标题层级',
+    '横版 Banner，投放位适配，利益点突出',
+  ];
+  const editToolPool = ['抠图', '智能适配', '去字修复', 'AI 扩图', '清晰度增强'];
+  const exportSourcePool = ['导出下载', '导出下载（批量）', '导出下载（含水印）'];
+
+  const makeBatch = (kind: PersonalAssetKind) => {
+    const result: PersonalAssetRecord[] = [];
+    (['unprotected', 'processing', 'protected'] as const).forEach((status) => {
+      for (let i = 0; i < 20; i += 1) {
+        const orgCode = orgs[(i + (status === 'processing' ? 1 : status === 'protected' ? 2 : 0)) % orgs.length] || orgs[0];
+        if (kind === 'generated') {
+          const prompt = `营销海报 ${i + 1}：${promptPool[i % promptPool.length]}`;
+          result.push(
+            mk('generated', `生图：营销海报 ${i + 1}`, orgCode, status, {
+              prompt,
+            })
+          );
+        } else if (kind === 'edited') {
+          const tool = editToolPool[i % editToolPool.length] || '编辑生成';
+          result.push(
+            mk('edited', `编辑：${tool} ${i + 1}`, orgCode, status, {
+              tool,
+              meta: { tool, source: '编辑生成' },
+            })
+          );
+        } else {
+          const source = exportSourcePool[i % exportSourcePool.length] || '导出下载';
+          result.push(
+            mk('exported', `导出：投放物料 ${i + 1}`, orgCode, status, {
+              meta: { source },
+            })
+          );
+        }
+      }
+    });
+    return result;
+  };
+
+  const all = [...makeBatch('generated'), ...makeBatch('edited'), ...makeBatch('exported')];
+  return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
 function buildImageRecords(projects: Project[]): SpaceImageRecord[] {
   const records: SpaceImageRecord[] = [];
   projects.forEach((project) => {
@@ -233,6 +338,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [personalAssets, setPersonalAssets] = useState<PersonalAssetRecord[]>(() => {
     const parsed = safeParseJson<PersonalAssetRecord[]>(localStorage.getItem(PERSONAL_ASSETS_STORAGE_KEY), []);
     if (!Array.isArray(parsed)) return [];
+    if (parsed.length === 0) return seedPersonalAssets();
     return parsed
       .filter((a) => a && typeof a.id === 'string' && typeof a.url === 'string' && typeof a.kind === 'string' && typeof a.createdAt === 'number')
       .map((a) => ({
@@ -288,6 +394,15 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     localStorage.setItem(PERSONAL_ASSETS_STORAGE_KEY, JSON.stringify(personalAssets));
   }, [personalAssets]);
+
+  useEffect(() => {
+    setPersonalAssets((prev) => {
+      const hasV2 = prev.some((a) => typeof a.meta?.seed === 'string' && a.meta.seed === 'mock_asset_v2');
+      if (hasV2) return prev;
+      const seeded = seedPersonalAssets();
+      return [...seeded, ...prev].sort((a, b) => b.createdAt - a.createdAt);
+    });
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(EXPORT_FOLDERS_STORAGE_KEY, JSON.stringify(exportFolders));

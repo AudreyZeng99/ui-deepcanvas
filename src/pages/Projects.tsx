@@ -33,9 +33,9 @@ type PublicTemplateDetail = {
 
 const PUBLIC_PROJECTS_STORAGE_KEY = 'trae_deepcanvas_public_projects_v1';
 const PUBLIC_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_public_template_favorites_v1';
-const PERSONAL_SPACE_TITLE_STORAGE_KEY = 'trae_deepcanvas_personal_space_title_v1';
 const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams_v1';
 const CURRENT_OA_STORAGE_KEY = 'trae_deepcanvas_current_oa_v1';
+const CURRENT_ORG_CODE_STORAGE_KEY = 'trae_deepcanvas_current_org_code_v1';
 const TEAM_MEMBERS_PAGE_SIZE = 10;
 
 type TeamRecord = {
@@ -233,8 +233,6 @@ export default function Projects() {
   const {
     projects,
     personalAssets,
-    exportFolders,
-    exportFolderByAssetId,
     currentProject,
     isDirty,
     deleteProject,
@@ -242,10 +240,6 @@ export default function Projects() {
     updateProject,
     saveProject,
     saveCurrentProjectAsNew,
-    createExportFolder,
-    renameExportFolder,
-    deleteExportFolder,
-    moveExportedAssetsToFolder,
   } = useProject();
 
   const space: SpaceMode = location.pathname.startsWith('/public') ? 'public' : 'personal';
@@ -273,22 +267,13 @@ export default function Projects() {
   const [activePublicTemplateDetail, setActivePublicTemplateDetail] = useState<PublicTemplateDetail | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const [isCreateCanvasModalOpen, setIsCreateCanvasModalOpen] = useState(false);
-  const [personalSpaceTitle, setPersonalSpaceTitle] = useState(() => {
-    const stored = localStorage.getItem(PERSONAL_SPACE_TITLE_STORAGE_KEY);
-    return stored?.trim() ? stored : '个人空间';
-  });
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(personalSpaceTitle);
-  const [isTitleHover, setIsTitleHover] = useState(false);
   const [assetsTab, setAssetsTab] = useState<'generated' | 'edited' | 'exported'>('generated');
-  const [assetSearchQuery, setAssetSearchQuery] = useState('');
   const [isAssetsSelecting, setIsAssetsSelecting] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(() => new Set());
-  const [selectedExportFolderId, setSelectedExportFolderId] = useState<'all' | 'unassigned' | string>('all');
-  const [newExportFolderName, setNewExportFolderName] = useState('');
-  const [renamingFolderId, setRenamingFolderId] = useState<string | null>(null);
-  const [renameFolderDraft, setRenameFolderDraft] = useState('');
-  const [draggingAssetId, setDraggingAssetId] = useState<string | null>(null);
+  const [assetsTeamScopeId, setAssetsTeamScopeId] = useState<'all' | 'unassigned' | string>('all');
+  const [assetsOrgScopeId, setAssetsOrgScopeId] = useState<'all' | string>('all');
+  const [assetsComplianceScopeId, setAssetsComplianceScopeId] = useState<'all' | 'unprotected' | 'processing' | 'protected'>('all');
+  const [activeAssetDetail, setActiveAssetDetail] = useState<PersonalAssetRecord | null>(null);
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [publicProjects] = useState<PublicProject[]>(() => {
@@ -306,6 +291,10 @@ export default function Projects() {
   const [currentOaName, setCurrentOaName] = useState(() => {
     const stored = localStorage.getItem(CURRENT_OA_STORAGE_KEY);
     return stored?.trim() ? stored : 'zenghuayue';
+  });
+  const [currentOrgCode] = useState(() => {
+    const stored = localStorage.getItem(CURRENT_ORG_CODE_STORAGE_KEY);
+    return stored?.trim() ? stored.trim() : '深圳分行';
   });
   const [teams, setTeams] = useState<TeamRecord[]>(() => {
     const parsed = safeParseJson<TeamRecord[]>(localStorage.getItem(TEAMS_STORAGE_KEY), []);
@@ -487,16 +476,9 @@ export default function Projects() {
   useEffect(() => {
     setIsAssetsSelecting(false);
     setSelectedAssetIds(new Set());
-    setDraggingAssetId(null);
-  }, [assetsTab, selectedExportFolderId]);
+    setActiveAssetDetail(null);
+  }, [assetsTab]);
 
-  const persistPersonalSpaceTitle = (nextTitle: string) => {
-    const normalized = nextTitle.trim() ? nextTitle.trim() : '个人空间';
-    setPersonalSpaceTitle(normalized);
-    setTitleDraft(normalized);
-    localStorage.setItem(PERSONAL_SPACE_TITLE_STORAGE_KEY, normalized);
-    doToast('标题已更新');
-  };
   const shareTargetProject = useMemo(() => {
     if (!shareProjectId) return null;
     return projects.find(p => p.id === shareProjectId) || null;
@@ -529,19 +511,6 @@ export default function Projects() {
       else next.add(assetId);
       return next;
     });
-  };
-
-  const createFolderFromDraft = () => {
-    const folder = createExportFolder(newExportFolderName);
-    setNewExportFolderName('');
-    setSelectedExportFolderId(folder.id);
-  };
-
-  const commitRenameFolder = () => {
-    if (!renamingFolderId) return;
-    renameExportFolder(renamingFolderId, renameFolderDraft);
-    setRenamingFolderId(null);
-    setRenameFolderDraft('');
   };
 
   const handleCreateNew = () => {
@@ -1036,49 +1005,49 @@ export default function Projects() {
   };
 
   const renderAssetsModule = () => {
-    const normalizedQuery = assetSearchQuery.trim().toLowerCase();
-    const baseItems =
-      assetsTab === 'generated' ? generatedAssetItems : assetsTab === 'edited' ? editedAssetItems : exportedAssetItems;
+    const resolveOrgCode = (asset: PersonalAssetRecord) => {
+      const org = typeof asset.meta?.orgCode === 'string' ? asset.meta.orgCode.trim() : '';
+      return org || currentOrgCode;
+    };
 
-    const filteredByQuery = baseItems.filter((asset) => {
-      if (!normalizedQuery) return true;
-      const prompt = asset.prompt ? asset.prompt.toLowerCase() : '';
-      const tool = asset.tool ? asset.tool.toLowerCase() : '';
-      const url = asset.url.toLowerCase();
-      const metaSource = typeof asset.meta?.source === 'string' ? asset.meta.source.toLowerCase() : '';
-      return prompt.includes(normalizedQuery) || tool.includes(normalizedQuery) || metaSource.includes(normalizedQuery) || url.includes(normalizedQuery);
-    });
+    type ComplianceStatus = 'unprotected' | 'processing' | 'protected';
+    const resolveComplianceStatus = (asset: PersonalAssetRecord): ComplianceStatus => {
+      const raw = asset.meta?.complianceStatus;
+      if (raw === 'unprotected' || raw === 'processing' || raw === 'protected') return raw;
+      const fallback = asset.meta?.compliance;
+      if (fallback === 'unprotected' || fallback === 'processing' || fallback === 'protected') return fallback;
+      return 'unprotected';
+    };
 
-    const filteredItems = (() => {
-      if (assetsTab !== 'exported') return filteredByQuery;
-      if (selectedExportFolderId === 'all') return filteredByQuery;
-      if (selectedExportFolderId === 'unassigned') {
-        return filteredByQuery.filter((a) => !exportFolderByAssetId[a.id]);
+    const filterByTeamScope = (items: PersonalAssetRecord[]) => {
+      if (assetsTeamScopeId === 'all') return items;
+      if (assetsTeamScopeId === 'unassigned') {
+        return items.filter((asset) => !asset.meta || typeof asset.meta?.teamId !== 'string' || !asset.meta.teamId.trim());
       }
-      return filteredByQuery.filter((a) => exportFolderByAssetId[a.id] === selectedExportFolderId);
-    })();
+      return items.filter((asset) => typeof asset.meta?.teamId === 'string' && asset.meta.teamId === assetsTeamScopeId);
+    };
 
-    const totalCount =
-      assetsTab === 'generated'
-        ? generatedAssetItems.length
-        : assetsTab === 'edited'
-          ? editedAssetItems.length
-          : exportedAssetItems.length;
+    const generatedScopedItems = filterByTeamScope(generatedAssetItems);
+    const editedScopedItems = filterByTeamScope(editedAssetItems);
+    const exportedScopedItems = filterByTeamScope(exportedAssetItems);
 
+    const allOrgCandidates = [...generatedScopedItems, ...editedScopedItems, ...exportedScopedItems];
+    const uniqueOrgCodes = Array.from(new Set(allOrgCandidates.map(resolveOrgCode).filter(Boolean)));
+    const orgOptions = Array.from(new Set([currentOrgCode, ...uniqueOrgCodes, '深圳分行', '青岛分行', '海南分行', '上海分行'].filter(Boolean)));
+
+    const filterByOrgScope = (items: PersonalAssetRecord[]) => {
+      if (assetsOrgScopeId === 'all') return items;
+      return items.filter((asset) => resolveOrgCode(asset) === assetsOrgScopeId);
+    };
+
+    const generatedFilteredItems = filterByOrgScope(generatedScopedItems);
+    const editedFilteredItems = filterByOrgScope(editedScopedItems);
+    const exportedFilteredItems = filterByOrgScope(exportedScopedItems);
+
+    const baseItems = assetsTab === 'generated' ? generatedFilteredItems : assetsTab === 'edited' ? editedFilteredItems : exportedFilteredItems;
+    const filteredByCompliance =
+      assetsComplianceScopeId === 'all' ? baseItems : baseItems.filter((asset) => resolveComplianceStatus(asset) === assetsComplianceScopeId);
     const selectedCount = selectedAssetIds.size;
-
-    const folderCounts: Record<string, number> = {};
-    let unassignedExportCount = 0;
-    if (assetsTab === 'exported') {
-      exportedAssetItems.forEach((a) => {
-        const folderId = exportFolderByAssetId[a.id];
-        if (!folderId) {
-          unassignedExportCount += 1;
-          return;
-        }
-        folderCounts[folderId] = (folderCounts[folderId] || 0) + 1;
-      });
-    }
 
     const renderAssetTitle = (asset: PersonalAssetRecord) => {
       if (asset.kind === 'generated') return asset.prompt?.trim() ? asset.prompt.trim() : '文生图生成';
@@ -1086,41 +1055,132 @@ export default function Projects() {
       return asset.meta?.source || '导出';
     };
 
-    const handleFolderDrop = (folderId: string | null) => (e: React.DragEvent) => {
-      e.preventDefault();
-      const draggedId = e.dataTransfer.getData('text/plain');
-      if (!draggedId) return;
-      const toMove =
-        selectedAssetIds.size > 0 && selectedAssetIds.has(draggedId)
-          ? Array.from(selectedAssetIds)
-          : [draggedId];
-      moveExportedAssetsToFolder(toMove, folderId);
-      setDraggingAssetId(null);
+    const sortedItems = [...filteredByCompliance].sort((a, b) => b.createdAt - a.createdAt);
+
+    const renderAssetCard = (asset: PersonalAssetRecord) => {
+      const orgCode = resolveOrgCode(asset);
+      const status = resolveComplianceStatus(asset);
+      const statusLabel = status === 'unprotected' ? '未消保' : status === 'processing' ? '消保中' : '已消保';
+      const statusTone =
+        status === 'unprotected'
+          ? 'bg-amber-50 text-amber-700 border-amber-100'
+          : status === 'processing'
+            ? 'bg-blue-50 text-blue-700 border-blue-100'
+            : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+      return (
+        <div key={asset.id} className="mb-4 break-inside-avoid">
+          <div
+            onClick={() => {
+              if (isAssetsSelecting) {
+                toggleAssetSelected(asset.id);
+                return;
+              }
+              setActiveAssetDetail(asset);
+            }}
+            className={clsx(
+              "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
+              isAssetsSelecting && "cursor-pointer select-none",
+              isAssetsSelecting && selectedAssetIds.has(asset.id) && "ring-2 ring-gray-300 border-gray-200"
+            )}
+          >
+            <div className="relative">
+              <img src={asset.url} alt={renderAssetTitle(asset)} className="w-full h-auto object-cover" />
+              <div
+                className={clsx(
+                  "absolute top-3 px-2.5 py-1 rounded-full border text-[11px] font-black shadow-sm backdrop-blur",
+                  "right-3",
+                  statusTone
+                )}
+              >
+                {statusLabel}
+              </div>
+              {isAssetsSelecting && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleAssetSelected(asset.id);
+                  }}
+                  className={clsx(
+                    "absolute top-3 left-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
+                    selectedAssetIds.has(asset.id)
+                      ? "bg-gray-800 border-gray-800 text-white"
+                      : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
+                  )}
+                  aria-pressed={selectedAssetIds.has(asset.id)}
+                  title={selectedAssetIds.has(asset.id) ? '取消勾选' : '勾选'}
+                >
+                  <Check size={16} strokeWidth={3} />
+                </button>
+              )}
+            </div>
+            <div className="p-3 space-y-1">
+              <div className="text-xs font-bold text-gray-900 line-clamp-2">{renderAssetTitle(asset)}</div>
+              <div className="text-[11px] text-gray-500">{new Date(asset.createdAt).toLocaleString()}</div>
+              <div className="pt-1">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-black/10 bg-gray-50 text-[10px] font-bold text-gray-600">
+                  {orgCode}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     };
 
     return (
       <div className="space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1">
-            <div className="text-sm font-black text-gray-900">资产</div>
-            <div className="text-xs text-gray-500">共 {totalCount} 张</div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="text-xs font-semibold text-gray-500">团队</div>
+            <select
+              value={assetsTeamScopeId}
+              onChange={(e) => setAssetsTeamScopeId(e.target.value)}
+              className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm text-gray-700 outline-none focus:border-black/25"
+              aria-label="选择团队"
+            >
+              <option value="all">全部团队</option>
+              <option value="unassigned">未归属团队</option>
+              {teams.map((team) => (
+                <option key={team.id} value={team.id}>
+                  {team.name}
+                </option>
+              ))}
+            </select>
           </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={assetSearchQuery}
-                onChange={(e) => setAssetSearchQuery(e.target.value)}
-                placeholder={assetsTab === 'generated' ? '搜索提示词/URL' : '搜索来源/URL'}
-                className="h-9 w-60 pl-9 pr-3 rounded-xl border border-black/10 bg-white text-sm outline-none focus:border-black/25"
-              />
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <div className="flex items-center gap-2">
+              <div className="text-xs font-semibold text-gray-500">组织</div>
+              <select
+                value={assetsOrgScopeId}
+                onChange={(e) => setAssetsOrgScopeId(e.target.value)}
+                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm text-gray-700 outline-none focus:border-black/25"
+                aria-label="选择组织"
+              >
+                <option value="all">全部组织</option>
+                {orgOptions.map((org) => (
+                  <option key={org} value={org}>
+                    {org}
+                  </option>
+                ))}
+              </select>
             </div>
-
+            <div className="flex items-center gap-2">
+              <div className="text-xs font-semibold text-gray-500">消保状态</div>
+              <select
+                value={assetsComplianceScopeId}
+                onChange={(e) => setAssetsComplianceScopeId(e.target.value as 'all' | 'unprotected' | 'processing' | 'protected')}
+                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm text-gray-700 outline-none focus:border-black/25"
+                aria-label="选择消保状态"
+              >
+                <option value="all">全部状态</option>
+                <option value="unprotected">未消保</option>
+                <option value="processing">消保中</option>
+                <option value="protected">已消保</option>
+              </select>
+            </div>
             <button onClick={toggleAssetsSelecting} className={clsx("btn-flat-neutral", isAssetsSelecting && "bg-gray-50")}>
               {isAssetsSelecting ? '取消' : '选择'}
             </button>
-
             {isAssetsSelecting && (
               <div className="h-9 px-3 inline-flex items-center rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-800">
                 已选 {selectedCount}
@@ -1129,249 +1189,122 @@ export default function Projects() {
           </div>
         </div>
 
-        <nav className="flex items-center gap-6 border-b border-black/5">
-          <button
-            onClick={() => setAssetsTab('generated')}
-            className={clsx(
-              "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-              assetsTab === 'generated' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
-            )}
-            aria-selected={assetsTab === 'generated'}
-          >
-            生图资产
-            <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{generatedAssetItems.length}</span>
-          </button>
-          <button
-            onClick={() => setAssetsTab('edited')}
-            className={clsx(
-              "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-              assetsTab === 'edited' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
-            )}
-            aria-selected={assetsTab === 'edited'}
-          >
-            编辑资产
-            <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{editedAssetItems.length}</span>
-          </button>
-          <button
-            onClick={() => setAssetsTab('exported')}
-            className={clsx(
-              "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-              assetsTab === 'exported' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
-            )}
-            aria-selected={assetsTab === 'exported'}
-          >
-            导出资产
-            <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{exportedAssetItems.length}</span>
-          </button>
-        </nav>
+        <div className="border-b border-black/5">
+          <nav className="flex items-center gap-6">
+            <button
+              onClick={() => setAssetsTab('generated')}
+              className={clsx(
+                "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                assetsTab === 'generated' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
+              )}
+              aria-selected={assetsTab === 'generated'}
+            >
+              生图资产
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{generatedFilteredItems.length}</span>
+            </button>
+            <button
+              onClick={() => setAssetsTab('edited')}
+              className={clsx(
+                "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                assetsTab === 'edited' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
+              )}
+              aria-selected={assetsTab === 'edited'}
+            >
+              编辑资产
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{editedFilteredItems.length}</span>
+            </button>
+            <button
+              onClick={() => setAssetsTab('exported')}
+              className={clsx(
+                "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
+                assetsTab === 'exported' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
+              )}
+              aria-selected={assetsTab === 'exported'}
+            >
+              导出资产
+              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{exportedFilteredItems.length}</span>
+            </button>
+          </nav>
+        </div>
 
-        <div className={clsx(assetsTab === 'exported' && "grid grid-cols-1 lg:grid-cols-12 gap-6")}>
-          {assetsTab === 'exported' && (
-            <div className="lg:col-span-3 rounded-3xl border border-black/5 bg-white overflow-hidden">
-              <div className="p-4 border-b border-black/5">
-                <div className="text-xs font-black text-gray-900">文件夹</div>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    value={newExportFolderName}
-                    onChange={(e) => setNewExportFolderName(e.target.value)}
-                    placeholder="新建文件夹"
-                    className="flex-1 h-9 px-3 rounded-xl border border-black/10 bg-white text-sm outline-none focus:border-black/25"
-                  />
+        {sortedItems.length === 0 ? (
+          <div className="py-10 text-center text-gray-400 text-sm">暂无符合筛选条件的资产</div>
+        ) : (
+          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+            {sortedItems.map(renderAssetCard)}
+          </div>
+        )}
+
+        {activeAssetDetail && (
+          <div className="fixed inset-0 z-50">
+            <div className="absolute inset-0 bg-black/30" onClick={() => setActiveAssetDetail(null)} />
+            <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white border-l border-black/10 shadow-xl overflow-hidden">
+              <div className="p-5 border-b border-black/5 flex items-center justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-gray-900 truncate">{renderAssetTitle(activeAssetDetail)}</div>
+                  <div className="text-xs text-gray-500 mt-1">{new Date(activeAssetDetail.createdAt).toLocaleString()}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveAssetDetail(null)}
+                  className="w-10 h-10 rounded-2xl hover:bg-black/5 text-gray-500 flex items-center justify-center transition-colors"
+                  aria-label="关闭"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 overflow-y-auto h-[calc(100%-72px)]">
+                <div className="rounded-2xl overflow-hidden border border-black/10 bg-gray-50">
+                  <img src={activeAssetDetail.url} alt={renderAssetTitle(activeAssetDetail)} className="w-full h-auto object-cover" />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
+                    {activeAssetDetail.kind === 'generated' ? '生图资产' : activeAssetDetail.kind === 'edited' ? '编辑资产' : '导出资产'}
+                  </span>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
+                    {resolveOrgCode(activeAssetDetail)}
+                  </span>
+                  {(() => {
+                    const status = resolveComplianceStatus(activeAssetDetail);
+                    const label = status === 'unprotected' ? '未消保' : status === 'processing' ? '消保中' : '已消保';
+                    const tone = status === 'unprotected'
+                      ? 'bg-amber-50 text-amber-700 border-amber-100'
+                      : status === 'processing'
+                        ? 'bg-blue-50 text-blue-700 border-blue-100'
+                        : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+                    return <span className={clsx("inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-black", tone)}>{label}</span>;
+                  })()}
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={createFolderFromDraft}
-                    disabled={!newExportFolderName.trim()}
-                    className={clsx("h-9 px-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors", !newExportFolderName.trim() && "opacity-50")}
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(activeAssetDetail.url);
+                        toast.show('链接已复制');
+                      } catch {
+                        toast.show('链接已复制');
+                      }
+                    }}
+                    className="flex-1 h-10 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
                   >
-                    创建
+                    复制链接
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => window.open(activeAssetDetail.url, '_blank', 'noopener,noreferrer')}
+                    className="flex-1 h-10 rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    新窗口打开
                   </button>
                 </div>
               </div>
-              <div className="p-2 space-y-1">
-                <button
-                  onClick={() => setSelectedExportFolderId('all')}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleFolderDrop(null)}
-                  className={clsx(
-                    "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl text-sm font-semibold transition-colors",
-                    selectedExportFolderId === 'all' ? "bg-gray-50 text-gray-900" : "text-gray-600 hover:bg-gray-50"
-                  )}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Folder size={16} className="opacity-70" />
-                    全部导出
-                  </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{exportedAssetItems.length}</span>
-                </button>
-
-                <button
-                  onClick={() => setSelectedExportFolderId('unassigned')}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleFolderDrop(null)}
-                  className={clsx(
-                    "w-full flex items-center justify-between gap-2 px-3 py-2 rounded-2xl text-sm font-semibold transition-colors",
-                    selectedExportFolderId === 'unassigned' ? "bg-gray-50 text-gray-900" : "text-gray-600 hover:bg-gray-50"
-                  )}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    <Folder size={16} className="opacity-40" />
-                    未归档
-                  </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{unassignedExportCount}</span>
-                </button>
-
-                <div className="h-px bg-black/5 my-2" />
-
-                {exportFolders.length === 0 ? (
-                  <div className="px-3 py-2 text-xs text-gray-400">暂无文件夹，可创建后拖拽图片归档</div>
-                ) : (
-                  exportFolders.map((folder) => {
-                    const isRenaming = renamingFolderId === folder.id;
-                    const isActive = selectedExportFolderId === folder.id;
-                    const count = folderCounts[folder.id] || 0;
-                    return (
-                      <div
-                        key={folder.id}
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={handleFolderDrop(folder.id)}
-                        className={clsx(
-                          "w-full px-3 py-2 rounded-2xl transition-colors",
-                          draggingAssetId && "ring-1 ring-black/5",
-                          isActive ? "bg-gray-50" : "hover:bg-gray-50"
-                        )}
-                      >
-                        {isRenaming ? (
-                          <div className="flex items-center gap-2">
-                            <input
-                              value={renameFolderDraft}
-                              onChange={(e) => setRenameFolderDraft(e.target.value)}
-                              className="flex-1 h-9 px-3 rounded-xl border border-black/10 bg-white text-sm outline-none focus:border-black/25"
-                              autoFocus
-                            />
-                            <button
-                              onClick={commitRenameFolder}
-                              disabled={!renameFolderDraft.trim()}
-                              className={clsx("h-9 px-3 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors", !renameFolderDraft.trim() && "opacity-50")}
-                            >
-                              保存
-                            </button>
-                            <button
-                              onClick={() => {
-                                setRenamingFolderId(null);
-                                setRenameFolderDraft('');
-                              }}
-                              className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                            >
-                              取消
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setSelectedExportFolderId(folder.id)}
-                            className="w-full flex items-center justify-between gap-2 text-sm font-semibold text-gray-700"
-                          >
-                            <span className="inline-flex items-center gap-2 min-w-0">
-                              <Folder size={16} className="opacity-70 shrink-0" />
-                              <span className="truncate">{folder.name}</span>
-                            </span>
-                            <span className="inline-flex items-center gap-2">
-                              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{count}</span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRenamingFolderId(folder.id);
-                                  setRenameFolderDraft(folder.name);
-                                }}
-                                className="p-1 rounded-lg hover:bg-black/5 text-gray-400 hover:text-gray-700 transition-colors"
-                                title="重命名"
-                              >
-                                <Pencil size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteExportFolder(folder.id);
-                                  if (selectedExportFolderId === folder.id) setSelectedExportFolderId('all');
-                                }}
-                                className="p-1 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition-colors"
-                                title="删除文件夹"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </span>
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
             </div>
-          )}
-
-          <div className={clsx(assetsTab === 'exported' ? "lg:col-span-9" : "")}>
-            {filteredItems.length === 0 ? (
-              <div className="py-16 text-center text-gray-500">
-                {assetsTab === 'generated' ? '暂无生图资产（在文生图页生成后会自动出现在这里）' : assetsTab === 'edited' ? '暂无编辑资产（在编辑类工具生成后会自动出现在这里）' : '暂无导出资产（导出下载后会自动出现在这里）'}
-              </div>
-            ) : (
-              <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
-                {filteredItems.map((asset) => (
-                  <div key={asset.id} className="mb-4 break-inside-avoid">
-                    <div
-                      draggable={assetsTab === 'exported'}
-                      onDragStart={(e) => {
-                        e.dataTransfer.setData('text/plain', asset.id);
-                        setDraggingAssetId(asset.id);
-                      }}
-                      onDragEnd={() => setDraggingAssetId(null)}
-                      onClick={() => {
-                        if (isAssetsSelecting) toggleAssetSelected(asset.id);
-                      }}
-                      className={clsx(
-                        "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
-                        isAssetsSelecting && "cursor-pointer select-none",
-                        isAssetsSelecting && selectedAssetIds.has(asset.id) && "ring-2 ring-gray-300 border-gray-200"
-                      )}
-                    >
-                      <div className="relative">
-                        <img src={asset.url} alt={renderAssetTitle(asset)} className="w-full h-auto object-cover" />
-                        {isAssetsSelecting && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleAssetSelected(asset.id);
-                            }}
-                            className={clsx(
-                              "absolute top-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
-                              selectedAssetIds.has(asset.id)
-                                ? "bg-gray-800 border-gray-800 text-white"
-                                : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
-                            )}
-                            aria-pressed={selectedAssetIds.has(asset.id)}
-                            title={selectedAssetIds.has(asset.id) ? '取消勾选' : '勾选'}
-                          >
-                            <Check size={16} strokeWidth={3} />
-                          </button>
-                        )}
-                        {assetsTab === 'exported' && (
-                          <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-[11px] font-black border shadow-md backdrop-blur bg-black/70 text-white border-white/20">
-                            拖拽归档
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3 space-y-1">
-                        <div className="text-xs font-bold text-gray-900 line-clamp-2">{renderAssetTitle(asset)}</div>
-                        <div className="text-[11px] text-gray-500">{new Date(asset.createdAt).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -2318,78 +2251,9 @@ export default function Projects() {
       <div
         className={clsx(
           "max-w-[1320px] mx-auto px-8",
-          space === 'public' ? "py-6 space-y-6 pb-20" : "py-12 space-y-10"
+          space === 'public' ? "py-6 space-y-6 pb-20" : "pt-0 pb-20 space-y-6"
         )}
       >
-        {space === 'personal' && (
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="space-y-1">
-              <div className="text-[11px] font-medium tracking-widest text-gray-400 uppercase">个人空间</div>
-              <div className="flex flex-wrap items-end gap-x-5 gap-y-2">
-                <div
-                  className="flex items-center gap-1.5"
-                  onMouseEnter={() => setIsTitleHover(true)}
-                  onMouseLeave={() => setIsTitleHover(false)}
-                >
-                  {isEditingTitle ? (
-                    <input
-                      value={titleDraft}
-                      onChange={(e) => setTitleDraft(e.target.value)}
-                      onBlur={() => {
-                        setIsEditingTitle(false);
-                        persistPersonalSpaceTitle(titleDraft);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          setIsEditingTitle(false);
-                          persistPersonalSpaceTitle(titleDraft);
-                        }
-                        if (e.key === 'Escape') {
-                          setIsEditingTitle(false);
-                          setTitleDraft(personalSpaceTitle);
-                        }
-                      }}
-                      className="text-2xl font-semibold tracking-tight text-gray-950 bg-transparent outline-none border-b border-black/10 focus:border-black/30 px-0.5"
-                      autoFocus
-                    />
-                  ) : (
-                    <div className="text-2xl font-semibold tracking-tight text-gray-950">{personalSpaceTitle}</div>
-                  )}
-                  {!isEditingTitle && isTitleHover && (
-                    <button
-                      onClick={() => {
-                        setTitleDraft(personalSpaceTitle);
-                        setIsEditingTitle(true);
-                      }}
-                      className="p-2 rounded-xl text-gray-300 hover:text-gray-700 hover:bg-black/5 transition-colors"
-                      title="重命名"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  )}
-                </div>
-                <div className="text-xs text-gray-400 font-medium">
-                  设计 {visibleProjects.length} · 资产 {personalAssets.length} · 生图 {generatedAssetItems.length} · 编辑 {editedAssetItems.length} · 导出 {exportedAssetItems.length}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setView('p2p')}
-                className={clsx(
-                  "btn-breeze-orange-sm",
-                  view === 'p2p' && "shadow-sm"
-                )}
-                aria-selected={view === 'p2p'}
-              >
-                <Share2 size={14} />
-                兑换分享口令
-              </button>
-            </div>
-          </div>
-        )}
-
         {space === 'personal' && (
           <div className="flex items-center justify-between gap-4 border-b border-black/5">
             <div className="flex items-center gap-6">
@@ -2450,7 +2314,7 @@ export default function Projects() {
           </div>
         )}
 
-        <div className={clsx(space === 'public' ? "pt-0" : "rounded-3xl border border-black/5 bg-white p-8")}>
+        <div className="pt-0">
           {isHydrating ? (
             <div className="animate-pulse space-y-6">
               <div className="h-7 w-48 rounded-xl bg-black/5" />
