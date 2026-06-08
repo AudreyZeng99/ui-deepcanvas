@@ -298,7 +298,21 @@ export default function Projects() {
   });
   const [teams, setTeams] = useState<TeamRecord[]>(() => {
     const parsed = safeParseJson<TeamRecord[]>(localStorage.getItem(TEAMS_STORAGE_KEY), []);
-    return Array.isArray(parsed) ? parsed : [];
+    const list = Array.isArray(parsed) ? parsed : [];
+    const hasLoanMiniAppTeam = list.some(
+      (team) => team && (team.id === 'team-loan-miniapp' || team.name === '贷款小程序团队')
+    );
+    if (hasLoanMiniAppTeam) return list;
+    const now = Date.now();
+    const next: TeamRecord = {
+      id: 'team-loan-miniapp',
+      name: '贷款小程序团队',
+      admins: ['zenghuayue'],
+      members: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    return [...list, next];
   });
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [newTeamName, setNewTeamName] = useState('');

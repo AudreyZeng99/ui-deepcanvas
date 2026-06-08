@@ -96,6 +96,87 @@ export default function Home() {
     return items.filter((item: any) => typeof item?.prompt === 'string' && (typeof item?.imageUrl === 'string' || typeof item?.image === 'string'));
   }, []);
 
+  const publicTemplateCommunityItems = useMemo(
+    () => [
+      {
+        id: 'public-1',
+        title: '双11 电商大促主视觉',
+        previewUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80',
+        authorName: '社区作者A',
+        width: 1920,
+        height: 1080,
+      },
+      {
+        id: 'public-2',
+        title: '春节 新品发布长图',
+        previewUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&q=80',
+        authorName: '社区作者B',
+        width: 1080,
+        height: 1920,
+      },
+      {
+        id: 'public-3',
+        title: '情人节 品牌KV留白版',
+        previewUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200&q=80',
+        authorName: '社区作者C',
+        width: 1920,
+        height: 1080,
+      },
+      {
+        id: 'public-4',
+        title: '母亲节 活动海报模板',
+        previewUrl: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?w=1200&q=80',
+        authorName: '社区作者D',
+        width: 1242,
+        height: 2208,
+      },
+      {
+        id: 'public-5',
+        title: '端午 节日促销海报（国潮）',
+        previewUrl: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&q=80',
+        authorName: '社区作者E',
+        width: 1242,
+        height: 2208,
+      },
+      {
+        id: 'public-6',
+        title: '招聘 H5 竖版长图',
+        previewUrl: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?w=1200&q=80',
+        authorName: '社区作者F',
+        width: 1080,
+        height: 1920,
+      },
+      {
+        id: 'public-7',
+        title: '培训通知 会议海报',
+        previewUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=1200&q=80',
+        authorName: '社区作者G',
+        width: 1080,
+        height: 1920,
+      },
+      {
+        id: 'public-8',
+        title: '国庆 红金风格主KV',
+        previewUrl: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=1200&q=80',
+        authorName: '社区作者H',
+        width: 1920,
+        height: 1080,
+      },
+    ],
+    []
+  );
+
+  const openPublicCanvasFromTemplate = (detail: { id: string; title: string; previewUrl: string }) => {
+    const params = new URLSearchParams();
+    params.set('src', detail.previewUrl);
+    params.set('name', detail.title);
+    params.set('id', detail.id);
+    params.set('q', detail.title);
+    const path = `/public-canvas?${params.toString()}`;
+    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div
       className="min-h-screen bg-gradient-to-b from-white via-white to-purple-50/40"
@@ -335,69 +416,121 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="pt-6 border-t border-black/5 space-y-4">
-          <div className="flex items-end justify-between gap-4 flex-wrap">
-            <div className="space-y-1">
-              <div className="text-base font-semibold text-gray-900">提示词灵感</div>
-              <div className="text-sm text-gray-500">不会写提示词？这里有为你准备好的背景底图～</div>
+        {centerMode === 'search' ? (
+          <section className="pt-6 border-t border-black/5 space-y-4">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div className="space-y-1">
+                <div className="text-base font-semibold text-gray-900">公共模板社区</div>
+                <div className="text-sm text-gray-500">直接浏览社区热门模板，点开即可在无限画布里编辑</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/public?module=projects')}
+                className="h-9 px-4 rounded-full text-sm font-semibold bg-white border border-black/5 text-gray-900 hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                去社区看看
+              </button>
             </div>
-          </div>
 
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
-            {backgroundInspirationItems.map((item: any) => {
-              const isBroken = brokenInspirationImageIds.has(item.id);
-              return (
-                <div key={item.id} className="mb-4 break-inside-avoid">
-                  <div className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white">
-                    <div className={clsx('w-full aspect-[4/3]', item.imageUrl ? 'bg-gray-100' : item.image)}>
-                      {item.imageUrl && !isBroken ? (
-                        <img
-                          src={item.imageUrl}
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                          onError={() => {
-                            setBrokenInspirationImageIds((prev) => {
-                              const next = new Set(prev);
-                              next.add(item.id);
-                              return next;
-                            });
-                          }}
-                        />
-                      ) : (
-                        <div
-                          className="w-full h-full"
-                          style={{
-                            background: `linear-gradient(135deg, ${purple.softBg} 0%, rgba(17, 24, 39, 0.06) 100%)`,
-                          }}
-                        />
-                      )}
-                    </div>
-                    <div className="p-3 space-y-1">
-                      <div className="text-xs font-semibold text-gray-900 line-clamp-1">{item.title}</div>
-                      <div className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{item.prompt}</div>
-                    </div>
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors" />
-                    <div className="absolute inset-x-0 bottom-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              {publicTemplateCommunityItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="group flex flex-col gap-2 cursor-pointer"
+                  onClick={() => openPublicCanvasFromTemplate(item)}
+                >
+                  <div className="relative aspect-[9/16] rounded-2xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
+                    <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                       <button
                         type="button"
-                        onClick={() => {
-                          setCenterMode('generate');
-                          setChatInput(item.prompt);
-                          requestAnimationFrame(() => {
-                            chatInputRef.current?.focus();
-                          });
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openPublicCanvasFromTemplate(item);
                         }}
-                        className="w-full h-10 rounded-xl bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                        className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                        aria-label="使用该模板"
                       >
-                        使用该提示词
+                        使用该模板
                       </button>
                     </div>
                   </div>
+                  <div className="flex items-center gap-2 px-1">
+                    <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                      {item.authorName.trim().slice(0, 1)}
+                    </div>
+                    <span className="text-xs text-gray-500 truncate flex-1">{item.authorName}</span>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <section className="pt-6 border-t border-black/5 space-y-4">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div className="space-y-1">
+                <div className="text-base font-semibold text-gray-900">提示词灵感</div>
+                <div className="text-sm text-gray-500">不会写提示词？这里有为你准备好的背景底图～</div>
+              </div>
+            </div>
+
+            <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+              {backgroundInspirationItems.map((item: any) => {
+                const isBroken = brokenInspirationImageIds.has(item.id);
+                return (
+                  <div key={item.id} className="mb-4 break-inside-avoid">
+                    <div className="group relative overflow-hidden rounded-2xl border border-black/5 bg-white">
+                      <div className={clsx('w-full aspect-[4/3]', item.imageUrl ? 'bg-gray-100' : item.image)}>
+                        {item.imageUrl && !isBroken ? (
+                          <img
+                            src={item.imageUrl}
+                            alt={item.title}
+                            className="w-full h-full object-cover"
+                            onError={() => {
+                              setBrokenInspirationImageIds((prev) => {
+                                const next = new Set(prev);
+                                next.add(item.id);
+                                return next;
+                              });
+                            }}
+                          />
+                        ) : (
+                          <div
+                            className="w-full h-full"
+                            style={{
+                              background: `linear-gradient(135deg, ${purple.softBg} 0%, rgba(17, 24, 39, 0.06) 100%)`,
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="p-3 space-y-1">
+                        <div className="text-xs font-semibold text-gray-900 line-clamp-1">{item.title}</div>
+                        <div className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">{item.prompt}</div>
+                      </div>
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors" />
+                      <div className="absolute inset-x-0 bottom-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCenterMode('generate');
+                            setChatInput(item.prompt);
+                            requestAnimationFrame(() => {
+                              chatInputRef.current?.focus();
+                            });
+                          }}
+                          className="w-full h-10 rounded-xl bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                        >
+                          使用该提示词
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
