@@ -17,6 +17,7 @@ import AIMatting from './pages/tools/AIMatting';
 import AIBlend from './pages/tools/AIBlend';
 import MD2Card from './pages/tools/MD2Card';
 import PPTGen from './pages/tools/PPTGen';
+import AICopy from './pages/tools/AICopy';
 import IDPhoto from './pages/tools/IDPhoto';
 import OldPhotoRestore from './pages/tools/OldPhotoRestore';
 import clsx from 'clsx';
@@ -75,6 +76,7 @@ function Layout() {
           <Route path="/tools/ai-erase" element={<AIErase />} />
           <Route path="/tools/ai-matting" element={<AIMatting />} />
           <Route path="/tools/ai-blend" element={<AIBlend />} />
+          <Route path="/tools/ai-copy" element={<AICopy />} />
           <Route path="/tools/md2card" element={<MD2Card />} />
           <Route path="/tools/ppt-gen" element={<PPTGen />} />
           <Route path="/tools/id-photo" element={<IDPhoto />} />

@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ElementType } from 'react';
 import { Building2, Folder, Home, Image as ImageIcon, Layers, Plus, Sparkles, Users } from 'lucide-react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import clsx from 'clsx';
 
 import { Tooltip } from '../Tooltip';
 import CreateCanvasModal from '../CreateCanvasModal';
 
 export default function Sidebar() {
-  const location = useLocation();
-  const navigate = useNavigate();
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
@@ -36,10 +34,14 @@ export default function Sidebar() {
       <div className="w-full px-2">
         <NavLink
           to="/"
-          className="w-full p-3 rounded-xl bg-black text-white flex items-center justify-center font-black text-lg"
+          className="w-full p-3 rounded-xl bg-black text-white flex items-center justify-center"
           aria-label="返回首页"
         >
-          D
+          <img
+            src={`${import.meta.env.BASE_URL}figure/cloud-white.png`}
+            alt=""
+            className="w-8 h-8 object-contain"
+          />
         </NavLink>
       </div>
 
