@@ -34,34 +34,29 @@ const generateMockData = (): Section[] => {
   const categories = [
     {
       id: 'festival',
-      title: '节日活动图',
-      subtitle: '可复用与节日相关营销活动、坐席图、宣传图等',
-    },
-    {
-      id: 'ad-banner',
-      title: '投放位 banner',
-      subtitle: '渠道投放与信息流常用 Banner 物料',
+      title: '节日节气',
+      subtitle: '节日祝福、节气氛围、活动主视觉等',
     },
     {
       id: 'internal',
-      title: '内部宣传',
-      subtitle: '面向行内/部门/园区的公告与活动宣传',
+      title: '对内活动',
+      subtitle: '通知公告、培训招募、内部活动宣传等',
+    },
+    {
+      id: 'mobile-bank',
+      title: '手机银行',
+      subtitle: 'App 活动运营、功能上新、权益促活等',
     },
     {
       id: 'party-building',
       title: '党建活动',
-      subtitle: '党建主题活动海报、展板与宣发物料',
-    },
-    {
-      id: 'marketing',
-      title: '营销活动',
-      subtitle: '拉新促活、转化召回等通用活动物料',
+      subtitle: '主题党日、学习活动、宣传展板与宣发物料',
     },
     {
       id: 'other',
-      title: '其他',
-      subtitle: '通用底图、信息排版与未归类模板',
-    }
+      title: '更多内容',
+      subtitle: '通用底图、信息排版与更多灵感模板',
+    },
   ];
 
   const authors = [
@@ -90,6 +85,17 @@ const generateMockData = (): Section[] => {
     'https://images.unsplash.com/photo-1557682260-96773eb01377?q=80&w=400&auto=format&fit=crop',
   ];
 
+  const mobileBankImages = [
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1512428559087-560fa5ceab42?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=400&auto=format&fit=crop',
+  ];
+
   const internalImages = [
     'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=400&auto=format&fit=crop',
     'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=400&auto=format&fit=crop',
@@ -104,13 +110,6 @@ const generateMockData = (): Section[] => {
     'https://images.unsplash.com/photo-1520975682031-a29e9f3492b7?q=80&w=400&auto=format&fit=crop',
   ];
 
-  const marketingImages = [
-    'https://images.unsplash.com/photo-1518600570419-86927d7f7e0b?q=80&w=400&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=400&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1618005198919-d3d4b5a92ead?q=80&w=400&auto=format&fit=crop',
-    'https://images.unsplash.com/photo-1611003446057-08c35359146c?q=80&w=400&auto=format&fit=crop',
-  ];
-
   const otherImages = [
     'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=400&auto=format&fit=crop',
     'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=400&auto=format&fit=crop',
@@ -119,20 +118,18 @@ const generateMockData = (): Section[] => {
   ];
 
   const templateTitlesByCategory: Record<string, string[]> = {
-    festival: ['春节主视觉长图', '元宵节活动海报', '端午国潮促销海报', '中秋团圆KV', '国庆活动海报', '双11大促主视觉', '圣诞节活动长图', '跨年倒计时海报'],
-    'ad-banner': ['渠道投放横版 Banner', '信息流竖版 Banner', 'APP 开屏 Banner', '活动转化 Banner', '品牌曝光 Banner', '强利益点 Banner', '强 CTA Banner', '产品导向 Banner'],
+    festival: ['春节主视觉长图', '元宵节活动海报', '端午节气氛围海报', '中秋团圆KV', '国庆节日活动海报', '双11 活动主视觉', '圣诞节活动长图', '跨年倒计时海报'],
     internal: ['内部活动通知海报', '园区公告长图', '培训报名海报', '会议议程长图', '员工关怀活动海报', '安全生产宣传海报', '周报/月报封面', '内宣活动长图'],
+    'mobile-bank': ['手机银行功能上新海报', '掌上银行权益活动海报', 'App 开屏主视觉', '会员日权益长图', '转账免费提现活动', '生活缴费促活海报', '理财专区运营KV', '信用卡活动主视觉'],
     'party-building': ['党建主题活动海报', '党员学习日海报', '主题党日活动长图', '先进典型宣传海报', '组织生活会海报', '志愿服务活动海报', '红色教育活动长图', '党建展板封面'],
-    marketing: ['拉新福利海报', '会员日活动长图', '限时秒杀海报', '新品发布KV', '裂变助力海报', '到店有礼海报', '抽奖活动长图', '召回优惠海报'],
     other: ['通用信息排版模板', '标题留白版海报', '多模块长图排版', '产品信息卡片', '活动日历海报', '直播预告海报', '图文混排长图', '通用背景底图'],
   };
 
   const imagePoolsByCategory: Record<string, string[]> = {
     festival: cnyImages,
-    'ad-banner': bannerImages,
     internal: internalImages,
+    'mobile-bank': mobileBankImages.length ? mobileBankImages : bannerImages,
     'party-building': partyBuildingImages,
-    marketing: marketingImages,
     other: otherImages,
   };
 
@@ -141,7 +138,7 @@ const generateMockData = (): Section[] => {
     const imagePool = imagePoolsByCategory[cat.id] || cnyImages;
     return {
       ...cat,
-      items: Array.from({ length: 12 }).map((_, i) => ({
+      items: Array.from({ length: 24 }).map((_, i) => ({
         id: `${cat.id}-${i}`,
         title: titlePool[i % titlePool.length],
         imageUrl: imagePool[i % imagePool.length],
@@ -161,6 +158,7 @@ type TemplateCardProps = {
   item: Template;
   onUseTemplate: (detail: PublicTemplateDetail) => void;
   onOpenDetail: (detail: PublicTemplateDetail) => void;
+  className?: string;
 };
 
 type PublicTemplateDetail = {
@@ -173,7 +171,7 @@ type PublicTemplateDetail = {
   elements: string[];
 };
 
-const TemplateCard = ({ item, onUseTemplate, onOpenDetail }: TemplateCardProps) => {
+const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: TemplateCardProps) => {
   const toast = useToast();
   const detail: PublicTemplateDetail = {
     id: item.id,
@@ -186,7 +184,7 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail }: TemplateCardProps) 
   };
   return (
     <div
-      className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2"
+      className={clsx('flex-shrink-0 group cursor-pointer flex flex-col gap-2', className ?? 'w-full')}
       onClick={() => onOpenDetail(detail)}
     >
       {/* Card Image Container */}
@@ -457,6 +455,8 @@ type FakeTemplateResult = {
   previewUrl: string;
   authorName: string;
   elements: string[];
+  width: number;
+  height: number;
 };
 
 function buildMockSvgDataUrl(seed: string, title: string) {
@@ -485,18 +485,51 @@ function buildMockSvgDataUrl(seed: string, title: string) {
 }
 
 function buildFakeTemplateResults(query: string, count: number): FakeTemplateResult[] {
-  const baseElements = ['元素：小狗'];
+  const sizes = [
+    { width: 1080, height: 1920 },
+    { width: 1920, height: 1080 },
+    { width: 1080, height: 1080 },
+    { width: 1242, height: 2208 },
+    { width: 1200, height: 628 },
+  ];
+  const resolvedQuery = query.trim();
+  const matchedSection =
+    sections.find((s) => s.title === resolvedQuery) ||
+    sections.find((s) => s.title.includes(resolvedQuery)) ||
+    sections.find((s) => resolvedQuery.includes(s.title));
+
+  if (matchedSection) {
+    const baseElements = ['元素：海报'];
+    return Array.from({ length: count }).map((_, i) => {
+      const baseItem = matchedSection.items[i % matchedSection.items.length];
+      const size = sizes[i % sizes.length];
+      const title = `${matchedSection.title} · ${baseItem.title}`;
+      return {
+        id: `search-${matchedSection.id}-${i + 1}`,
+        title,
+        previewUrl: baseItem.imageUrl,
+        authorName: baseItem.author.name,
+        elements: baseElements,
+        width: size.width,
+        height: size.height,
+      };
+    });
+  }
+
+  const baseElements = ['元素：模板'];
   const authors = ['社区作者A', '社区作者B', '社区作者C', '社区作者D', '社区作者E', '社区作者F', '社区作者G'];
   return Array.from({ length: count }).map((_, i) => {
-    const seed = `小狗-${i + 1}`;
-    const title = `小狗 模板 ${i + 1}`;
-    const elements = [...baseElements];
+    const seed = `${resolvedQuery || '模板'}-${i + 1}`;
+    const title = `${resolvedQuery || '通用'} 模板 ${i + 1}`;
+    const size = sizes[i % sizes.length];
     return {
       id: `fake-${seed}`,
       title,
       previewUrl: buildMockSvgDataUrl(seed, title),
       authorName: authors[i % authors.length],
-      elements,
+      elements: baseElements,
+      width: size.width,
+      height: size.height,
     };
   });
 }
@@ -507,15 +540,11 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   const toast = useToast();
   const { teams, projects } = useProject();
   const { createProject, saveProject } = useProject();
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-  const [visibleSectionsCount, setVisibleSectionsCount] = useState(3);
   const [trafficRankTab, setTrafficRankTab] = useState<'click' | 'use'>('click');
   const [searchQuery, setSearchQuery] = useState('');
   const [elementDraftById, setElementDraftById] = useState<Record<string, string>>({});
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
-  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
-  const loadingMoreRef = useRef(false);
   const [teamTemplateFavorites, setTeamTemplateFavorites] = useState<Set<string>>(() => {
     const raw = localStorage.getItem(TEAM_TEMPLATE_FAVORITES_KEY);
     if (!raw) return new Set();
@@ -615,22 +644,9 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     navigate({ pathname: location.pathname, search: nextParams.toString() }, { replace: false });
   };
 
-  const toggleSection = (sectionId: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [sectionId]: !prev[sectionId]
-    }));
-  };
-
-  const handleLoadMore = () => {
-    setVisibleSectionsCount(prev => Math.min(prev + 3, sections.length));
-  };
-
   const resetToTemplateHome = () => {
     setSearchQuery('');
     setEditingElementId(null);
-    setExpandedSections({});
-    setVisibleSectionsCount(3);
     requestAnimationFrame(() => {
       scrollAreaRef.current?.scrollTo({ top: 0 });
     });
@@ -671,38 +687,24 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   }, [trimmedQuery]);
 
   useEffect(() => {
-    const canLoadMore = scope === 'public' && !trimmedQuery && visibleSectionsCount < sections.length;
-    if (!canLoadMore) return;
-    const root = scrollAreaRef.current;
-    const target = loadMoreSentinelRef.current;
-    if (!root || !target) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (!entry?.isIntersecting) return;
-        if (loadingMoreRef.current) return;
-        loadingMoreRef.current = true;
-        handleLoadMore();
-        requestAnimationFrame(() => {
-          loadingMoreRef.current = false;
-        });
-      },
-      {
-        root,
-        rootMargin: '320px 0px',
-        threshold: 0.01,
-      }
-    );
-
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [scope, trimmedQuery, visibleSectionsCount]);
+    if (!trimmedQuery) return;
+    requestAnimationFrame(() => {
+      scrollAreaRef.current?.scrollTo({ top: 0 });
+    });
+  }, [trimmedQuery]);
 
   const fakeSearchResults = useMemo(() => {
     if (!trimmedQuery) return [];
-    return buildFakeTemplateResults(trimmedQuery, 10);
+    const isCategory = sections.some((s) => s.title === trimmedQuery);
+    return buildFakeTemplateResults(trimmedQuery, isCategory ? 60 : 36);
   }, [trimmedQuery]);
+
+  const enterSearchWithCategory = (categoryName: string) => {
+    setSearchQuery(categoryName);
+    requestAnimationFrame(() => {
+      scrollAreaRef.current?.scrollTo({ top: 0 });
+    });
+  };
 
   const openInNewTab = (path: string) => {
     const normalized = path.startsWith('/') ? path : `/${path}`;
@@ -843,25 +845,28 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+              <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
                 {fakeSearchResults.map((item) => {
                   const detail: PublicTemplateDetail = {
                     id: item.id,
                     title: item.title,
                     previewUrl: item.previewUrl,
                     authorName: item.authorName,
-                    width: 1080,
-                    height: 1920,
+                    width: item.width,
+                    height: item.height,
                     elements: item.elements,
                   };
 
                   return (
                     <div
                       key={item.id}
-                      className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2"
+                      className="mb-4 break-inside-avoid group cursor-pointer flex flex-col gap-2"
                       onClick={() => setActiveTemplateDetail(detail)}
                     >
-                      <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
+                      <div
+                        className="relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1"
+                        style={{ aspectRatio: `${detail.width} / ${detail.height}` }}
+                      >
                         <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -902,7 +907,7 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
             </section>
           ) : scope === 'public' ? (
             <>
-              {sections.slice(0, visibleSectionsCount).map((section) => (
+              {sections.map((section) => (
                 <section key={section.id} className="space-y-4">
                   <div className="flex items-end justify-between">
                     <div className="space-y-1">
@@ -910,36 +915,30 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                       <p className="text-xs text-gray-500">{section.subtitle}</p>
                     </div>
                     <button
-                      onClick={() => toggleSection(section.id)}
+                      onClick={() => enterSearchWithCategory(section.title)}
                       className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
                     >
-                      {expandedSections[section.id] ? '收起' : '更多'}
+                      更多
                       <ChevronRight
                         size={14}
-                        className={clsx('transition-transform duration-300', expandedSections[section.id] && 'rotate-90')}
+                        className="transition-transform duration-300"
                       />
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300">
-                    {(expandedSections[section.id] ? section.items : section.items.slice(0, 6)).map((item) => (
+                  <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
+                    {section.items.slice(0, 12).map((item) => (
                       <TemplateCard
                         key={item.id}
                         item={item}
                         onUseTemplate={openTemplateInPublicCanvas}
                         onOpenDetail={(detail) => setActiveTemplateDetail(detail)}
+                        className="w-[160px] sm:w-[180px]"
                       />
                     ))}
                   </div>
                 </section>
               ))}
-
-              <div className="pt-6">
-                <div ref={loadMoreSentinelRef} className="h-10" />
-                {visibleSectionsCount >= sections.length && (
-                  <div className="text-center text-xs text-gray-400 py-6">没有更多了</div>
-                )}
-              </div>
             </>
           ) : (
             <div className="space-y-10">
