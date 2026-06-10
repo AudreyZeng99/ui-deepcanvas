@@ -90,15 +90,15 @@ export default function Home() {
 
   const aiTools = useMemo(
     () => [
-      { icon: Wand2, label: 'AI 改图', desc: '一键调整风格与版式', tooltip: '风格/尺寸一键调整', path: '/tools/ai-edit', tone: 'primary' as const },
-      { icon: Eraser, label: 'AI 擦除', desc: '去路人 / 去杂物 / 去水印', tooltip: '圈选即可去除', path: '/tools/ai-erase', tone: 'rose' as const },
-      { icon: Scissors, label: 'AI 抠图', desc: '一键去背景，保主体', tooltip: '人像/商品去背景', path: '/tools/ai-matting', tone: 'amber' as const },
-      { icon: Layers, label: 'AI 溶图', desc: '两图自然融合更好看', tooltip: '拼贴更自然', path: '/tools/ai-blend', tone: 'sky' as const },
-      { icon: FileText, label: 'md2Card', desc: '把文章变成海报卡片', tooltip: 'Markdown 转卡片图', path: '/tools/md2card', tone: 'slate' as const },
-      { icon: PencilLine, label: 'AI 文案', desc: '标题卖点一键润色改写', tooltip: '文案优化/改写', path: '/tools/ai-copy', openInNewTab: true, tone: 'mint' as const },
-      { icon: ScanFace, label: '证件照生成', desc: '换底色 / 裁切 / 规格', tooltip: '证件照一键生成', path: '/tools/id-photo', tone: 'sky' as const },
-      { icon: History, label: '老照片修复', desc: '变清晰 / 去噪 / 上色', tooltip: '修复模糊旧照', path: '/tools/old-photo', tone: 'amber' as const },
-      { icon: MoreHorizontal, label: '结构化海报', desc: '输入要点，一键出版式', tooltip: '要点 → 海报版式', path: '', tone: 'slate' as const },
+      { icon: Wand2, label: 'AI 改图', desc: '一键调整风格与版式', tooltip: '风格/尺寸一键调整', path: '/tools/ai-edit' },
+      { icon: Eraser, label: 'AI 擦除', desc: '去路人 / 去杂物 / 去水印', tooltip: '圈选即可去除', path: '/tools/ai-erase' },
+      { icon: Scissors, label: 'AI 抠图', desc: '一键去背景，保主体', tooltip: '人像/商品去背景', path: '/tools/ai-matting' },
+      { icon: Layers, label: 'AI 溶图', desc: '两图自然融合更好看', tooltip: '拼贴更自然', path: '/tools/ai-blend' },
+      { icon: FileText, label: 'md2Card', desc: '把文章变成海报卡片', tooltip: 'Markdown 转卡片图', path: '/tools/md2card' },
+      { icon: PencilLine, label: 'AI 文案', desc: '标题卖点一键润色改写', tooltip: '文案优化/改写', path: '/tools/ai-copy', openInNewTab: true },
+      { icon: ScanFace, label: '证件照生成', desc: '换底色 / 裁切 / 规格', tooltip: '证件照一键生成', path: '/tools/id-photo' },
+      { icon: History, label: '老照片修复', desc: '变清晰 / 去噪 / 上色', tooltip: '修复模糊旧照', path: '/tools/old-photo' },
+      { icon: MoreHorizontal, label: '结构化海报', desc: '输入要点，一键出版式', tooltip: '要点 → 海报版式', path: '' },
     ],
     []
   );
@@ -359,6 +359,7 @@ export default function Home() {
     <div
       className="min-h-screen bg-[#FAFAFB]"
       style={{
+        ['--home-tool-card-hover' as any]: 'rgba(143, 122, 251, 0.06)',
         ['--home-tool-bg' as any]: purple.softBg,
         ['--home-tool-bg-hover' as any]: purple.softBgHover,
         ['--home-tool-border' as any]: purple.softBorder,
@@ -757,7 +758,6 @@ export default function Home() {
                   label={t.label}
                   desc={t.desc}
                   tooltip={t.tooltip}
-                  tone={t.tone}
                   onClick={() => {
                     if (!t.path) {
                       toast.show('结构化海报功能开发中');
@@ -907,7 +907,6 @@ function ToolIcon({
   label,
   desc,
   tooltip,
-  tone = 'primary',
   className,
   onClick,
 }: {
@@ -915,61 +914,9 @@ function ToolIcon({
   label: string;
   desc?: string;
   tooltip?: string;
-  tone?: 'primary' | 'mint' | 'amber' | 'sky' | 'rose' | 'slate';
   className?: string;
   onClick?: () => void;
 }) {
-  const toneVars = {
-    primary: {
-      cardHover: 'rgba(143, 122, 251, 0.06)',
-      bg: 'rgba(143, 122, 251, 0.10)',
-      bgHover: 'rgba(143, 122, 251, 0.16)',
-      border: 'rgba(143, 122, 251, 0.22)',
-      borderHover: 'rgba(143, 122, 251, 0.34)',
-      fg: '#6F58F3',
-    },
-    mint: {
-      cardHover: 'rgba(52, 211, 153, 0.07)',
-      bg: 'rgba(52, 211, 153, 0.12)',
-      bgHover: 'rgba(52, 211, 153, 0.18)',
-      border: 'rgba(52, 211, 153, 0.24)',
-      borderHover: 'rgba(52, 211, 153, 0.36)',
-      fg: '#0F766E',
-    },
-    amber: {
-      cardHover: 'rgba(251, 191, 36, 0.10)',
-      bg: 'rgba(251, 191, 36, 0.14)',
-      bgHover: 'rgba(251, 191, 36, 0.20)',
-      border: 'rgba(251, 191, 36, 0.26)',
-      borderHover: 'rgba(251, 191, 36, 0.40)',
-      fg: '#92400E',
-    },
-    sky: {
-      cardHover: 'rgba(56, 189, 248, 0.08)',
-      bg: 'rgba(56, 189, 248, 0.12)',
-      bgHover: 'rgba(56, 189, 248, 0.18)',
-      border: 'rgba(56, 189, 248, 0.24)',
-      borderHover: 'rgba(56, 189, 248, 0.36)',
-      fg: '#0369A1',
-    },
-    rose: {
-      cardHover: 'rgba(251, 113, 133, 0.08)',
-      bg: 'rgba(251, 113, 133, 0.12)',
-      bgHover: 'rgba(251, 113, 133, 0.18)',
-      border: 'rgba(251, 113, 133, 0.24)',
-      borderHover: 'rgba(251, 113, 133, 0.36)',
-      fg: '#9F1239',
-    },
-    slate: {
-      cardHover: 'rgba(17, 24, 39, 0.04)',
-      bg: 'rgba(17, 24, 39, 0.05)',
-      bgHover: 'rgba(17, 24, 39, 0.08)',
-      border: 'rgba(17, 24, 39, 0.10)',
-      borderHover: 'rgba(17, 24, 39, 0.14)',
-      fg: '#111827',
-    },
-  } as const;
-  const vars = toneVars[tone];
   const content = tooltip || '';
   const button = (
     <button
@@ -982,14 +929,6 @@ function ToolIcon({
         'flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl transition-all duration-200 cursor-pointer group/icon bg-white border border-black/5 hover:bg-[var(--home-tool-card-hover)] hover:-translate-y-0.5 hover:shadow-sm',
         className
       )}
-      style={{
-        ['--home-tool-card-hover' as any]: vars.cardHover,
-        ['--home-tool-bg' as any]: vars.bg,
-        ['--home-tool-bg-hover' as any]: vars.bgHover,
-        ['--home-tool-border' as any]: vars.border,
-        ['--home-tool-border-hover' as any]: vars.borderHover,
-        ['--home-tool-fg' as any]: vars.fg,
-      }}
     >
       <div
         className="w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors bg-[var(--home-tool-bg)] border-[var(--home-tool-border)] text-[var(--home-tool-fg)] group-hover/icon:bg-[var(--home-tool-bg-hover)] group-hover/icon:border-[var(--home-tool-border-hover)]"
