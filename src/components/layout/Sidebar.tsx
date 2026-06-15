@@ -1,16 +1,113 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ElementType } from 'react';
-import { Building2, Folder, Home, Image as ImageIcon, Layers, Plus, Sparkles, Users } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import {
+  Building2,
+  Eraser,
+  FileText,
+  FlaskConical,
+  Folder,
+  History,
+  Home,
+  Image as ImageIcon,
+  Layers,
+  MoreHorizontal,
+  PencilLine,
+  Plus,
+  Scissors,
+  Sparkles,
+  Users,
+  Wand2,
+} from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 
 import { Tooltip } from '../Tooltip';
 import CreateCanvasModal from '../CreateCanvasModal';
+import { useToast } from '../ToastProvider';
+
+const TOOL_CARDS = [
+  {
+    id: 'ai-edit',
+    icon: Wand2,
+    label: 'AI 改图',
+    desc: '风格/尺寸一键调整',
+    path: '/tools/ai-edit',
+    openInNewTab: false,
+  },
+  {
+    id: 'ai-erase',
+    icon: Eraser,
+    label: 'AI 擦除',
+    desc: '去路人 / 去水印',
+    path: '/tools/ai-erase',
+    openInNewTab: false,
+  },
+  {
+    id: 'ai-matting',
+    icon: Scissors,
+    label: 'AI 抠图',
+    desc: '一键去背景，保主体',
+    path: '/tools/ai-matting',
+    openInNewTab: false,
+  },
+  {
+    id: 'ai-blend',
+    icon: Layers,
+    label: 'AI 溶图',
+    desc: '两图自然融合更好看',
+    path: '/tools/ai-blend',
+    openInNewTab: false,
+  },
+  {
+    id: 'md2card',
+    icon: FileText,
+    label: 'md2Card',
+    desc: '把文章变成海报卡片',
+    path: '/tools/md2card',
+    openInNewTab: false,
+  },
+  {
+    id: 'ai-copy',
+    icon: PencilLine,
+    label: 'AI 文案',
+    desc: '标题卖点一键润色改写',
+    path: '/tools/ai-copy',
+    openInNewTab: true,
+  },
+  {
+    id: 'id-photo',
+    icon: ImageIcon,
+    label: '证件照生成',
+    desc: '换底色 / 裁切 / 规格',
+    path: '/tools/id-photo',
+    openInNewTab: false,
+  },
+  {
+    id: 'old-photo',
+    icon: History,
+    label: '老照片修复',
+    desc: '变清晰 / 去噪 / 上色',
+    path: '/tools/old-photo',
+    openInNewTab: false,
+  },
+  {
+    id: 'good-news',
+    icon: MoreHorizontal,
+    label: '喜报生成',
+    desc: '输入要点，一键生成喜报',
+    path: '',
+    openInNewTab: false,
+  },
+] as const;
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const toast = useToast();
   const [isCreateMenuOpen, setIsCreateMenuOpen] = useState(false);
   const [isCanvasModalOpen, setIsCanvasModalOpen] = useState(false);
+  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
   const createMenuRef = useRef<HTMLDivElement>(null);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
   const openInNewTab = (path: string) => {
     const normalized = path.startsWith('/') ? path : `/${path}`;
     const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
@@ -20,6 +117,7 @@ export default function Sidebar() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (createMenuRef.current && !createMenuRef.current.contains(event.target as Node)) setIsCreateMenuOpen(false);
+      if (toolsMenuRef.current && !toolsMenuRef.current.contains(event.target as Node)) setIsToolsMenuOpen(false);
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
@@ -91,6 +189,84 @@ export default function Sidebar() {
         </div>
 
         <div className="w-8 h-px bg-gray-100 my-1" />
+
+        <div className="relative w-full flex items-center justify-center" ref={toolsMenuRef}>
+          <Tooltip content="多样化物料制作工具体验" position="right">
+            <button
+              type="button"
+              onClick={() => {
+                setIsCreateMenuOpen(false);
+                setIsToolsMenuOpen((v) => !v);
+              }}
+              className={clsx(
+                'p-3 rounded-xl transition-colors duration-200 flex items-center justify-center w-full',
+                isToolsMenuOpen ? 'bg-black text-white' : 'text-gray-400 hover:bg-gray-100 hover:text-black'
+              )}
+              aria-label="多样化物料制作工具体验"
+            >
+              <FlaskConical size={22} />
+            </button>
+          </Tooltip>
+          {isToolsMenuOpen && (
+            <div
+              className="absolute left-[76px] top-1/2 -translate-y-1/2 w-[420px] bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden"
+              style={{
+                ['--tools-card-hover' as any]: 'rgba(143, 122, 251, 0.06)',
+                ['--tools-bg' as any]: 'rgba(143, 122, 251, 0.12)',
+                ['--tools-bg-hover' as any]: 'rgba(143, 122, 251, 0.18)',
+                ['--tools-border' as any]: 'rgba(143, 122, 251, 0.25)',
+                ['--tools-border-hover' as any]: 'rgba(143, 122, 251, 0.38)',
+                ['--tools-fg' as any]: '#6F58F3',
+              }}
+            >
+              <div className="px-3 pt-3 pb-2 border-b border-gray-100">
+                <div className="text-sm font-semibold text-gray-900">多样化物料制作工具体验</div>
+                <div className="text-xs text-gray-500 mt-1">选择一个工具进入具体页面</div>
+              </div>
+              <div className="p-3">
+                <div className="grid grid-cols-3 gap-2">
+                  {TOOL_CARDS.map((tool) => {
+                    const Icon = tool.icon;
+                    return (
+                      <button
+                        key={tool.id}
+                        type="button"
+                        onClick={() => {
+                          if (!tool.path) {
+                            toast.show('喜报生成功能开发中');
+                            return;
+                          }
+                          setIsToolsMenuOpen(false);
+                          if (tool.openInNewTab) {
+                            openInNewTab(tool.path);
+                            return;
+                          }
+                          navigate(tool.path);
+                        }}
+                        className={clsx(
+                          'group flex flex-col items-start gap-2 p-3 rounded-2xl border bg-white transition-all duration-200 text-left',
+                          tool.path
+                            ? 'border-black/5 hover:border-black/10 hover:bg-[var(--tools-card-hover)] hover:-translate-y-0.5 hover:shadow-sm'
+                            : 'border-black/5 opacity-70 cursor-not-allowed'
+                        )}
+                        aria-disabled={!tool.path}
+                      >
+                        <div className="w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors bg-[var(--tools-bg)] border-[var(--tools-border)] text-[var(--tools-fg)] group-hover:bg-[var(--tools-bg-hover)] group-hover:border-[var(--tools-border-hover)]">
+                          <Icon size={22} strokeWidth={2.2} />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="text-sm font-semibold text-gray-900 leading-none">{tool.label}</div>
+                          <div className="text-[11px] text-gray-500 leading-snug line-clamp-2">{tool.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <IconNavLink icon={Sparkles} label="提示词灵感" to="/inspiration" />
         <IconNavLink icon={ImageIcon} label="文生图" to="/text-to-image" />
 

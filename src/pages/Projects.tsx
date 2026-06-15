@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Clock, Trash2, Folder, Share2, Heart, X, ArrowRight, PackagePlus, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
+import { Plus, Clock, Trash2, Folder, Share2, Heart, X, ArrowRight, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
 import { Project, useProject, type PersonalAssetRecord } from '../context/ProjectContext';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -37,6 +37,38 @@ const TEAMS_STORAGE_KEY = 'trae_deepcanvas_teams_v1';
 const CURRENT_OA_STORAGE_KEY = 'trae_deepcanvas_current_oa_v1';
 const CURRENT_ORG_CODE_STORAGE_KEY = 'trae_deepcanvas_current_org_code_v1';
 const TEAM_MEMBERS_PAGE_SIZE = 10;
+
+function normalizeImageSrc(input: unknown): string {
+  const raw = typeof input === 'string' ? input.trim() : '';
+  if (!raw) return '';
+  if (raw.startsWith('blob:') || raw.startsWith('file:')) return '';
+  if (raw.startsWith('//')) return `https:${raw}`;
+  if ((raw.startsWith('http://') || raw.startsWith('https://')) && raw.includes(' ')) return encodeURI(raw);
+  return raw;
+}
+
+function buildMockSvgDataUrl(seed: string, title: string, subtitle: string) {
+  const safeTitle = title.replace(/[<>&"]/g, '');
+  const safeSubtitle = subtitle.replace(/[<>&"]/g, '');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#8F7AFB" stop-opacity="0.94"/>
+      <stop offset="1" stop-color="#111827" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="n" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" seed="${seed}"/>
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.10 0"/>
+    </filter>
+  </defs>
+  <rect width="900" height="1200" fill="url(#g)"/>
+  <rect width="900" height="1200" filter="url(#n)" opacity="0.55"/>
+  <rect x="44" y="54" width="812" height="108" rx="28" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.22)"/>
+  <text x="84" y="126" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="42" font-weight="900" fill="white">${safeTitle}</text>
+  <text x="84" y="192" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="22" font-weight="700" fill="rgba(255,255,255,0.78)">${safeSubtitle}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
 
 type TeamRecord = {
   id: string;
@@ -270,7 +302,7 @@ export default function Projects() {
   const [assetsTab, setAssetsTab] = useState<'generated' | 'edited' | 'exported'>('generated');
   const [isAssetsSelecting, setIsAssetsSelecting] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(() => new Set());
-  const [assetsTeamScopeId, setAssetsTeamScopeId] = useState<'all' | 'unassigned' | string>('all');
+  const [assetsTeamScopeId] = useState<'all' | 'unassigned' | string>('all');
   const [assetsOrgScopeId, setAssetsOrgScopeId] = useState<'all' | string>('all');
   const [assetsComplianceScopeId, setAssetsComplianceScopeId] = useState<'all' | 'unprotected' | 'processing' | 'protected'>('all');
   const [activeAssetDetail, setActiveAssetDetail] = useState<PersonalAssetRecord | null>(null);
@@ -278,7 +310,11 @@ export default function Projects() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [publicProjects] = useState<PublicProject[]>(() => {
     const parsed = safeParseJson<PublicProject[]>(localStorage.getItem(PUBLIC_PROJECTS_STORAGE_KEY), []);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : getDefaultPublicProjects();
+    const base = Array.isArray(parsed) && parsed.length > 0 ? parsed : getDefaultPublicProjects();
+    return base.map((p) => ({
+      ...p,
+      thumbnail: normalizeImageSrc((p as any).thumbnail) || undefined,
+    }));
   });
   const [importShareCode, setImportShareCode] = useState('');
   const [generatedShareCode, setGeneratedShareCode] = useState<string | null>(null);
@@ -342,6 +378,77 @@ export default function Projects() {
       return name.includes(normalized);
     });
   }, [space, visibleProjects, publicTemplateQuery]);
+
+  const publicTemplateSections = useMemo(() => {
+    if (space !== 'public') return [];
+    const list = [...visibleProjects].sort((a: any, b: any) => (b.publishedAt || 0) - (a.publishedAt || 0));
+    const used = new Set<string>();
+    const take = (predicate: (p: any) => boolean, limit = 12) => {
+      const picked: any[] = [];
+      for (const item of list) {
+        if (picked.length >= limit) break;
+        if (used.has(item.id)) continue;
+        if (!predicate(item)) continue;
+        used.add(item.id);
+        picked.push(item);
+      }
+      return picked;
+    };
+    const matchAny = (p: any, keywords: string[]) => {
+      const name = typeof p?.name === 'string' ? p.name : '';
+      return keywords.some((k) => name.includes(k));
+    };
+
+    const sections = [
+      {
+        id: 'hot',
+        title: '热门推荐',
+        subtitle: '本周最常被使用的公共模板',
+        queryHint: '活动',
+        items: take(() => true, 12),
+      },
+      {
+        id: 'festival',
+        title: '节日营销',
+        subtitle: '节日氛围与主视觉素材',
+        queryHint: '春节',
+        items: take((p) => matchAny(p, ['春节', '元旦', '五一', '情人节', '国庆', '中秋', '端午', '双11', '618', '劳动节']), 12),
+      },
+      {
+        id: 'recruit',
+        title: '招聘宣传',
+        subtitle: '校招/社招/内推海报',
+        queryHint: '招聘',
+        items: take((p) => matchAny(p, ['招聘', '校招', '社招', '内推', '职位']), 12),
+      },
+      {
+        id: 'ops',
+        title: '活动运营',
+        subtitle: '福利/促销/活动信息流模板',
+        queryHint: '活动',
+        items: take((p) => matchAny(p, ['活动', '福利', '优惠', '促销', '开业', '直播']), 12),
+      },
+      {
+        id: 'long',
+        title: '信息长图',
+        subtitle: '攻略/排版/日历等长图模版',
+        queryHint: '长图',
+        items: take((p) => matchAny(p, ['长图', '攻略', '排版', '日历', '信息']), 12),
+      },
+    ].filter((s) => s.items.length > 0);
+
+    const rest = take(() => true, 12);
+    if (rest.length > 0) {
+      sections.push({
+        id: 'other',
+        title: '其他',
+        subtitle: '更多通用模板',
+        queryHint: '模板',
+        items: rest,
+      });
+    }
+    return sections;
+  }, [space, visibleProjects]);
 
   useEffect(() => {
     if (space !== 'public') return;
@@ -708,30 +815,6 @@ export default function Projects() {
     setIsRedeemModalOpen(true);
   };
 
-  const handleForkPublicProject = (publicProject: PublicProject) => {
-    if (projects.length >= 5) {
-      doToast('已达到个人文件数量上限 (5个)');
-      return;
-    }
-    const id = crypto.randomUUID();
-    const name = `${publicProject.name}（同款）`;
-    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
-    createProject(publicProject.width, publicProject.height, name, {
-      id,
-      elements: publicProject.elements || [],
-      thumbnail: publicProject.thumbnail,
-      sourceType: publicProject.sourceType,
-      aiResizeBinding: publicProject.aiResizeBinding,
-    });
-    requestAnimationFrame(() => {
-      saveProject();
-      const path = `/editor?projectId=${encodeURIComponent(id)}`;
-      const url = `${window.location.origin}${import.meta.env.BASE_URL}#${path}`;
-      if (popup) popup.location.href = url;
-      else window.open(url, '_blank', 'noopener,noreferrer');
-    });
-  };
-
   const doSameFromPreview = (title: string, previewUrl: string, width: number, height: number) => {
     if (projects.length >= 5) {
       doToast('已达到个人文件数量上限 (5个)');
@@ -801,89 +884,9 @@ export default function Projects() {
   const renderProjectsView = () => {
     const projectsToRender = space === 'public' ? filteredVisibleProjects : visibleProjects;
 
-    if (projectsToRender.length === 0 && space === 'public') {
-      const q = publicTemplateQuery.trim();
-      if (q) {
-        const buildMockSvgDataUrl = (seed: string, title: string) => {
-          const safeTitle = title.replace(/[<>&"]/g, '');
-          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop stop-color="#8F7AFB" stop-opacity="0.94"/>
-      <stop offset="1" stop-color="#111827" stop-opacity="0.92"/>
-    </linearGradient>
-    <filter id="n" x="-20%" y="-20%" width="140%" height="140%">
-      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" seed="${seed}"/>
-      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.10 0"/>
-    </filter>
-  </defs>
-  <rect width="900" height="1200" fill="url(#g)"/>
-  <rect width="900" height="1200" filter="url(#n)" opacity="0.55"/>
-  <rect x="44" y="54" width="812" height="108" rx="28" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.22)"/>
-  <text x="84" y="126" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="42" font-weight="900" fill="white">${safeTitle}</text>
-  <text x="84" y="192" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI" font-size="22" font-weight="700" fill="rgba(255,255,255,0.78)">Fake 公共模板搜索结果</text>
-  </svg>`;
-          return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-        };
-
-        const fakeResults = Array.from({ length: 10 }).map((_, i) => {
-          const title = `${q} 模板 ${i + 1}`;
-          const id = `fake-public-${q}-${i + 1}`;
-          const previewUrl = buildMockSvgDataUrl(`${q}-${i + 1}`, title);
-          const elements = ['元素：小狗'];
-          return { id, title, previewUrl, elements };
-        });
-
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300">
-            {fakeResults.map((item) => {
-              const detail: PublicTemplateDetail = {
-                id: item.id,
-                title: item.title,
-                previewUrl: item.previewUrl,
-                authorName: '社区作者',
-                width: 1080,
-                height: 1920,
-                elements: item.elements,
-              };
-              return (
-                <div key={item.id} className="group flex flex-col gap-2 cursor-pointer" onClick={() => setActivePublicTemplateDetail(detail)}>
-                  <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
-                    <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openPublicCanvasFromTemplate(detail);
-                        }}
-                        className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
-                        aria-label="使用该模板"
-                      >
-                        使用该模板
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        );
-      }
-      return (
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <h3 className="text-lg font-semibold text-gray-900">公共空间暂无作品</h3>
-          <p className="text-sm text-gray-500 max-w-sm mt-2">
-            先在个人空间把设计发布到公共空间，这里会展示社区作品。
-          </p>
-        </div>
-      );
-    }
-
-    const renderPublicTemplateCard = (project: any) => {
+    const renderPublicTemplateCard = (project: any, variant: 'row' | 'masonry') => {
       const title = typeof project?.name === 'string' && project.name.trim() ? project.name.trim() : '公共模板';
-      const previewUrl = typeof project?.thumbnail === 'string' ? project.thumbnail : '';
+      const previewUrl = normalizeImageSrc((project as any)?.thumbnail);
       const authorName = typeof project?.authorName === 'string' && project.authorName.trim() ? project.authorName.trim() : '社区作者';
       const width = typeof project?.width === 'number' && project.width > 0 ? project.width : 1080;
       const height = typeof project?.height === 'number' && project.height > 0 ? project.height : 1920;
@@ -899,20 +902,32 @@ export default function Projects() {
         elements: elementChips,
       };
 
+      const fallback = buildMockSvgDataUrl(detail.id, title, '封面加载失败');
+
       return (
         <div
           key={project.id}
-          className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2"
+          className={clsx(
+            "group cursor-pointer flex flex-col gap-2",
+            variant === 'row' ? "flex-shrink-0 w-[160px] sm:w-[180px]" : "mb-4 break-inside-avoid w-full"
+          )}
           onClick={() => setActivePublicTemplateDetail(detail)}
         >
-          <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
-            {previewUrl ? (
-              <img src={previewUrl} alt={title} className="w-full h-full object-cover" />
-            ) : (
-              <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-                <Folder size={32} className="text-gray-300" />
-              </div>
-            )}
+          <div
+            className="relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1"
+            style={{ aspectRatio: `${detail.width} / ${detail.height}` }}
+          >
+            <img
+              src={previewUrl || fallback}
+              alt={title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                const el = e.currentTarget;
+                if (el.dataset.fallbackApplied === '1') return;
+                el.dataset.fallbackApplied = '1';
+                el.src = fallback;
+              }}
+            />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
               <button
@@ -929,48 +944,159 @@ export default function Projects() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-1">
-            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
-              {authorName.trim().slice(0, 1)}
+          {variant === 'masonry' && (
+            <div className="flex items-center gap-2 px-1">
+              <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                {authorName.trim().slice(0, 1)}
+              </div>
+              <span className="text-xs text-gray-500 truncate flex-1">{authorName}</span>
             </div>
-            <span className="text-xs text-gray-500 truncate flex-1">{authorName}</span>
-          </div>
+          )}
         </div>
       );
     };
 
-    return (
-      <div className={clsx(
-        space === 'public'
-          ? "grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 transition-all duration-300"
-          : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-      )}>
-        {space !== 'public' && (
-          <button
-            onClick={handleCreateNew}
-            disabled={projects.length >= 5}
-            className={clsx(
-              "group relative rounded-2xl border border-dashed border-black/10 bg-white overflow-hidden text-left transition-all duration-200 hover:border-black/20 hover:shadow-sm",
-              projects.length >= 5 && "opacity-60 cursor-not-allowed hover:shadow-none hover:border-black/10"
-            )}
-          >
-            <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-black/[0.02] to-black/[0.06]">
-              <div className="flex flex-col items-center justify-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-white border border-black/10 shadow-sm flex items-center justify-center text-gray-700">
-                  <Plus size={22} />
+    if (space === 'public') {
+      const q = publicTemplateQuery.trim();
+      if (!q) {
+        return (
+          <div className="space-y-10">
+            {publicTemplateSections.map((section) => (
+              <section key={section.id} className="space-y-4">
+                <div className="flex items-end justify-between">
+                  <div className="space-y-1">
+                    <h2 className="text-xl font-bold text-gray-900">{section.title}</h2>
+                    <p className="text-xs text-gray-500">{section.subtitle}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => commitPublicSearch(section.queryHint)}
+                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                  >
+                    更多
+                    <ArrowRight size={14} />
+                  </button>
                 </div>
-                <div className="text-sm font-semibold text-gray-900">新建设计</div>
-                <div className="text-xs text-gray-500">
-                  {projects.length >= 5 ? '已达上限（5个）' : '创建一张新画布'}
+                <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
+                  {section.items.map((project: any) => renderPublicTemplateCard(project, 'row'))}
                 </div>
+              </section>
+            ))}
+          </div>
+        );
+      }
+
+      if (projectsToRender.length === 0) {
+        const fakeResults = Array.from({ length: 24 }).map((_, i) => {
+          const title = `${q} 模板 ${i + 1}`;
+          const id = `fake-public-${q}-${i + 1}`;
+          const previewUrl = buildMockSvgDataUrl(`${q}-${i + 1}`, title, 'Fake 公共模板搜索结果');
+          const elements = ['元素：小狗'];
+          return { id, title, previewUrl, elements };
+        });
+
+        return (
+          <section className="space-y-4">
+            <div className="flex items-end justify-between gap-4 flex-wrap">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold text-gray-900">搜索结果</h2>
+                <p className="text-xs text-gray-500">关键词：{q} · {fakeResults.length} 条</p>
               </div>
             </div>
-          </button>
-        )}
+            <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+              {fakeResults.map((item) => {
+                const detail: PublicTemplateDetail = {
+                  id: item.id,
+                  title: item.title,
+                  previewUrl: item.previewUrl,
+                  authorName: '社区作者',
+                  width: 1080,
+                  height: 1920,
+                  elements: item.elements,
+                };
+                const fallback = buildMockSvgDataUrl(detail.id, detail.title, '封面加载失败');
+                return (
+                  <div
+                    key={item.id}
+                    className="mb-4 break-inside-avoid group cursor-pointer flex flex-col gap-2"
+                    onClick={() => setActivePublicTemplateDetail(detail)}
+                  >
+                    <div className="relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1" style={{ aspectRatio: `${detail.width} / ${detail.height}` }}>
+                      <img
+                        src={detail.previewUrl || fallback}
+                        alt={detail.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          if (el.dataset.fallbackApplied === '1') return;
+                          el.dataset.fallbackApplied = '1';
+                          el.src = fallback;
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openPublicCanvasFromTemplate(detail);
+                          }}
+                          className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                          aria-label="使用该模板"
+                        >
+                          使用该模板
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      }
+
+      return (
+        <section className="space-y-4">
+          <div className="flex items-end justify-between gap-4 flex-wrap">
+            <div className="space-y-1">
+              <h2 className="text-xl font-bold text-gray-900">搜索结果</h2>
+              <p className="text-xs text-gray-500">关键词：{q} · {projectsToRender.length} 条</p>
+            </div>
+          </div>
+          <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+            {projectsToRender.map((project: any) => renderPublicTemplateCard(project, 'masonry'))}
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <div className={clsx(
+        "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+      )}>
+        <button
+          onClick={handleCreateNew}
+          disabled={projects.length >= 5}
+          className={clsx(
+            "group relative rounded-2xl border border-dashed border-black/10 bg-white overflow-hidden text-left transition-all duration-200 hover:border-black/20 hover:shadow-sm",
+            projects.length >= 5 && "opacity-60 cursor-not-allowed hover:shadow-none hover:border-black/10"
+          )}
+        >
+          <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-black/[0.02] to-black/[0.06]">
+            <div className="flex flex-col items-center justify-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-white border border-black/10 shadow-sm flex items-center justify-center text-gray-700">
+                <Plus size={22} />
+              </div>
+              <div className="text-sm font-semibold text-gray-900">新建设计</div>
+              <div className="text-xs text-gray-500">
+                {projects.length >= 5 ? '已达上限（5个）' : '创建一张新画布'}
+              </div>
+            </div>
+          </div>
+        </button>
         {projectsToRender.map((project: any) => (
-          space === 'public' ? (
-            renderPublicTemplateCard(project)
-          ) : (
+          (
             <div
               key={project.id}
               onClick={() => {
@@ -1022,6 +1148,29 @@ export default function Projects() {
     const resolveOrgCode = (asset: PersonalAssetRecord) => {
       const org = typeof asset.meta?.orgCode === 'string' ? asset.meta.orgCode.trim() : '';
       return org || currentOrgCode;
+    };
+
+    const resolveCreatorName = (asset: PersonalAssetRecord) => {
+      const candidates = [
+        asset.meta?.creatorName,
+        asset.meta?.authorName,
+        asset.meta?.createdByName,
+        asset.meta?.createdBy,
+        asset.meta?.oaName,
+      ];
+      const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
+      return typeof resolved === 'string' && resolved.trim() ? resolved.trim() : currentOaName;
+    };
+
+    const resolveCreatorOrg = (asset: PersonalAssetRecord) => {
+      const candidates = [
+        asset.meta?.creatorOrg,
+        asset.meta?.creatorOrgCode,
+        asset.meta?.orgName,
+        asset.meta?.orgCode,
+      ];
+      const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
+      return typeof resolved === 'string' && resolved.trim() ? resolved.trim() : currentOrgCode;
     };
 
     type ComplianceStatus = 'unprotected' | 'processing' | 'protected';
@@ -1143,24 +1292,7 @@ export default function Projects() {
 
     return (
       <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="text-xs font-semibold text-gray-500">团队</div>
-            <select
-              value={assetsTeamScopeId}
-              onChange={(e) => setAssetsTeamScopeId(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm text-gray-700 outline-none focus:border-black/25"
-              aria-label="选择团队"
-            >
-              <option value="all">全部团队</option>
-              <option value="unassigned">未归属团队</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-4">
           <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="flex items-center gap-2">
               <div className="text-xs font-semibold text-gray-500">组织</div>
@@ -1250,9 +1382,9 @@ export default function Projects() {
         )}
 
         {activeAssetDetail && (
-          <div className="fixed inset-0 z-50">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
             <div className="absolute inset-0 bg-black/30" onClick={() => setActiveAssetDetail(null)} />
-            <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white border-l border-black/10 shadow-xl overflow-hidden">
+            <div className="relative z-10 w-full max-w-4xl max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl">
               <div className="p-5 border-b border-black/5 flex items-center justify-between">
                 <div className="min-w-0">
                   <div className="text-sm font-semibold text-gray-900 truncate">{renderAssetTitle(activeAssetDetail)}</div>
@@ -1268,52 +1400,69 @@ export default function Projects() {
                 </button>
               </div>
 
-              <div className="p-5 space-y-4 overflow-y-auto h-[calc(100%-72px)]">
+              <div className="grid max-h-[calc(100vh-8rem)] grid-cols-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
                 <div className="rounded-2xl overflow-hidden border border-black/10 bg-gray-50">
-                  <img src={activeAssetDetail.url} alt={renderAssetTitle(activeAssetDetail)} className="w-full h-auto object-cover" />
+                  <img src={activeAssetDetail.url} alt={renderAssetTitle(activeAssetDetail)} className="w-full h-auto max-h-[70vh] object-contain bg-gray-50" />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
-                    {activeAssetDetail.kind === 'generated' ? '生图资产' : activeAssetDetail.kind === 'edited' ? '编辑资产' : '导出资产'}
-                  </span>
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
-                    {resolveOrgCode(activeAssetDetail)}
-                  </span>
-                  {(() => {
-                    const status = resolveComplianceStatus(activeAssetDetail);
-                    const label = status === 'unprotected' ? '未消保' : status === 'processing' ? '消保中' : '已消保';
-                    const tone = status === 'unprotected'
-                      ? 'bg-amber-50 text-amber-700 border-amber-100'
-                      : status === 'processing'
-                        ? 'bg-blue-50 text-blue-700 border-blue-100'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-100';
-                    return <span className={clsx("inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-black", tone)}>{label}</span>;
-                  })()}
-                </div>
+                <div className="space-y-4">
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
+                      {activeAssetDetail.kind === 'generated' ? '生图资产' : activeAssetDetail.kind === 'edited' ? '编辑资产' : '导出资产'}
+                    </span>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
+                      {resolveOrgCode(activeAssetDetail)}
+                    </span>
+                    {(() => {
+                      const status = resolveComplianceStatus(activeAssetDetail);
+                      const label = status === 'unprotected' ? '未消保' : status === 'processing' ? '消保中' : '已消保';
+                      const tone = status === 'unprotected'
+                        ? 'bg-amber-50 text-amber-700 border-amber-100'
+                        : status === 'processing'
+                          ? 'bg-blue-50 text-blue-700 border-blue-100'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+                      return <span className={clsx("inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-black", tone)}>{label}</span>;
+                    })()}
+                  </div>
 
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await navigator.clipboard.writeText(activeAssetDetail.url);
-                        toast.show('链接已复制');
-                      } catch {
-                        toast.show('链接已复制');
-                      }
-                    }}
-                    className="flex-1 h-10 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
-                  >
-                    复制链接
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => window.open(activeAssetDetail.url, '_blank', 'noopener,noreferrer')}
-                    className="flex-1 h-10 rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    新窗口打开
-                  </button>
+                  <div className="rounded-2xl border border-black/10 bg-gray-50 p-4 space-y-3">
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">创建时间</div>
+                      <div className="mt-1 text-sm text-gray-700">{new Date(activeAssetDetail.createdAt).toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">创作者</div>
+                      <div className="mt-1 text-sm text-gray-700">{resolveCreatorName(activeAssetDetail)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">创作者机构</div>
+                      <div className="mt-1 text-sm text-gray-700">{resolveCreatorOrg(activeAssetDetail)}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(activeAssetDetail.url);
+                          toast.show('链接已复制');
+                        } catch {
+                          toast.show('链接已复制');
+                        }
+                      }}
+                      className="flex-1 h-10 rounded-xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
+                    >
+                      复制链接
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.open(activeAssetDetail.url, '_blank', 'noopener,noreferrer')}
+                      className="flex-1 h-10 rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      新窗口打开
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

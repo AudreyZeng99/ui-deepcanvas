@@ -12,17 +12,31 @@ import {
   ChevronRight, 
   X,
   Bot,
-  SplitSquareVertical
+  SplitSquareVertical,
+  ImagePlus,
+  Crop,
+  Eraser,
+  Wand2
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useToast } from '../components/ToastProvider';
 
 interface ChatMessage {
   id: string;
-  role: 'user' | 'agent';
+  role: 'user' | 'ai';
+  type: 'text' | 'image';
   content: string;
   timestamp: number;
 }
+
+type AiMode = 'generate' | 'edit' | 'blend' | 'erase';
+
+type AiImageAttachment = {
+  id: string;
+  name: string;
+  src: string;
+  source: 'upload' | 'canvas';
+};
 
 type CanvasElementType = 'image' | 'text';
 
@@ -53,6 +67,8 @@ const isImageElement = (el: CanvasElement): el is CanvasImageElement => el.type 
 const isTextElement = (el: CanvasElement): el is CanvasTextElement => el.type === 'text';
 
 const makeId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}_${Math.random()}`);
+const DEFAULT_AI_WELCOME =
+  '你好！我是你的 AI 设计助手。\n\n1. AI修改只针对背景图。\n2. AI溶图：最多融合2张图片。\n3. AI改图：不框选是改整张图，框选则是修改选定区域。\n4. AI擦除：请注意框选颜色与背景色不要高度重合。使用框选后，提示词请说明框的颜色（如：请帮我擦除红色框中的内容）。\n\n提示：目前版本只支持单轮对话，多轮对话功能敬请期待。';
 
 const mockTextImageLayering = (
   material: { id: string; name: string; src: string },
@@ -136,8 +152,13 @@ export default function PublicCanvas() {
   }, [isAppMenuOpen]);
 
   const viewportRef = useRef<HTMLDivElement | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { id: makeId(), role: 'ai', type: 'text', content: DEFAULT_AI_WELCOME, timestamp: Date.now() },
+  ]);
   const [inputValue, setInputValue] = useState('');
+  const [aiMode, setAiMode] = useState<AiMode>('generate');
+  const [uploadedAttachments, setUploadedAttachments] = useState<AiImageAttachment[]>([]);
   const [isAgentPanelOpen, setIsAgentPanelOpen] = useState(true);
   const [isLayersDrawerOpen, setIsLayersDrawerOpen] = useState(false);
 
@@ -169,10 +190,11 @@ export default function PublicCanvas() {
   });
 
   useEffect(() => {
-    if (initialQuery && messages.length === 0) {
-      setMessages([
-        { id: Date.now().toString(), role: 'user', content: initialQuery, timestamp: Date.now() },
-        { id: (Date.now() + 1).toString(), role: 'agent', content: '收到！我正在为您准备相关的设计资产和建议，请稍候...', timestamp: Date.now() + 1 }
+    if (initialQuery && messages.length === 1) {
+      setMessages((prev) => [
+        ...prev,
+        { id: makeId(), role: 'user', type: 'text', content: initialQuery, timestamp: Date.now() },
+        { id: makeId(), role: 'ai', type: 'text', content: '收到！我正在为您准备相关的设计资产和建议，请稍候...', timestamp: Date.now() + 1 },
       ]);
     }
   }, [initialQuery, messages.length]);
@@ -195,36 +217,110 @@ export default function PublicCanvas() {
     setPan({ x: 0, y: 0 });
   }, [materialSrc]);
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return;
-    
-    const newUserMsg: ChatMessage = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue,
-      timestamp: Date.now()
-    };
-    
-    setMessages(prev => [...prev, newUserMsg]);
-    setInputValue('');
-
-    // Simulate agent response
-    setTimeout(() => {
-      const newAgentMsg: ChatMessage = {
-        id: Date.now().toString(),
-        role: 'agent',
-        content: '我已收到您的反馈，正在调整画布内容。',
-        timestamp: Date.now()
-      };
-      setMessages(prev => [...prev, newAgentMsg]);
-    }, 1000);
-  };
-
   const selectedElement = useMemo(() => elements.find((el) => el.id === selectedId) || null, [elements, selectedId]);
+  const selectedCanvasAttachment = useMemo<AiImageAttachment | null>(() => {
+    if (!selectedElement || selectedElement.type !== 'image') return null;
+    if (aiMode !== 'edit' && aiMode !== 'blend') return null;
+    return {
+      id: selectedElement.id,
+      name: materialName || '当前画布图片',
+      src: selectedElement.src,
+      source: 'canvas',
+    };
+  }, [aiMode, materialName, selectedElement]);
   const selectedImageLayeredTexts = useMemo(() => {
     if (!selectedElement || selectedElement.type !== 'image') return [];
     return elements.filter(isTextElement).filter((el) => el.originImageId === selectedElement.id);
   }, [elements, selectedElement]);
+  const maxUploadCount = useMemo(() => {
+    if (aiMode === 'edit') return 1;
+    if (aiMode === 'blend') return selectedCanvasAttachment ? 1 : 2;
+    return 0;
+  }, [aiMode, selectedCanvasAttachment]);
+  const activeAttachments = useMemo(() => {
+    const list = [...uploadedAttachments];
+    if (selectedCanvasAttachment) list.unshift(selectedCanvasAttachment);
+    return list;
+  }, [selectedCanvasAttachment, uploadedAttachments]);
+
+  useEffect(() => {
+    if (maxUploadCount === 0 && uploadedAttachments.length > 0) {
+      setUploadedAttachments([]);
+      return;
+    }
+    if (uploadedAttachments.length > maxUploadCount) {
+      setUploadedAttachments((prev) => prev.slice(0, maxUploadCount));
+    }
+  }, [maxUploadCount, uploadedAttachments.length]);
+
+  const handleUploadImages = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0 || maxUploadCount === 0) {
+      event.target.value = '';
+      return;
+    }
+    const restCount = Math.max(0, maxUploadCount - uploadedAttachments.length);
+    const filesToUse = files.slice(0, restCount);
+    const nextItems = await Promise.all(
+      filesToUse.map(
+        (file) =>
+          new Promise<AiImageAttachment>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve({
+                id: makeId(),
+                name: file.name || '上传图片',
+                src: String(reader.result || ''),
+                source: 'upload',
+              });
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+          })
+      )
+    ).catch(() => {
+      toast.show('图片读取失败');
+      return [] as AiImageAttachment[];
+    });
+    if (nextItems.length > 0) {
+      setUploadedAttachments((prev) => [...prev, ...nextItems].slice(0, maxUploadCount));
+    }
+    event.target.value = '';
+  };
+
+  const handleSendMessage = () => {
+    const trimmed = inputValue.trim();
+    if (!trimmed) return;
+    if (aiMode === 'blend' && activeAttachments.length < 2) return;
+    if (aiMode === 'edit' && activeAttachments.length < 1) return;
+
+    const newUserMsg: ChatMessage = {
+      id: makeId(),
+      role: 'user',
+      type: 'text',
+      content: trimmed,
+      timestamp: Date.now()
+    };
+
+    setMessages((prev) => [...prev, newUserMsg]);
+    setInputValue('');
+
+    setTimeout(() => {
+      const replyByMode: Record<AiMode, string> = {
+        generate: '收到，我会按你的提示生成新的视觉方案。',
+        edit: '收到，我会基于当前选中的图片或上传图片执行改图。',
+        blend: '收到，我会按你的描述融合当前图片素材。',
+        erase: '收到，我会根据你的描述执行擦除处理。',
+      };
+      const newAgentMsg: ChatMessage = {
+        id: makeId(),
+        role: 'ai',
+        type: 'text',
+        content: replyByMode[aiMode],
+        timestamp: Date.now()
+      };
+      setMessages((prev) => [...prev, newAgentMsg]);
+    }, 700);
+  };
 
   const runLayeringForSelectedImage = () => {
     if (!selectedElement || selectedElement.type !== 'image') return;
@@ -244,7 +340,7 @@ export default function PublicCanvas() {
     });
     setMessages((prev) => [
       ...prev,
-      { id: makeId(), role: 'agent', content: '已完成图文分层（模拟）：新增 3 个文字图层。', timestamp: Date.now() },
+      { id: makeId(), role: 'ai', type: 'text', content: '已完成图文分层（模拟）：新增 3 个文字图层。', timestamp: Date.now() },
     ]);
   };
 
@@ -566,11 +662,58 @@ export default function PublicCanvas() {
                 <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
                   <Bot size={18} />
                 </div>
-                <h3 className="font-bold text-gray-800">AI 设计助手</h3>
+                <h3 className="font-bold text-gray-800">AI 创作</h3>
+              </div>
+
+              <div className="p-3 border-b border-gray-100 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAiMode('generate')}
+                  className={clsx(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                    aiMode === 'generate' ? "bg-violet-100 text-violet-700 shadow-sm ring-1 ring-violet-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  )}
+                >
+                  <Wand2 size={14} />
+                  AI 生图
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMode('edit')}
+                  className={clsx(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                    aiMode === 'edit' ? "bg-blue-100 text-blue-700 shadow-sm ring-1 ring-blue-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  )}
+                >
+                  <Crop size={14} />
+                  AI 改图
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMode('blend')}
+                  className={clsx(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                    aiMode === 'blend' ? "bg-purple-100 text-purple-700 shadow-sm ring-1 ring-purple-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  )}
+                >
+                  <ImagePlus size={14} />
+                  AI 溶图
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAiMode('erase')}
+                  className={clsx(
+                    "flex-1 py-1.5 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1.5",
+                    aiMode === 'erase' ? "bg-red-100 text-red-700 shadow-sm ring-1 ring-red-200" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                  )}
+                >
+                  <Eraser size={14} />
+                  AI 擦除
+                </button>
               </div>
               
               {/* Chat History */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/30">
                 {messages.map(msg => (
                   <div key={msg.id} className={clsx("flex flex-col max-w-[85%]", msg.role === 'user' ? "ml-auto items-end" : "items-start")}>
                     <div 
@@ -581,7 +724,11 @@ export default function PublicCanvas() {
                           : "bg-gray-100 text-gray-800 rounded-tl-sm"
                       )}
                     >
-                      {msg.content}
+                      {msg.type === 'image' ? (
+                        <img src={msg.content} alt="AI 结果" className="w-full h-auto rounded-xl" />
+                      ) : (
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      )}
                     </div>
                     <span className="text-[10px] text-gray-400 mt-1 px-1">
                       {new Date(msg.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -592,19 +739,85 @@ export default function PublicCanvas() {
 
               {/* Chat Input */}
               <div className="p-4 border-t border-black/5 bg-white">
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
+                {(aiMode === 'edit' || aiMode === 'blend') && (
+                  <div className="mb-3 space-y-2">
+                    <input
+                      ref={uploadInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple={aiMode === 'blend'}
+                      className="hidden"
+                      onChange={handleUploadImages}
+                    />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => uploadInputRef.current?.click()}
+                        disabled={maxUploadCount === 0 || uploadedAttachments.length >= maxUploadCount}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-lg text-[11px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ImagePlus size={14} />
+                        {aiMode === 'blend' ? `上传图片 (${uploadedAttachments.length}/${maxUploadCount})` : '上传图片'}
+                      </button>
+                      <div className="text-[11px] text-gray-500">
+                        也可直接选中画布中的图片作为输入
+                      </div>
+                    </div>
+
+                    {activeAttachments.length > 0 && (
+                      <div className="flex gap-2 flex-wrap">
+                        {activeAttachments.map((item) => (
+                          <div key={item.id} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 bg-gray-100">
+                            <img src={item.src} alt={item.name} className="w-full h-full object-cover" />
+                            <div className="absolute inset-x-0 bottom-0 px-1 py-0.5 bg-black/55 text-white text-[9px] truncate">
+                              {item.source === 'canvas' ? '画布' : '上传'}
+                            </div>
+                            {item.source === 'upload' && (
+                              <button
+                                type="button"
+                                onClick={() => setUploadedAttachments((prev) => prev.filter((x) => x.id !== item.id))}
+                                className="absolute top-1 right-1 w-4 h-4 rounded-full bg-black/60 text-white flex items-center justify-center"
+                                aria-label="移除图片"
+                              >
+                                <X size={10} />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="relative">
+                  <textarea
                     value={inputValue}
                     onChange={e => setInputValue(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleSendMessage()}
-                    placeholder="输入指令调整设计..."
-                    className="w-full bg-gray-50 border border-gray-200 rounded-full py-2.5 pl-4 pr-12 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20"
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder={
+                      aiMode === 'generate'
+                        ? '描述你想生成的画面...'
+                        : aiMode === 'edit'
+                          ? '描述你想如何修改当前图片...'
+                          : aiMode === 'blend'
+                            ? '描述你想如何融合这些图片...'
+                            : '描述你想擦除的内容...'
+                    }
+                    className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-3 pl-4 pr-12 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 min-h-[92px] resize-none"
                   />
                   <button 
                     onClick={handleSendMessage}
-                    disabled={!inputValue.trim()}
-                    className="absolute right-1.5 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 transition-colors"
+                    disabled={
+                      !inputValue.trim() ||
+                      (aiMode === 'blend' && activeAttachments.length < 2) ||
+                      (aiMode === 'edit' && activeAttachments.length < 1)
+                    }
+                    className="absolute right-2 bottom-2 w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center disabled:opacity-50 disabled:bg-gray-300 transition-colors"
                   >
                     <ArrowUp size={16} />
                   </button>

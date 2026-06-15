@@ -118,13 +118,24 @@ function safeParseJson<T>(raw: string | null, fallback: T): T {
   }
 }
 
+function normalizeStoredImageUrl(input: unknown): string | null {
+  const raw = typeof input === 'string' ? input.trim() : '';
+  if (!raw) return null;
+  if (raw.startsWith('blob:') || raw.startsWith('file:')) return null;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  if ((raw.startsWith('http://') || raw.startsWith('https://')) && raw.includes(' ')) return encodeURI(raw);
+  return raw;
+}
+
 function extractImageUrlsFromElements(elements: any[] | undefined): string[] {
   if (!Array.isArray(elements)) return [];
   const urls = new Set<string>();
   elements.forEach((el) => {
     if (!el || typeof el !== 'object') return;
-    if (typeof el.src === 'string' && el.src.trim()) urls.add(el.src.trim());
-    if (el.props && typeof el.props.src === 'string' && el.props.src.trim()) urls.add(el.props.src.trim());
+    const candidate1 = normalizeStoredImageUrl((el as any).src);
+    if (candidate1) urls.add(candidate1);
+    const candidate2 = el.props ? normalizeStoredImageUrl((el as any).props?.src) : null;
+    if (candidate2) urls.add(candidate2);
   });
   return Array.from(urls);
 }
@@ -446,6 +457,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       lastModified: Date.now(),
     };
 
+    const normalizedThumbnail = normalizeStoredImageUrl(updatedProject.thumbnail);
+    updatedProject.thumbnail = normalizedThumbnail ?? undefined;
+
     if (!updatedProject.thumbnail) {
       const urls = extractImageUrlsFromElements(updatedProject.elements);
       if (urls.length > 0) {
@@ -503,6 +517,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       name: nextName,
       lastModified: Date.now(),
     };
+
+    const normalizedThumbnail = normalizeStoredImageUrl(duplicated.thumbnail);
+    duplicated.thumbnail = normalizedThumbnail ?? undefined;
 
     if (!duplicated.thumbnail) {
       const urls = extractImageUrlsFromElements(duplicated.elements);

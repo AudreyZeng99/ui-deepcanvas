@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ElementType } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowUp,
@@ -8,26 +7,14 @@ import {
   Sparkles,
   ChevronDown,
   X,
-  Wand2,
-  Eraser,
-  Scissors,
-  Layers,
-  FileText,
-  PencilLine,
-  ScanFace,
-  History,
-  MoreHorizontal,
 } from 'lucide-react';
 import clsx from 'clsx';
 
-import { Tooltip } from '../components/Tooltip';
-import { useToast } from '../components/ToastProvider';
 import { inspirationCategories } from './Inspiration';
 
 export default function Home() {
   const navigate = useNavigate();
-  const toast = useToast();
-  const [centerMode, setCenterMode] = useState<'search' | 'generate'>('generate');
+  const [centerMode, setCenterMode] = useState<'search' | 'generate'>('search');
   const [searchInput, setSearchInput] = useState('');
   const [chatInput, setChatInput] = useState('');
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -80,25 +67,15 @@ export default function Home() {
     submitSearch(searchInput);
   };
 
-  const openInNewTab = (path: string) => {
-    const normalized = path.startsWith('/') ? path : `/${path}`;
-    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
-  };
-
   const commonSearchKeywords = useMemo(() => ['国庆节', '培训海报', '坐席图', '招聘', '粘土风', '中秋'], []);
-
-  const aiTools = useMemo(
+  const searchScenes = useMemo(
     () => [
-      { icon: Wand2, label: 'AI 改图', desc: '一键调整风格与版式', tooltip: '风格/尺寸一键调整', path: '/tools/ai-edit' },
-      { icon: Eraser, label: 'AI 擦除', desc: '去路人 / 去杂物 / 去水印', tooltip: '圈选即可去除', path: '/tools/ai-erase' },
-      { icon: Scissors, label: 'AI 抠图', desc: '一键去背景，保主体', tooltip: '人像/商品去背景', path: '/tools/ai-matting' },
-      { icon: Layers, label: 'AI 溶图', desc: '两图自然融合更好看', tooltip: '拼贴更自然', path: '/tools/ai-blend' },
-      { icon: FileText, label: 'md2Card', desc: '把文章变成海报卡片', tooltip: 'Markdown 转卡片图', path: '/tools/md2card' },
-      { icon: PencilLine, label: 'AI 文案', desc: '标题卖点一键润色改写', tooltip: '文案优化/改写', path: '/tools/ai-copy', openInNewTab: true },
-      { icon: ScanFace, label: '证件照生成', desc: '换底色 / 裁切 / 规格', tooltip: '证件照一键生成', path: '/tools/id-photo' },
-      { icon: History, label: '老照片修复', desc: '变清晰 / 去噪 / 上色', tooltip: '修复模糊旧照', path: '/tools/old-photo' },
-      { icon: MoreHorizontal, label: '结构化海报', desc: '输入要点，一键出版式', tooltip: '要点 → 海报版式', path: '' },
+      { id: 'poster', label: '活动海报', keyword: '活动海报', illustration: 'poster' as const, ink: 'text-[#6F58F3]' },
+      { id: 'h5', label: '手机银行', keyword: '手机银行', illustration: 'h5' as const, ink: 'text-[#2563EB]' },
+      { id: 'recruit', label: '招聘', keyword: '招聘', illustration: 'recruit' as const, ink: 'text-[#047857]' },
+      { id: 'training', label: '培训通知', keyword: '培训海报', illustration: 'training' as const, ink: 'text-[#B45309]' },
+      { id: 'festival', label: '节日促销', keyword: '国庆节', illustration: 'festival' as const, ink: 'text-[#DB2777]' },
+      { id: 'seat', label: '坐席图', keyword: '坐席图', illustration: 'seat' as const, ink: 'text-gray-900' },
     ],
     []
   );
@@ -357,7 +334,7 @@ export default function Home() {
 
   return (
     <div
-      className="min-h-screen bg-[#FAFAFB]"
+      className="min-h-screen bg-background"
       style={{
         ['--home-tool-card-hover' as any]: 'rgba(143, 122, 251, 0.06)',
         ['--home-tool-bg' as any]: purple.softBg,
@@ -367,8 +344,8 @@ export default function Home() {
         ['--home-tool-fg' as any]: purple.text,
       }}
     >
-      <div className="max-w-[1120px] mx-auto px-6 pt-12 pb-12 space-y-8">
-        <header className="flex flex-col items-center text-center gap-2">
+      <div className="max-w-[1120px] mx-auto px-6 pt-14 pb-12 space-y-10">
+        <header className="flex flex-col items-center text-center gap-3">
           <div className="inline-flex items-center justify-center gap-3">
             <div
               className="w-20 h-20 md:w-[84px] md:h-[84px] rounded-full border border-black/5 flex items-center justify-center"
@@ -378,33 +355,21 @@ export default function Home() {
               }}
             >
               <img
-                src={`${import.meta.env.BASE_URL}figure/${centerMode === 'search' ? 'blue-cloud-v2.png' : 'cloud-white.png'}`}
+                src={`${import.meta.env.BASE_URL}figure/${centerMode === 'search' ? 'cloud-white.png' : 'blue-cloud-v2.png'}`}
                 alt=""
                 className="w-16 h-16 md:w-[68px] md:h-[68px] object-contain"
               />
             </div>
-            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-gray-950">Deepcanvas</h1>
+            <h1 className="text-5xl md:text-6xl font-black tracking-tight text-gray-950">Deepcanvas 让设计更简单</h1>
           </div>
-          <div className="text-lg md:text-xl font-semibold text-gray-700 max-w-[720px] leading-snug">让设计更简单</div>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-            <div className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white border border-black/5 text-xs font-semibold text-gray-700 shadow-sm">
-              <Search size={14} className="text-[#8F7AFB]" />
-              公共模板搜索
-            </div>
-            <div className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white border border-black/5 text-xs font-semibold text-gray-700 shadow-sm">
-              <Sparkles size={14} className="text-[#34D399]" />
-              一键生成灵感
-            </div>
-            <div className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white border border-black/5 text-xs font-semibold text-gray-700 shadow-sm">
-              <Layers size={14} className="text-[#38BDF8]" />
-              无限画布编辑
-            </div>
+          <div className="text-sm md:text-base font-medium text-gray-600 max-w-[640px] leading-relaxed">
+            新一代企业级AI创意设计工作台
           </div>
         </header>
 
-        <section className="rounded-3xl bg-white border border-black/5 shadow-sm">
-          <div className="p-5 md:p-6 flex flex-col items-center text-center gap-2">
-            <div className="inline-flex items-center rounded-full p-1 bg-gray-100">
+        <section className="max-w-[760px] mx-auto">
+          <div className="flex flex-col items-center text-center gap-3">
+            <div className="inline-flex items-center rounded-full p-1 border border-black/5 bg-white/80 backdrop-blur-sm shadow-[0_6px_20px_rgba(0,0,0,0.04)]">
               <button
                 type="button"
                 onClick={() => setCenterMode('search')}
@@ -428,81 +393,124 @@ export default function Home() {
                 生图
               </button>
             </div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm text-gray-500">
               {centerMode === 'search' ? '在公共模板里搜关键词' : '输入提示词，点击发送进入无限画布'}
             </div>
           </div>
 
-          <div className="p-5 md:p-6">
+          <div className="pt-5">
             {centerMode === 'search' ? (
-              <div className="space-y-3">
-                <div className="relative">
-                  <input
-                    placeholder="搜索公共模板，例如：母亲节海报 / 小狗 / 红金风格"
-                    className="w-full h-12 pl-11 pr-24 rounded-2xl border border-gray-200 bg-white shadow-sm focus:outline-none focus:ring-4 text-sm text-gray-900 placeholder:text-gray-400 transition-all"
-                    style={{
-                      ['--tw-ring-color' as any]: purple.softBg,
-                      ['--tw-ring-opacity' as any]: '1',
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = purple.softBorder;
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = '';
-                    }}
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSearchSubmit();
-                      }
-                    }}
-                  />
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                    <Search size={18} />
+              <div className="space-y-5">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="text-[11px] font-semibold tracking-[0.18em] text-gray-400">常用场景</div>
+                  <div className="grid w-full grid-cols-3 gap-x-1 gap-y-2 sm:grid-cols-6">
+                    {searchScenes.map((scene) => {
+                      const isActive = searchInput.trim() === scene.keyword;
+                      return (
+                        <button
+                          key={scene.id}
+                          type="button"
+                          onClick={() => {
+                            setSearchInput(scene.keyword);
+                          }}
+                          className={clsx(
+                            'group flex flex-col items-center justify-center gap-2 h-[84px] rounded-2xl border border-transparent bg-transparent transition-colors',
+                            'group-hover:[--scene-stroke:2.9]'
+                          )}
+                          aria-label={`搜索${scene.label}`}
+                          style={{
+                            backgroundColor: isActive ? 'rgba(143, 122, 251, 0.12)' : 'transparent',
+                            ['--scene-stroke' as any]: isActive ? '2.9' : '2.4',
+                          }}
+                        >
+                          <div className={clsx('w-11 h-11 rounded-2xl border border-transparent flex items-center justify-center bg-transparent transition-colors', scene.ink)}>
+                            <SceneIllustration id={scene.illustration} className="w-9 h-9" />
+                          </div>
+                          <div
+                            className={clsx(
+                              'text-xs font-semibold text-gray-800 leading-none transition-colors',
+                              isActive ? 'text-gray-900 font-bold' : 'group-hover:text-gray-900 group-hover:font-bold'
+                            )}
+                          >
+                            {scene.label}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
-                  <button
-                    onClick={handleSearchSubmit}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-9 px-4 rounded-xl text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!searchInput.trim()}
-                    style={{ backgroundColor: purple.solid }}
-                    onMouseEnter={(e) => {
-                      if ((e.currentTarget as HTMLButtonElement).disabled) return;
-                      e.currentTarget.style.backgroundColor = purple.solidHover;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = purple.solid;
-                    }}
-                  >
-                    搜索
-                  </button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {commonSearchKeywords.map((keyword) => {
-                    const isActive = searchInput.trim() === keyword;
-                    return (
-                      <button
-                        key={keyword}
-                        type="button"
-                        onClick={() => {
-                          setSearchInput(keyword);
-                          submitSearch(keyword);
-                        }}
-                        className={clsx(
-                          'h-8 px-3 rounded-full border text-xs font-semibold transition-colors',
-                          isActive ? 'text-gray-900' : 'bg-gray-50 text-gray-700 border-black/5 hover:bg-gray-100'
-                        )}
-                        style={
-                          isActive
-                            ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
-                            : undefined
+                <div className="rounded-[28px] border border-black/5 bg-white shadow-[0_22px_50px_-36px_rgba(0,0,0,0.24)] overflow-hidden">
+                  <div className="relative px-5 pt-4 pb-3">
+                    <input
+                      placeholder="搜索公共模板，例如：母亲节海报 / 小狗 / 红金风格"
+                      className="w-full h-12 pl-11 pr-24 border-0 bg-transparent focus:outline-none focus:ring-0 text-sm text-gray-900 placeholder:text-gray-400"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSearchSubmit();
                         }
-                      >
-                        {keyword}
-                      </button>
-                    );
-                  })}
+                      }}
+                    />
+                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                      <Search size={18} />
+                    </div>
+                    <button
+                      onClick={handleSearchSubmit}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 h-9 px-4 rounded-full text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_22px_-12px_rgba(88,28,135,0.5)]"
+                      disabled={!searchInput.trim()}
+                      style={{ backgroundColor: purple.solid }}
+                      onMouseEnter={(e) => {
+                        if ((e.currentTarget as HTMLButtonElement).disabled) return;
+                        e.currentTarget.style.backgroundColor = purple.solidHover;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = purple.solid;
+                      }}
+                    >
+                      搜索
+                    </button>
+                  </div>
+                  <div className="px-5 pb-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-gray-400">
+                    <div className="inline-flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-gray-300" />
+                      <span>搜索后进入公共模板社区</span>
+                    </div>
+                    <div className="inline-flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-gray-300" />
+                      <span>支持活动、银行、招聘等场景</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-400">快速开始</div>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {commonSearchKeywords.map((keyword) => {
+                      const isActive = searchInput.trim() === keyword;
+                      return (
+                        <button
+                          key={keyword}
+                          type="button"
+                          onClick={() => {
+                            setSearchInput(keyword);
+                            submitSearch(keyword);
+                          }}
+                          className={clsx(
+                            'h-7 px-3 rounded-full border text-[11px] font-medium transition-colors',
+                            isActive ? 'text-gray-900' : 'text-gray-500 border-black/5 hover:text-gray-700 hover:border-black/10'
+                          )}
+                          style={
+                            isActive
+                              ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
+                              : { backgroundColor: 'rgba(255,255,255,0.55)' }
+                          }
+                        >
+                          {keyword}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             ) : (
@@ -739,42 +747,6 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="pt-6 border-t border-black/5">
-          <div className="flex items-end justify-between gap-3 flex-wrap">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: purple.solid }} />
-                <div className="text-base font-semibold text-gray-900">玩转 AI 工具</div>
-              </div>
-              <div className="text-sm text-gray-500">常用小工具入口，一键直达</div>
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
-              {aiTools.map((t) => (
-                <ToolIcon
-                  key={t.label}
-                  icon={t.icon}
-                  label={t.label}
-                  desc={t.desc}
-                  tooltip={t.tooltip}
-                  onClick={() => {
-                    if (!t.path) {
-                      toast.show('结构化海报功能开发中');
-                      return;
-                    }
-                    if (t.openInNewTab) {
-                      openInNewTab(t.path);
-                      return;
-                    }
-                    navigate(t.path);
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-
         {centerMode === 'search' ? (
           <section className="pt-6 border-t border-black/5 space-y-4">
             <div className="flex items-end justify-between gap-4 flex-wrap">
@@ -902,50 +874,97 @@ export default function Home() {
   );
 }
 
-function ToolIcon({
-  icon: Icon,
-  label,
-  desc,
-  tooltip,
+function SceneIllustration({
+  id,
   className,
-  onClick,
 }: {
-  icon: ElementType;
-  label: string;
-  desc?: string;
-  tooltip?: string;
+  id: 'poster' | 'h5' | 'recruit' | 'training' | 'festival' | 'seat';
   className?: string;
-  onClick?: () => void;
 }) {
-  const content = tooltip || '';
-  const button = (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick?.();
-      }}
-      className={clsx(
-        'flex flex-col items-center justify-center gap-1.5 p-3 rounded-2xl transition-all duration-200 cursor-pointer group/icon bg-white border border-black/5 hover:bg-[var(--home-tool-card-hover)] hover:-translate-y-0.5 hover:shadow-sm',
-        className
-      )}
-    >
-      <div
-        className="w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors bg-[var(--home-tool-bg)] border-[var(--home-tool-border)] text-[var(--home-tool-fg)] group-hover/icon:bg-[var(--home-tool-bg-hover)] group-hover/icon:border-[var(--home-tool-border-hover)]"
-      >
-        <Icon size={22} strokeWidth={2.2} />
-      </div>
-      <span className="text-xs font-semibold text-gray-700 whitespace-nowrap">{label}</span>
-      {desc ? (
-        <span className="text-[11px] text-gray-500 leading-snug text-center line-clamp-1 px-0.5">{desc}</span>
-      ) : null}
-    </button>
-  );
-  return content ? (
-    <Tooltip content={content} position="top">
-      {button}
-    </Tooltip>
-  ) : (
-    button
+  const shared = {
+    viewBox: '0 0 64 64',
+    fill: 'none' as const,
+    stroke: 'currentColor',
+    strokeWidth: 'var(--scene-stroke, 2.4)',
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+  };
+
+  if (id === 'poster') {
+    return (
+      <svg {...shared} className={className} aria-hidden="true">
+        <path d="M18 14h28a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" />
+        <path d="M22 22h16" opacity="0.55" />
+        <path d="M22 28h20" opacity="0.55" />
+        <path d="M22 34h12" opacity="0.55" />
+        <path d="M41 40l2.2 4.2L48 45l-3.6 3.2.9 4.8-4.3-2.2-4.3 2.2.9-4.8L34 45l4.8-.8L41 40Z" />
+      </svg>
+    );
+  }
+
+  if (id === 'h5') {
+    return (
+      <svg {...shared} className={className} aria-hidden="true">
+        <path d="M24 12h16a5 5 0 0 1 5 5v30a5 5 0 0 1-5 5H24a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5Z" />
+        <path d="M26 18h12" opacity="0.55" />
+        <path d="M24 24h16" opacity="0.55" />
+        <path d="M24 30h16" opacity="0.55" />
+        <path d="M24 36h11" opacity="0.55" />
+        <path d="M28 49h8" />
+      </svg>
+    );
+  }
+
+  if (id === 'recruit') {
+    return (
+      <svg {...shared} className={className} aria-hidden="true">
+        <path d="M22 18h20a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4Z" />
+        <path d="M26 18v-2a6 6 0 0 1 6-6h0a6 6 0 0 1 6 6v2" />
+        <path d="M18 29h28" opacity="0.55" />
+        <path d="M27 35v6" opacity="0.7" />
+        <path d="M37 35v6" opacity="0.7" />
+        <path d="M24 52c2.5-6 6.8-10 8-10s5.5 4 8 10" />
+      </svg>
+    );
+  }
+
+  if (id === 'training') {
+    return (
+      <svg {...shared} className={className} aria-hidden="true">
+        <path d="M18 20h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4Z" />
+        <path d="M20 26h15" opacity="0.55" />
+        <path d="M20 32h20" opacity="0.55" />
+        <path d="M20 38h12" opacity="0.55" />
+        <path d="M26 42v8" />
+        <path d="M38 42v8" />
+        <path d="M22 52h20" />
+        <path d="M46 24l4-4" />
+        <path d="M48 26l4-4" opacity="0.6" />
+      </svg>
+    );
+  }
+
+  if (id === 'festival') {
+    return (
+      <svg {...shared} className={className} aria-hidden="true">
+        <path d="M22 28h20v22a2 2 0 0 1-2 2H24a2 2 0 0 1-2-2V28Z" />
+        <path d="M22 28h20" />
+        <path d="M32 28v24" opacity="0.7" />
+        <path d="M26 22c2 0 4 2 6 6-6 0-10-2-10-4 0-1.2 1.2-2 4-2Z" />
+        <path d="M38 22c2.8 0 4 0.8 4 2 0 2-4 4-10 4 2-4 4-6 6-6Z" />
+        <path d="M26 40h6" opacity="0.55" />
+        <path d="M26 46h10" opacity="0.55" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...shared} className={className} aria-hidden="true">
+      <path d="M18 18h28a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V22a4 4 0 0 1 4-4Z" />
+      <path d="M21 26h22" opacity="0.55" />
+      <path d="M21 32h22" opacity="0.55" />
+      <path d="M21 38h22" opacity="0.55" />
+      <path d="M22 46l6-6 6 6 6-6 2 2-8 8-6-6-6 6-2-2Z" />
+    </svg>
   );
 }

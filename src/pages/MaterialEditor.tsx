@@ -844,36 +844,48 @@ export default function MaterialEditor() {
     }, 50);
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setPersonalMaterials(prev => [...prev, url]);
-      
-      const newId = `personal-${Date.now()}`;
-      const newEl: CanvasElement = {
-        id: newId,
-        type: 'image',
-        subType: 'personal',
-        props: { 
-          ...elementProps, 
-          x: 200 + elements.length * 20, 
-          y: 200 + elements.length * 20, 
-          w: 300, 
-          h: 200 
-        },
-        src: url
-      };
-      setElements(prev => [...prev, newEl]);
-      
-      isUpdatingSelection.current = true;
-      setSelectedElement(newId);
-      setElementProps(newEl.props);
-      setTimeout(() => isUpdatingSelection.current = false, 50);
-      
-      // Reset input value so same file can be selected again
+    if (!file) return;
+
+    let url = '';
+    try {
+      url = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+    } catch {
+      toast.show('图片读取失败');
       e.target.value = '';
+      return;
     }
+
+    setPersonalMaterials(prev => [...prev, url]);
+    
+    const newId = `personal-${Date.now()}`;
+    const newEl: CanvasElement = {
+      id: newId,
+      type: 'image',
+      subType: 'personal',
+      props: { 
+        ...elementProps, 
+        x: 200 + elements.length * 20, 
+        y: 200 + elements.length * 20, 
+        w: 300, 
+        h: 200 
+      },
+      src: url
+    };
+    setElements(prev => [...prev, newEl]);
+    
+    isUpdatingSelection.current = true;
+    setSelectedElement(newId);
+    setElementProps(newEl.props);
+    setTimeout(() => isUpdatingSelection.current = false, 50);
+    
+    e.target.value = '';
   };
 
   const handleLocalImageClick = () => {
