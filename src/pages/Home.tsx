@@ -12,10 +12,13 @@ import clsx from 'clsx';
 
 import { inspirationCategories } from './Inspiration';
 
+type SearchSceneId = 'poster' | 'h5' | 'recruit' | 'training' | 'festival' | 'seat';
+
 export default function Home() {
   const navigate = useNavigate();
   const [centerMode, setCenterMode] = useState<'search' | 'generate'>('search');
   const [searchInput, setSearchInput] = useState('');
+  const [activeSearchSceneId, setActiveSearchSceneId] = useState<SearchSceneId | null>(null);
   const [chatInput, setChatInput] = useState('');
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedSize, setSelectedSize] = useState<'1080x1920' | '1920x1080' | '1080x1080' | '1200x628'>('1080x1920');
@@ -70,12 +73,12 @@ export default function Home() {
   const commonSearchKeywords = useMemo(() => ['国庆节', '培训海报', '坐席图', '招聘', '粘土风', '中秋'], []);
   const searchScenes = useMemo(
     () => [
-      { id: 'poster', label: '活动海报', keyword: '活动海报', illustration: 'poster' as const, ink: 'text-[#6F58F3]' },
-      { id: 'h5', label: '手机银行', keyword: '手机银行', illustration: 'h5' as const, ink: 'text-[#2563EB]' },
-      { id: 'recruit', label: '招聘', keyword: '招聘', illustration: 'recruit' as const, ink: 'text-[#047857]' },
-      { id: 'training', label: '培训通知', keyword: '培训海报', illustration: 'training' as const, ink: 'text-[#B45309]' },
-      { id: 'festival', label: '节日促销', keyword: '国庆节', illustration: 'festival' as const, ink: 'text-[#DB2777]' },
-      { id: 'seat', label: '坐席图', keyword: '坐席图', illustration: 'seat' as const, ink: 'text-gray-900' },
+      { id: 'poster' as const, label: '活动海报', keyword: '活动海报', illustration: 'poster' as const, ink: 'text-[#6F58F3]' },
+      { id: 'h5' as const, label: '手机银行', keyword: '手机银行', illustration: 'h5' as const, ink: 'text-[#2563EB]' },
+      { id: 'recruit' as const, label: '招聘', keyword: '招聘', illustration: 'recruit' as const, ink: 'text-[#047857]' },
+      { id: 'training' as const, label: '培训通知', keyword: '培训海报', illustration: 'training' as const, ink: 'text-[#B45309]' },
+      { id: 'festival' as const, label: '节日促销', keyword: '国庆节', illustration: 'festival' as const, ink: 'text-[#DB2777]' },
+      { id: 'seat' as const, label: '坐席图', keyword: '坐席图', illustration: 'seat' as const, ink: 'text-gray-900' },
     ],
     []
   );
@@ -405,13 +408,14 @@ export default function Home() {
                   <div className="text-[11px] font-semibold tracking-[0.18em] text-gray-400">常用场景</div>
                   <div className="grid w-full grid-cols-3 gap-x-1 gap-y-2 sm:grid-cols-6">
                     {searchScenes.map((scene) => {
-                      const isActive = searchInput.trim() === scene.keyword;
+                      const isActive = activeSearchSceneId === scene.id;
                       return (
                         <button
                           key={scene.id}
                           type="button"
                           onClick={() => {
                             setSearchInput(scene.keyword);
+                            setActiveSearchSceneId(scene.id);
                           }}
                           className={clsx(
                             'group flex flex-col items-center justify-center gap-2 h-[84px] rounded-2xl border border-transparent bg-transparent transition-colors',
@@ -494,7 +498,6 @@ export default function Home() {
                           type="button"
                           onClick={() => {
                             setSearchInput(keyword);
-                            submitSearch(keyword);
                           }}
                           className={clsx(
                             'h-7 px-3 rounded-full border text-[11px] font-medium transition-colors',
