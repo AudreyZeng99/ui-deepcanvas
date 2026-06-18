@@ -12,7 +12,7 @@ import clsx from 'clsx';
 
 import { inspirationCategories } from './Inspiration';
 
-type SearchSceneId = 'poster' | 'h5' | 'recruit' | 'training' | 'festival' | 'seat';
+type SearchSceneId = 'seat' | 'mobileBank' | 'portalPromo' | 'internalEvent' | 'partyBuilding' | 'more';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -73,12 +73,12 @@ export default function Home() {
   const commonSearchKeywords = useMemo(() => ['国庆节', '培训海报', '坐席图', '招聘', '粘土风', '中秋'], []);
   const searchScenes = useMemo(
     () => [
-      { id: 'poster' as const, label: '活动海报', keyword: '活动海报', illustration: 'poster' as const, ink: 'text-[#6F58F3]' },
-      { id: 'h5' as const, label: '手机银行', keyword: '手机银行', illustration: 'h5' as const, ink: 'text-[#2563EB]' },
-      { id: 'recruit' as const, label: '招聘', keyword: '招聘', illustration: 'recruit' as const, ink: 'text-[#047857]' },
-      { id: 'training' as const, label: '培训通知', keyword: '培训海报', illustration: 'training' as const, ink: 'text-[#B45309]' },
-      { id: 'festival' as const, label: '节日促销', keyword: '国庆节', illustration: 'festival' as const, ink: 'text-[#DB2777]' },
-      { id: 'seat' as const, label: '坐席图', keyword: '坐席图', illustration: 'seat' as const, ink: 'text-gray-900' },
+      { id: 'seat' as const, label: '坐席图', keyword: '坐席图', ink: 'text-gray-900' },
+      { id: 'mobileBank' as const, label: '手机银行', keyword: '手机银行', ink: 'text-[#2563EB]' },
+      { id: 'portalPromo' as const, label: '门户宣传', keyword: '门户宣传', ink: 'text-[#6F58F3]' },
+      { id: 'internalEvent' as const, label: '对内活动', keyword: '对内活动', ink: 'text-[#B45309]' },
+      { id: 'partyBuilding' as const, label: '党建活动', keyword: '党建活动', ink: 'text-[#DB2777]' },
+      { id: 'more' as const, label: '更多内容', keyword: '', ink: 'text-gray-600' },
     ],
     []
   );
@@ -414,6 +414,12 @@ export default function Home() {
                           key={scene.id}
                           type="button"
                           onClick={() => {
+                            if (scene.id === 'more') {
+                              setSearchInput('');
+                              setActiveSearchSceneId(scene.id);
+                              navigate('/public?module=projects');
+                              return;
+                            }
                             setSearchInput(scene.keyword);
                             setActiveSearchSceneId(scene.id);
                           }}
@@ -428,7 +434,7 @@ export default function Home() {
                           }}
                         >
                           <div className={clsx('w-11 h-11 rounded-2xl border border-transparent flex items-center justify-center bg-transparent transition-colors', scene.ink)}>
-                            <SceneIllustration id={scene.illustration} className="w-9 h-9" />
+                            <SceneIllustration id={scene.id} className="w-9 h-9" />
                           </div>
                           <div
                             className={clsx(
@@ -881,7 +887,7 @@ function SceneIllustration({
   id,
   className,
 }: {
-  id: 'poster' | 'h5' | 'recruit' | 'training' | 'festival' | 'seat';
+  id: SearchSceneId;
   className?: string;
 }) {
   const shared = {
@@ -893,7 +899,7 @@ function SceneIllustration({
     strokeLinejoin: 'round' as const,
   };
 
-  if (id === 'poster') {
+  if (id === 'portalPromo') {
     return (
       <svg {...shared} className={className} aria-hidden="true">
         <path d="M18 14h28a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z" />
@@ -905,7 +911,7 @@ function SceneIllustration({
     );
   }
 
-  if (id === 'h5') {
+  if (id === 'mobileBank') {
     return (
       <svg {...shared} className={className} aria-hidden="true">
         <path d="M24 12h16a5 5 0 0 1 5 5v30a5 5 0 0 1-5 5H24a5 5 0 0 1-5-5V17a5 5 0 0 1 5-5Z" />
@@ -918,20 +924,7 @@ function SceneIllustration({
     );
   }
 
-  if (id === 'recruit') {
-    return (
-      <svg {...shared} className={className} aria-hidden="true">
-        <path d="M22 18h20a4 4 0 0 1 4 4v9a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4v-9a4 4 0 0 1 4-4Z" />
-        <path d="M26 18v-2a6 6 0 0 1 6-6h0a6 6 0 0 1 6 6v2" />
-        <path d="M18 29h28" opacity="0.55" />
-        <path d="M27 35v6" opacity="0.7" />
-        <path d="M37 35v6" opacity="0.7" />
-        <path d="M24 52c2.5-6 6.8-10 8-10s5.5 4 8 10" />
-      </svg>
-    );
-  }
-
-  if (id === 'training') {
+  if (id === 'internalEvent') {
     return (
       <svg {...shared} className={className} aria-hidden="true">
         <path d="M18 20h28a4 4 0 0 1 4 4v14a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V24a4 4 0 0 1 4-4Z" />
@@ -947,7 +940,7 @@ function SceneIllustration({
     );
   }
 
-  if (id === 'festival') {
+  if (id === 'partyBuilding') {
     return (
       <svg {...shared} className={className} aria-hidden="true">
         <path d="M22 28h20v22a2 2 0 0 1-2 2H24a2 2 0 0 1-2-2V28Z" />
@@ -957,6 +950,20 @@ function SceneIllustration({
         <path d="M38 22c2.8 0 4 0.8 4 2 0 2-4 4-10 4 2-4 4-6 6-6Z" />
         <path d="M26 40h6" opacity="0.55" />
         <path d="M26 46h10" opacity="0.55" />
+      </svg>
+    );
+  }
+
+  if (id === 'more') {
+    return (
+      <svg {...shared} className={className} aria-hidden="true">
+        <path d="M18 18h28a4 4 0 0 1 4 4v24a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V22a4 4 0 0 1 4-4Z" />
+        <path d="M26 30h0.01" />
+        <path d="M32 30h0.01" />
+        <path d="M38 30h0.01" />
+        <path d="M26 36h0.01" opacity="0.7" />
+        <path d="M32 36h0.01" opacity="0.7" />
+        <path d="M38 36h0.01" opacity="0.7" />
       </svg>
     );
   }
