@@ -33,14 +33,9 @@ interface Section {
 const generateMockData = (): Section[] => {
   const categories = [
     {
-      id: 'festival',
-      title: '节日节气',
-      subtitle: '节日祝福、节气氛围、活动主视觉等',
-    },
-    {
-      id: 'internal',
-      title: '对内活动',
-      subtitle: '通知公告、培训招募、内部活动宣传等',
+      id: 'seat',
+      title: '坐席图',
+      subtitle: '坐席信息展示、通讯录排版、组织分工与岗位公示等',
     },
     {
       id: 'mobile-bank',
@@ -48,12 +43,22 @@ const generateMockData = (): Section[] => {
       subtitle: 'App 活动运营、功能上新、权益促活等',
     },
     {
+      id: 'portal-promo',
+      title: '门户宣传',
+      subtitle: '门户首页横幅、专题宣传、品牌露出与活动导流等',
+    },
+    {
+      id: 'internal-event',
+      title: '对内活动',
+      subtitle: '通知公告、培训招募、内部活动宣传等',
+    },
+    {
       id: 'party-building',
       title: '党建活动',
       subtitle: '主题党日、学习活动、宣传展板与宣发物料',
     },
     {
-      id: 'other',
+      id: 'more',
       title: '更多内容',
       subtitle: '通用底图、信息排版与更多灵感模板',
     },
@@ -117,20 +122,29 @@ const generateMockData = (): Section[] => {
     'https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=400&auto=format&fit=crop',
   ];
 
+  const seatImages = [
+    'https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1497366412874-3415097a27e7?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=400&auto=format&fit=crop',
+    'https://images.unsplash.com/photo-1524758631624-e2822e304c36?q=80&w=400&auto=format&fit=crop',
+  ];
+
   const templateTitlesByCategory: Record<string, string[]> = {
-    festival: ['春节主视觉长图', '元宵节活动海报', '端午节气氛围海报', '中秋团圆KV', '国庆节日活动海报', '双11 活动主视觉', '圣诞节活动长图', '跨年倒计时海报'],
-    internal: ['内部活动通知海报', '园区公告长图', '培训报名海报', '会议议程长图', '员工关怀活动海报', '安全生产宣传海报', '周报/月报封面', '内宣活动长图'],
+    seat: ['营业网点坐席图', '客服坐席分布图', '部门联络坐席表', '岗位职责坐席图', '值班安排坐席表', '团队组织坐席图', '柜面服务坐席图', '楼层坐席导览图'],
     'mobile-bank': ['手机银行功能上新海报', '掌上银行权益活动海报', 'App 开屏主视觉', '会员日权益长图', '转账免费提现活动', '生活缴费促活海报', '理财专区运营KV', '信用卡活动主视觉'],
+    'portal-promo': ['门户首页焦点图', '内网专题宣传横幅', '品牌宣传主视觉', '活动报名导流图', '产品能力介绍横幅', '门户频道运营Banner', '服务公告焦点图', '专题页头图'],
+    'internal-event': ['内部活动通知海报', '园区公告长图', '培训报名海报', '会议议程长图', '员工关怀活动海报', '安全生产宣传海报', '周报/月报封面', '内宣活动长图'],
     'party-building': ['党建主题活动海报', '党员学习日海报', '主题党日活动长图', '先进典型宣传海报', '组织生活会海报', '志愿服务活动海报', '红色教育活动长图', '党建展板封面'],
-    other: ['通用信息排版模板', '标题留白版海报', '多模块长图排版', '产品信息卡片', '活动日历海报', '直播预告海报', '图文混排长图', '通用背景底图'],
+    more: ['通用信息排版模板', '标题留白版海报', '多模块长图排版', '产品信息卡片', '活动日历海报', '直播预告海报', '图文混排长图', '通用背景底图'],
   };
 
   const imagePoolsByCategory: Record<string, string[]> = {
-    festival: cnyImages,
-    internal: internalImages,
+    seat: seatImages,
     'mobile-bank': mobileBankImages.length ? mobileBankImages : bannerImages,
+    'portal-promo': bannerImages,
+    'internal-event': internalImages,
     'party-building': partyBuildingImages,
-    other: otherImages,
+    more: otherImages.length ? otherImages : cnyImages,
   };
 
   return categories.map((cat) => {
