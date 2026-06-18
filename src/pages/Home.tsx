@@ -17,8 +17,8 @@ type SearchSceneId = 'seat' | 'mobileBank' | 'portalPromo' | 'internalEvent' | '
 export default function Home() {
   const navigate = useNavigate();
   const [centerMode, setCenterMode] = useState<'search' | 'generate'>('search');
-  const [searchInput, setSearchInput] = useState('');
   const [activeSearchSceneId, setActiveSearchSceneId] = useState<SearchSceneId | null>(null);
+  const [activeQuickStartKeyword, setActiveQuickStartKeyword] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedSize, setSelectedSize] = useState<'1080x1920' | '1920x1080' | '1080x1080' | '1200x628'>('1080x1920');
@@ -67,21 +67,62 @@ export default function Home() {
   };
 
   const handleSearchSubmit = () => {
-    submitSearch(searchInput);
+    if (!activeSearchSceneId) return;
+    submitSearch(searchQuery);
   };
 
-  const commonSearchKeywords = useMemo(() => ['国庆节', '培训海报', '坐席图', '招聘', '粘土风', '中秋'], []);
   const searchScenes = useMemo(
     () => [
-      { id: 'seat' as const, label: '坐席图', keyword: '坐席图', ink: 'text-gray-900' },
-      { id: 'mobileBank' as const, label: '手机银行', keyword: '手机银行', ink: 'text-[#2563EB]' },
-      { id: 'portalPromo' as const, label: '门户宣传', keyword: '门户宣传', ink: 'text-[#6F58F3]' },
-      { id: 'internalEvent' as const, label: '对内活动', keyword: '对内活动', ink: 'text-[#B45309]' },
-      { id: 'partyBuilding' as const, label: '党建活动', keyword: '党建活动', ink: 'text-[#DB2777]' },
-      { id: 'more' as const, label: '更多内容', keyword: '', ink: 'text-gray-600' },
+      {
+        id: 'seat' as const,
+        label: '坐席图',
+        ink: 'text-gray-900',
+        quickStarts: ['交行福利季', '周周有礼', '攻略', '节日节气宣传'],
+      },
+      {
+        id: 'mobileBank' as const,
+        label: '手机银行',
+        ink: 'text-[#2563EB]',
+        quickStarts: ['空白banner模板', '参考banner模板'],
+      },
+      {
+        id: 'portalPromo' as const,
+        label: '门户宣传',
+        ink: 'text-[#6F58F3]',
+        quickStarts: ['节日祝福', '感谢信'],
+      },
+      {
+        id: 'internalEvent' as const,
+        label: '对内活动',
+        ink: 'text-[#B45309]',
+        quickStarts: ['讲座宣传'],
+      },
+      {
+        id: 'partyBuilding' as const,
+        label: '党建活动',
+        ink: 'text-[#DB2777]',
+        quickStarts: [],
+      },
+      {
+        id: 'more' as const,
+        label: '更多内容',
+        ink: 'text-gray-600',
+        quickStarts: [],
+      },
     ],
     []
   );
+
+  const activeSearchScene = useMemo(
+    () => searchScenes.find((scene) => scene.id === activeSearchSceneId) ?? null,
+    [activeSearchSceneId, searchScenes]
+  );
+  const searchQuery = useMemo(() => {
+    if (!activeSearchScene) return '';
+    const tokens = [activeSearchScene.label];
+    if (activeQuickStartKeyword) tokens.push(activeQuickStartKeyword);
+    return tokens.join(' ');
+  }, [activeQuickStartKeyword, activeSearchScene]);
 
   const backgroundInspirationItems = useMemo(() => {
     const category = inspirationCategories.find((c) => c.id === 'backgrounds');
@@ -414,14 +455,8 @@ export default function Home() {
                           key={scene.id}
                           type="button"
                           onClick={() => {
-                            if (scene.id === 'more') {
-                              setSearchInput('');
-                              setActiveSearchSceneId(scene.id);
-                              navigate('/public?module=projects');
-                              return;
-                            }
-                            setSearchInput(scene.keyword);
                             setActiveSearchSceneId(scene.id);
+                            setActiveQuickStartKeyword(null);
                           }}
                           className={clsx(
                             'group flex flex-col items-center justify-center gap-2 h-[84px] rounded-2xl border border-transparent bg-transparent transition-colors',
@@ -452,10 +487,13 @@ export default function Home() {
                 <div className="rounded-[28px] border border-black/5 bg-white shadow-[0_22px_50px_-36px_rgba(0,0,0,0.24)] overflow-hidden">
                   <div className="relative px-5 pt-4 pb-3">
                     <input
-                      placeholder="搜索公共模板，例如：母亲节海报 / 小狗 / 红金风格"
+                      placeholder="请选择一个常用场景"
                       className="w-full h-12 pl-11 pr-24 border-0 bg-transparent focus:outline-none focus:ring-0 text-sm text-gray-900 placeholder:text-gray-400"
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
+                      value={searchQuery}
+                      readOnly
+                      aria-readonly="true"
+                      tabIndex={-1}
+                      style={{ cursor: 'default' }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -469,7 +507,7 @@ export default function Home() {
                     <button
                       onClick={handleSearchSubmit}
                       className="absolute right-4 top-1/2 -translate-y-1/2 h-9 px-4 rounded-full text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_22px_-12px_rgba(88,28,135,0.5)]"
-                      disabled={!searchInput.trim()}
+                      disabled={!activeSearchSceneId}
                       style={{ backgroundColor: purple.solid }}
                       onMouseEnter={(e) => {
                         if ((e.currentTarget as HTMLButtonElement).disabled) return;
@@ -493,34 +531,36 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-center gap-3">
-                  <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-400">快速开始</div>
-                  <div className="flex flex-wrap justify-center gap-2">
-                    {commonSearchKeywords.map((keyword) => {
-                      const isActive = searchInput.trim() === keyword;
-                      return (
-                        <button
-                          key={keyword}
-                          type="button"
-                          onClick={() => {
-                            setSearchInput(keyword);
-                          }}
-                          className={clsx(
-                            'h-7 px-3 rounded-full border text-[11px] font-medium transition-colors',
-                            isActive ? 'text-gray-900' : 'text-gray-500 border-black/5 hover:text-gray-700 hover:border-black/10'
-                          )}
-                          style={
-                            isActive
-                              ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
-                              : { backgroundColor: 'rgba(255,255,255,0.55)' }
-                          }
-                        >
-                          {keyword}
-                        </button>
-                      );
-                    })}
+                {activeSearchScene && activeSearchScene.quickStarts.length > 0 ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-400">快速开始</div>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {activeSearchScene.quickStarts.map((keyword) => {
+                        const isActive = activeQuickStartKeyword === keyword;
+                        return (
+                          <button
+                            key={keyword}
+                            type="button"
+                            onClick={() => {
+                              setActiveQuickStartKeyword((prev) => (prev === keyword ? null : keyword));
+                            }}
+                            className={clsx(
+                              'h-7 px-3 rounded-full border text-[11px] font-medium transition-colors',
+                              isActive ? 'text-gray-900' : 'text-gray-500 border-black/5 hover:text-gray-700 hover:border-black/10'
+                            )}
+                            style={
+                              isActive
+                                ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
+                                : { backgroundColor: 'rgba(255,255,255,0.55)' }
+                            }
+                          >
+                            {keyword}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : null}
               </div>
             ) : (
               <div className="space-y-3">
