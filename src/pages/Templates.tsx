@@ -182,8 +182,21 @@ type PublicTemplateDetail = {
   authorName: string;
   width: number;
   height: number;
+  scene: string;
   elements: string[];
 };
+
+function resolveSceneLabelFromTemplateId(templateId: string): string {
+  const id = templateId.trim();
+  if (id.startsWith('seat-') || id.startsWith('search-seat-')) return '坐席图';
+  if (id.startsWith('mobile-bank-') || id.startsWith('search-mobile-bank-')) return '手机银行';
+  if (id.startsWith('portal-promo-') || id.startsWith('search-portal-promo-')) return '门户宣传';
+  if (id.startsWith('internal-event-') || id.startsWith('search-internal-event-')) return '对内活动';
+  if (id.startsWith('party-building-') || id.startsWith('search-party-building-')) return '党建活动';
+  return '更多内容';
+}
+
+const SCENE_OPTIONS = ['坐席图', '手机银行', '门户宣传', '对内活动', '党建活动', '更多内容'] as const;
 
 const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: TemplateCardProps) => {
   const toast = useToast();
@@ -194,6 +207,7 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: Template
     authorName: item.author.name,
     width: 1080,
     height: 1920,
+    scene: resolveSceneLabelFromTemplateId(item.id),
     elements: ['元素：海报'],
   };
   return (
@@ -556,6 +570,7 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   const { createProject, saveProject } = useProject();
   const [trafficRankTab, setTrafficRankTab] = useState<'click' | 'use'>('click');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sceneDraftById, setSceneDraftById] = useState<Record<string, string>>({});
   const [elementDraftById, setElementDraftById] = useState<Record<string, string>>({});
   const [editingElementId, setEditingElementId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
@@ -868,6 +883,7 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                     authorName: item.authorName,
                     width: item.width,
                     height: item.height,
+                    scene: resolveSceneLabelFromTemplateId(item.id),
                     elements: item.elements,
                   };
 
@@ -1106,7 +1122,23 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-2">
+                <div className="mt-6 space-y-4">
+                  <div className="space-y-2">
+                    <div className="text-sm font-semibold text-gray-900">场景</div>
+                    <select
+                      value={sceneDraftById[activeTemplateDetail.id] ?? activeTemplateDetail.scene}
+                      onChange={(e) => setSceneDraftById((prev) => ({ ...prev, [activeTemplateDetail.id]: e.target.value }))}
+                      className="w-full h-11 px-4 rounded-2xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm text-gray-700"
+                      aria-label="选择场景"
+                    >
+                      {SCENE_OPTIONS.map((scene) => (
+                        <option key={scene} value={scene}>
+                          {scene}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-gray-900">元素信息</div>
                     <button
