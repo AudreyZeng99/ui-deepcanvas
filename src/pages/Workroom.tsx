@@ -137,7 +137,7 @@ function readAssets(): LayerAsset[] {
   if (!Array.isArray(parsed)) return [];
   return parsed
     .filter((a) => a && typeof a.id === 'string' && typeof a.url === 'string' && typeof a.name === 'string')
-    .map((a) => ({
+    .map((a): LayerAsset => ({
       id: a.id,
       name: a.name,
       url: a.url,

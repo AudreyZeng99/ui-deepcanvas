@@ -114,7 +114,7 @@ function readTemplates(): LayerTemplate[] {
   if (!Array.isArray(parsed)) return [];
   return parsed
     .filter((t) => t && typeof t.id === 'string' && typeof t.name === 'string' && typeof t.previewUrl === 'string')
-    .map((t) => ({
+    .map((t): LayerTemplate => ({
       id: t.id,
       name: t.name,
       scope: t.scope === 'team' ? 'team' : 'public',
@@ -418,4 +418,3 @@ function FilterToggle({
     </button>
   );
 }
-
