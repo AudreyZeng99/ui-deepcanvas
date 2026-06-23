@@ -62,8 +62,12 @@ export default function Home() {
 
   const submitSearch = (value: string) => {
     const q = value.trim();
-    if (!q) return;
-    navigate(`/public?module=projects&q=${encodeURIComponent(q)}`);
+    if (!q || !activeSearchScene) return;
+    const params = new URLSearchParams();
+    params.set('scene', activeSearchScene.label);
+    const keyword = activeQuickStartKeyword ?? q.replace(activeSearchScene.label, '').trim();
+    if (keyword) params.set('keyword', keyword);
+    navigate(`/templates?${params.toString()}`);
   };
 
   const handleSearchSubmit = () => {
@@ -517,7 +521,7 @@ export default function Home() {
                         e.currentTarget.style.backgroundColor = purple.solid;
                       }}
                     >
-                      搜索
+                      开始设计
                     </button>
                   </div>
                   <div className="px-5 pb-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-gray-400">
@@ -805,7 +809,7 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                onClick={() => navigate('/public?module=projects')}
+                onClick={() => navigate('/templates')}
                 className="h-9 px-4 rounded-full text-sm font-semibold bg-white border border-black/5 text-gray-900 hover:bg-gray-50 transition-colors shadow-sm"
               >
                 去社区看看

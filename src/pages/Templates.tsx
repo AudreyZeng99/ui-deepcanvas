@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Search, Camera, ChevronRight, Heart, Plus, Share2, PencilLine, X } from 'lucide-react';
+import { Search, Camera, ChevronRight, Heart, Plus, Share2, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ToastProvider';
@@ -168,13 +168,6 @@ const generateMockData = (): Section[] => {
 
 const sections = generateMockData();
 
-type TemplateCardProps = {
-  item: Template;
-  onUseTemplate: (detail: PublicTemplateDetail) => void;
-  onOpenDetail: (detail: PublicTemplateDetail) => void;
-  className?: string;
-};
-
 type PublicTemplateDetail = {
   id: string;
   title: string;
@@ -197,6 +190,37 @@ function resolveSceneLabelFromTemplateId(templateId: string): string {
 }
 
 const SCENE_OPTIONS = ['坐席图', '手机银行', '门户宣传', '对内活动', '党建活动', '更多内容'] as const;
+type SceneOption = typeof SCENE_OPTIONS[number];
+type PreviewRole = 'user' | 'admin';
+
+const TEMPLATE_SIZE_OPTIONS = [
+  { value: '1080x1920', label: '1080×1920 px' },
+  { value: '1920x1080', label: '1920×1080 px' },
+  { value: '1080x1080', label: '1080×1080 px' },
+  { value: '1200x628', label: '1200×628 px' },
+] as const;
+
+function formatSizeValue(width: number, height: number) {
+  return `${width}x${height}`;
+}
+
+function parseSizeValue(value: string, fallbackWidth: number, fallbackHeight: number) {
+  const match = value.trim().match(/^(\d+)\s*[xX×]\s*(\d+)$/);
+  if (!match) return { width: fallbackWidth, height: fallbackHeight };
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return { width: fallbackWidth, height: fallbackHeight };
+  }
+  return { width, height };
+}
+
+type TemplateCardProps = {
+  item: Template;
+  onUseTemplate: (detail: PublicTemplateDetail) => void;
+  onOpenDetail: (detail: PublicTemplateDetail) => void;
+  className?: string;
+};
 
 const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: TemplateCardProps) => {
   const toast = useToast();
@@ -215,15 +239,8 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: Template
       className={clsx('flex-shrink-0 group cursor-pointer flex flex-col gap-2', className ?? 'w-full')}
       onClick={() => onOpenDetail(detail)}
     >
-      {/* Card Image Container */}
       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
-        <img 
-          src={item.imageUrl} 
-          alt={item.title} 
-          className="w-full h-full object-cover"
-        />
-        
-        {/* Overlays */}
+        <img src={item.imageUrl} alt={item.title} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
 
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -239,7 +256,9 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: Template
             使用该模板
           </button>
         </div>
+
         <button
+          type="button"
           onClick={async (e) => {
             e.stopPropagation();
             const width = 1080;
@@ -262,25 +281,17 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: Template
               toast.show('口令已复制到剪切板');
             }
           }}
-          className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+          className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors opacity-0 group-hover:opacity-100"
           title="分享口令"
+          aria-label="分享口令"
         >
           <Share2 size={16} />
         </button>
       </div>
 
-      {/* Footer Info */}
       <div className="flex items-center gap-2 px-1">
-        <img 
-          src={item.author.avatar} 
-          alt={item.author.name} 
-          className="w-5 h-5 rounded-full bg-gray-200"
-        />
+        <img src={item.author.avatar} alt={item.author.name} className="w-5 h-5 rounded-full bg-gray-200" />
         <span className="text-xs text-gray-500 truncate flex-1">{item.author.name}</span>
-        {/* Optional: Views/More */}
-        {/* <button className="text-gray-400 hover:text-gray-600">
-          <MoreHorizontal size={14} />
-        </button> */}
       </div>
     </div>
   );
@@ -368,7 +379,6 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
 ];
 
 const TEAM_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_team_template_favorites_v1';
-const PUBLIC_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_public_template_favorites_v1';
 
 type TrafficTemplateCardProps = {
   template: TrafficTeamTemplate;
@@ -570,23 +580,15 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   const { createProject, saveProject } = useProject();
   const [trafficRankTab, setTrafficRankTab] = useState<'click' | 'use'>('click');
   const [searchQuery, setSearchQuery] = useState('');
+  const [publicViewMode, setPublicViewMode] = useState<'home' | 'scene'>('home');
+  const [activePublicScene, setActivePublicScene] = useState<SceneOption | null>(null);
   const [sceneDraftById, setSceneDraftById] = useState<Record<string, string>>({});
-  const [elementDraftById, setElementDraftById] = useState<Record<string, string>>({});
-  const [editingElementId, setEditingElementId] = useState<string | null>(null);
+  const [sizeDraftById, setSizeDraftById] = useState<Record<string, string>>({});
+  const [previewRole, setPreviewRole] = useState<PreviewRole>('user');
+  const [isAdminEditingAttributes, setIsAdminEditingAttributes] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement | null>(null);
   const [teamTemplateFavorites, setTeamTemplateFavorites] = useState<Set<string>>(() => {
     const raw = localStorage.getItem(TEAM_TEMPLATE_FAVORITES_KEY);
-    if (!raw) return new Set();
-    try {
-      const parsed = JSON.parse(raw);
-      if (!Array.isArray(parsed)) return new Set();
-      return new Set(parsed.filter((id: any) => typeof id === 'string'));
-    } catch {
-      return new Set();
-    }
-  });
-  const [publicTemplateFavorites, setPublicTemplateFavorites] = useState<Set<string>>(() => {
-    const raw = localStorage.getItem(PUBLIC_TEMPLATE_FAVORITES_KEY);
     if (!raw) return new Set();
     try {
       const parsed = JSON.parse(raw);
@@ -601,6 +603,12 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const teamId = searchParams.get('teamId') || 'team-1';
   const scope: TemplatesScope = scopeOverride ?? (location.pathname === '/team-templates' ? 'team' : 'public');
+  const requestedPublicScene = useMemo(() => {
+    const scene = searchParams.get('scene');
+    if (!scene) return null;
+    return SCENE_OPTIONS.includes(scene as SceneOption) ? (scene as SceneOption) : null;
+  }, [searchParams]);
+  const requestedPublicKeyword = searchParams.get('keyword')?.trim() || '';
 
   useEffect(() => {
     if (scopeOverride) return;
@@ -675,7 +683,6 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
 
   const resetToTemplateHome = () => {
     setSearchQuery('');
-    setEditingElementId(null);
     requestAnimationFrame(() => {
       scrollAreaRef.current?.scrollTo({ top: 0 });
     });
@@ -707,14 +714,6 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
 
   const trimmedQuery = searchQuery.trim();
 
-  const lastTrimmedQueryRef = useRef<string>('');
-  useEffect(() => {
-    if (lastTrimmedQueryRef.current === trimmedQuery) return;
-    lastTrimmedQueryRef.current = trimmedQuery;
-    setElementDraftById({});
-    setEditingElementId(null);
-  }, [trimmedQuery]);
-
   useEffect(() => {
     if (!trimmedQuery) return;
     requestAnimationFrame(() => {
@@ -728,8 +727,54 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     return buildFakeTemplateResults(trimmedQuery, isCategory ? 60 : 36);
   }, [trimmedQuery]);
 
-  const enterSearchWithCategory = (categoryName: string) => {
-    setSearchQuery(categoryName);
+  const resolvedPublicScene = useMemo(() => activePublicScene ?? SCENE_OPTIONS[0], [activePublicScene]);
+
+  const activePublicSection = useMemo(() => {
+    return sections.find((section) => section.title === resolvedPublicScene) ?? sections[0];
+  }, [resolvedPublicScene]);
+
+  const publicSceneResults = useMemo(() => {
+    return buildFakeTemplateResults(resolvedPublicScene, 60);
+  }, [resolvedPublicScene]);
+
+  useEffect(() => {
+    if (scope !== 'public') return;
+    if (requestedPublicScene) {
+      setActivePublicScene(requestedPublicScene);
+      setPublicViewMode('scene');
+      return;
+    }
+    setActivePublicScene(null);
+    setPublicViewMode('home');
+  }, [requestedPublicScene, scope]);
+
+  const updatePublicSceneRoute = (scene: SceneOption | null) => {
+    const nextParams = new URLSearchParams(location.search);
+    if (scene) nextParams.set('scene', scene);
+    else nextParams.delete('scene');
+    nextParams.delete('keyword');
+    navigate({ pathname: '/templates', search: nextParams.toString() }, { replace: false });
+  };
+
+  const exitPublicSceneToHome = () => {
+    updatePublicSceneRoute(null);
+    setActivePublicScene(null);
+    setPublicViewMode('home');
+    setSearchQuery('');
+    requestAnimationFrame(() => {
+      scrollAreaRef.current?.scrollTo({ top: 0 });
+    });
+  };
+
+  const togglePublicScene = (scene: SceneOption) => {
+    if (publicViewMode === 'scene' && activePublicScene === scene) {
+      exitPublicSceneToHome();
+      return;
+    }
+    updatePublicSceneRoute(scene);
+    setActivePublicScene(scene);
+    setPublicViewMode('scene');
+    setSearchQuery('');
     requestAnimationFrame(() => {
       scrollAreaRef.current?.scrollTo({ top: 0 });
     });
@@ -758,22 +803,15 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     });
   };
 
-  const togglePublicTemplateFavorite = (templateId: string) => {
-    setPublicTemplateFavorites((prev) => {
-      const next = new Set(prev);
-      if (next.has(templateId)) next.delete(templateId);
-      else next.add(templateId);
-      localStorage.setItem(PUBLIC_TEMPLATE_FAVORITES_KEY, JSON.stringify(Array.from(next)));
-      return next;
-    });
-  };
-
   const openTemplateInPublicCanvas = (detail: PublicTemplateDetail) => {
     const params = new URLSearchParams();
     params.set('src', detail.previewUrl);
     params.set('name', detail.title);
     params.set('id', detail.id);
     params.set('q', detail.title);
+    params.set('width', String(detail.width));
+    params.set('height', String(detail.height));
+    params.set('scene', detail.scene);
     openInNewTab(`/public-canvas?${params.toString()}`);
   };
 
@@ -798,6 +836,38 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
   };
 
   const closeTemplateDetail = () => setActiveTemplateDetail(null);
+  const activeTemplateSceneValue = activeTemplateDetail
+    ? sceneDraftById[activeTemplateDetail.id] ?? activeTemplateDetail.scene
+    : '';
+  const activeTemplateSizeValue = activeTemplateDetail
+    ? sizeDraftById[activeTemplateDetail.id] ?? formatSizeValue(activeTemplateDetail.width, activeTemplateDetail.height)
+    : '';
+  const activeTemplateResolvedSize = activeTemplateDetail
+    ? parseSizeValue(activeTemplateSizeValue, activeTemplateDetail.width, activeTemplateDetail.height)
+    : { width: 1080, height: 1920 };
+  const resolvedActiveTemplateDetail: PublicTemplateDetail | null = activeTemplateDetail
+    ? {
+        ...activeTemplateDetail,
+        scene: activeTemplateSceneValue,
+        width: activeTemplateResolvedSize.width,
+        height: activeTemplateResolvedSize.height,
+      }
+    : null;
+
+  useEffect(() => {
+    if (!activeTemplateDetail) return;
+    setPreviewRole('user');
+    setIsAdminEditingAttributes(false);
+    setSceneDraftById((prev) => ({
+      ...prev,
+      [activeTemplateDetail.id]: prev[activeTemplateDetail.id] ?? activeTemplateDetail.scene,
+    }));
+    setSizeDraftById((prev) => ({
+      ...prev,
+      [activeTemplateDetail.id]:
+        prev[activeTemplateDetail.id] ?? formatSizeValue(activeTemplateDetail.width, activeTemplateDetail.height),
+    }));
+  }, [activeTemplateDetail]);
 
   return (
     <div className="h-full flex flex-col bg-white overflow-hidden">
@@ -807,25 +877,45 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
 
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-1 min-w-[280px]">
-              <div className="relative group max-w-2xl flex-1 min-w-[280px]">
-                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
-                  <Search size={20} />
+              {scope === 'public' ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {SCENE_OPTIONS.map((scene) => (
+                    <button
+                      key={scene}
+                      type="button"
+                      onClick={() => togglePublicScene(scene)}
+                      className={clsx(
+                        'h-11 px-5 rounded-full text-sm font-medium transition-all border',
+                        publicViewMode === 'scene' && resolvedPublicScene === scene
+                          ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                          : 'bg-white text-gray-600 border-gray-200 hover:text-gray-900 hover:border-gray-300'
+                      )}
+                    >
+                      {scene}
+                    </button>
+                  ))}
                 </div>
-                <input
-                  type="text"
-                  placeholder={scope === 'public' ? '搜索公共模板…' : '搜索团队模板…'}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-12 pl-12 pr-12 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-xl outline-none transition-all text-sm"
-                />
-                <button
-                  type="button"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
-                  aria-label="以图搜图"
-                >
-                  <Camera size={20} />
-                </button>
-              </div>
+              ) : (
+                <div className="relative group max-w-2xl flex-1 min-w-[280px]">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-black transition-colors">
+                    <Search size={20} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="搜索团队模板…"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-12 pl-12 pr-12 bg-gray-50 hover:bg-gray-100 focus:bg-white border border-transparent focus:border-black/10 rounded-xl outline-none transition-all text-sm"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-black transition-colors"
+                    aria-label="以图搜图"
+                  >
+                    <Camera size={20} />
+                  </button>
+                </div>
+              )}
               {scope === 'team' && (
                 <select
                   value={resolvedTeamId}
@@ -842,7 +932,7 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
               )}
             </div>
             <div className="flex items-center gap-2">
-              {trimmedQuery && (
+              {scope === 'team' && trimmedQuery && (
                 <button
                   type="button"
                   onClick={resetToTemplateHome}
@@ -865,7 +955,132 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
             </div>
           </div>
 
-          {trimmedQuery ? (
+          {scope === 'public' ? (
+            publicViewMode === 'home' ? (
+              <>
+                {sections.map((section) => (
+                  <section key={section.id} className="space-y-4">
+                    <div className="flex items-end justify-between">
+                      <div className="space-y-1">
+                        <h2 className="text-xl font-bold text-gray-900">{section.title}</h2>
+                        <p className="text-xs text-gray-500">{section.subtitle}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => togglePublicScene(section.title as SceneOption)}
+                        className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
+                      >
+                        更多
+                        <ChevronRight size={14} className="transition-transform duration-300" />
+                      </button>
+                    </div>
+
+                    <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
+                      {section.items.slice(0, 12).map((item) => (
+                        <TemplateCard
+                          key={item.id}
+                          item={item}
+                          onUseTemplate={openTemplateInPublicCanvas}
+                          onOpenDetail={(detail) => setActiveTemplateDetail(detail)}
+                          className="w-[160px] sm:w-[180px]"
+                        />
+                      ))}
+                    </div>
+                  </section>
+                ))}
+              </>
+            ) : (
+              <section className="space-y-4">
+                <div className="flex items-end justify-between gap-4 flex-wrap">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={exitPublicSceneToHome}
+                        className="text-sm font-semibold text-gray-500 hover:text-gray-900 transition-colors"
+                      >
+                        返回
+                      </button>
+                      <h2 className="text-xl font-bold text-gray-900">{activePublicSection.title}</h2>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {activePublicSection.subtitle}
+                      {` · ${publicSceneResults.length} 条`}
+                    </p>
+                    {requestedPublicKeyword && (
+                      <div className="mt-3 inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
+                        <span className="text-[11px] font-semibold tracking-wide text-gray-500">已筛选分类</span>
+                        <span className="inline-flex items-center h-7 px-3 rounded-full bg-gray-900 text-white text-xs font-semibold shadow-sm">
+                          {requestedPublicKeyword}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
+                  {publicSceneResults.map((item) => {
+                    const detail: PublicTemplateDetail = {
+                      id: item.id,
+                      title: item.title,
+                      previewUrl: item.previewUrl,
+                      authorName: item.authorName,
+                      width: item.width,
+                      height: item.height,
+                      scene: resolveSceneLabelFromTemplateId(item.id),
+                      elements: item.elements,
+                    };
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="mb-4 break-inside-avoid group cursor-pointer flex flex-col gap-2"
+                        onClick={() => setActiveTemplateDetail(detail)}
+                      >
+                        <div
+                          className="relative rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1"
+                          style={{ aspectRatio: `${detail.width} / ${detail.height}` }}
+                        >
+                          <img src={item.previewUrl} alt={item.title} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openTemplateInPublicCanvas(detail);
+                              }}
+                              className="pointer-events-auto px-4 py-2 rounded-full bg-white text-gray-900 text-sm font-semibold shadow-lg"
+                              aria-label="使用该模板"
+                            >
+                              使用该模板
+                            </button>
+                          </div>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              await shareTemplate(detail);
+                            }}
+                            className="absolute top-2 right-2 w-9 h-9 rounded-full bg-white/85 backdrop-blur border border-black/10 shadow-sm flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+                            title="分享口令"
+                          >
+                            <Share2 size={16} />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 px-1">
+                          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                            {item.authorName.trim().slice(0, 1)}
+                          </div>
+                          <span className="text-xs text-gray-500 truncate flex-1">{item.authorName}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )
+          ) : trimmedQuery ? (
             <section className="space-y-4">
               <div className="flex items-end justify-between gap-4 flex-wrap">
                 <div className="space-y-1">
@@ -935,41 +1150,6 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                 })}
               </div>
             </section>
-          ) : scope === 'public' ? (
-            <>
-              {sections.map((section) => (
-                <section key={section.id} className="space-y-4">
-                  <div className="flex items-end justify-between">
-                    <div className="space-y-1">
-                      <h2 className="text-xl font-bold text-gray-900">{section.title}</h2>
-                      <p className="text-xs text-gray-500">{section.subtitle}</p>
-                    </div>
-                    <button
-                      onClick={() => enterSearchWithCategory(section.title)}
-                      className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors"
-                    >
-                      更多
-                      <ChevronRight
-                        size={14}
-                        className="transition-transform duration-300"
-                      />
-                    </button>
-                  </div>
-
-                  <div className="flex gap-4 overflow-x-auto pb-2 -mx-2 px-2">
-                    {section.items.slice(0, 12).map((item) => (
-                      <TemplateCard
-                        key={item.id}
-                        item={item}
-                        onUseTemplate={openTemplateInPublicCanvas}
-                        onOpenDetail={(detail) => setActiveTemplateDetail(detail)}
-                        className="w-[160px] sm:w-[180px]"
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </>
           ) : (
             <div className="space-y-10">
               {isTrafficTeamSelected ? (
@@ -1065,6 +1245,31 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
         <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
           <div className="absolute inset-0 bg-black/30" onClick={closeTemplateDetail} />
           <div className="relative w-full max-w-5xl bg-white rounded-3xl shadow-xl border border-black/10 overflow-hidden">
+            <div className="absolute top-4 right-16 z-10 inline-flex items-center rounded-full bg-white/95 backdrop-blur border border-black/10 shadow-sm p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewRole('user');
+                  setIsAdminEditingAttributes(false);
+                }}
+                className={clsx(
+                  'h-8 px-3 rounded-full text-xs font-medium transition-all',
+                  previewRole === 'user' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                普通用户
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewRole('admin')}
+                className={clsx(
+                  'h-8 px-3 rounded-full text-xs font-medium transition-all',
+                  previewRole === 'admin' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:text-gray-900'
+                )}
+              >
+                超管
+              </button>
+            </div>
             <button
               type="button"
               onClick={closeTemplateDetail}
@@ -1076,7 +1281,10 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-0">
               <div className="p-6 bg-black/[0.02] border-r border-black/5">
-                <div className="aspect-[9/16] rounded-2xl bg-white border border-black/10 overflow-hidden flex items-center justify-center">
+                <div
+                  className="rounded-2xl bg-white border border-black/10 overflow-hidden flex items-center justify-center"
+                  style={{ aspectRatio: `${activeTemplateResolvedSize.width} / ${activeTemplateResolvedSize.height}` }}
+                >
                   <img
                     src={activeTemplateDetail.previewUrl}
                     alt={activeTemplateDetail.title}
@@ -1086,129 +1294,106 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
               </div>
 
               <div className="p-6">
-                <div className="flex items-start justify-between gap-4 pr-10">
-                  <div className="min-w-0">
-                    <div className="text-xs text-gray-500">{activeTemplateDetail.authorName}</div>
-                    <div className="mt-1 text-lg font-semibold text-gray-900 truncate">{activeTemplateDetail.title}</div>
-                    <div className="mt-2 text-xs text-gray-500">
-                      {activeTemplateDetail.width}×{activeTemplateDetail.height} px
+                <div className="space-y-6 pr-10">
+                  <div className="space-y-3">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-gray-900">模板名称</div>
+                      <div className="mt-2 text-xl font-bold text-gray-900 break-words">{activeTemplateDetail.title}</div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => shareTemplate(activeTemplateDetail)}
-                      className="w-10 h-10 rounded-2xl border border-black/10 bg-white hover:bg-gray-50 text-gray-700 flex items-center justify-center transition-colors"
-                      title="分享"
-                      aria-label="分享"
-                    >
-                      <Share2 size={18} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => togglePublicTemplateFavorite(activeTemplateDetail.id)}
-                      className={clsx(
-                        "w-10 h-10 rounded-2xl border flex items-center justify-center transition-colors",
-                        publicTemplateFavorites.has(activeTemplateDetail.id)
-                          ? "bg-gray-900 text-white border-gray-900 hover:bg-gray-800"
-                          : "bg-white text-gray-700 border-black/10 hover:bg-gray-50"
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-gray-900">模板属性</div>
+                      {previewRole === 'admin' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isAdminEditingAttributes) {
+                              setIsAdminEditingAttributes(false);
+                              toast.show('编辑模板属性成功');
+                              return;
+                            }
+                            setIsAdminEditingAttributes(true);
+                          }}
+                          className={clsx(
+                            'h-8 px-4 rounded-full text-xs font-semibold border transition-colors whitespace-nowrap',
+                            isAdminEditingAttributes
+                              ? 'bg-gray-900 text-white border-gray-900 hover:bg-gray-800'
+                              : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900'
+                          )}
+                        >
+                          {isAdminEditingAttributes ? '确认修改' : '编辑属性'}
+                        </button>
                       )}
-                      title="收藏"
-                      aria-label="收藏"
-                    >
-                      <Heart size={18} fill={publicTemplateFavorites.has(activeTemplateDetail.id) ? 'currentColor' : 'none'} />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  <div className="space-y-2">
-                    <div className="text-sm font-semibold text-gray-900">场景</div>
-                    <select
-                      value={sceneDraftById[activeTemplateDetail.id] ?? activeTemplateDetail.scene}
-                      onChange={(e) => setSceneDraftById((prev) => ({ ...prev, [activeTemplateDetail.id]: e.target.value }))}
-                      className="w-full h-11 px-4 rounded-2xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm text-gray-700"
-                      aria-label="选择场景"
-                    >
-                      {SCENE_OPTIONS.map((scene) => (
-                        <option key={scene} value={scene}>
-                          {scene}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-semibold text-gray-900">元素信息</div>
-                    <button
-                      type="button"
-                      onClick={() => setEditingElementId((prev) => (prev === activeTemplateDetail.id ? null : activeTemplateDetail.id))}
-                      className="p-2 -m-2 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
-                      aria-label="编辑元素信息"
-                      title="编辑元素信息"
-                    >
-                      <PencilLine size={16} />
-                    </button>
-                  </div>
-
-                  {(() => {
-                    const fallback = activeTemplateDetail.elements.join('，');
-                    const draft = elementDraftById[activeTemplateDetail.id] ?? fallback;
-                    const isEditing = editingElementId === activeTemplateDetail.id;
-                    const chips = draft
-                      .split(/[,，、\n]/g)
-                      .map((x) => x.trim())
-                      .filter(Boolean)
-                      .slice(0, 12);
-
-                    return isEditing ? (
-                      <input
-                        value={draft}
-                        onChange={(e) => setElementDraftById((prev) => ({ ...prev, [activeTemplateDetail.id]: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') setEditingElementId(null);
-                        }}
-                        onBlur={() => setEditingElementId(null)}
-                        className="w-full h-11 px-4 rounded-2xl bg-gray-50 border border-black/10 outline-none focus:border-black/20 text-sm"
-                        placeholder="元素：小狗（用逗号分隔）"
-                        autoFocus
-                      />
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {chips.map((c) => (
-                          <span
-                            key={`${activeTemplateDetail.id}-${c}`}
-                            className="inline-flex items-center h-6 px-2 rounded-full bg-gray-50 border border-black/5 text-[11px] font-semibold text-gray-700"
-                          >
-                            {c}
-                          </span>
-                        ))}
+                    </div>
+                    <div className="rounded-3xl border border-black/10 bg-gray-50/60 p-5 space-y-4">
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold tracking-wide text-gray-500">模板尺寸</div>
+                        {previewRole === 'admin' && isAdminEditingAttributes ? (
+                          <div className="space-y-2">
+                            <input
+                              list="template-size-options"
+                              value={activeTemplateSizeValue}
+                              onChange={(e) => setSizeDraftById((prev) => ({ ...prev, [activeTemplateDetail.id]: e.target.value }))}
+                              className="w-full h-11 px-4 rounded-2xl bg-white border border-black/10 outline-none focus:border-black/20 text-sm text-gray-700"
+                              placeholder="例如 1080x1920"
+                              aria-label="编辑模板尺寸"
+                            />
+                            <div className="text-[11px] text-gray-400">支持输入自定义尺寸，也支持下拉选择标准尺寸</div>
+                          </div>
+                        ) : (
+                          <div className="h-11 px-4 rounded-2xl bg-white border border-black/10 flex items-center text-sm text-gray-700">
+                            {activeTemplateResolvedSize.width}×{activeTemplateResolvedSize.height} px
+                          </div>
+                        )}
                       </div>
-                    );
-                  })()}
-                </div>
 
-                <div className="mt-8 flex flex-col sm:flex-row gap-2">
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold tracking-wide text-gray-500">场景类别展示</div>
+                        {previewRole === 'admin' && isAdminEditingAttributes ? (
+                          <select
+                            value={activeTemplateSceneValue}
+                            onChange={(e) => setSceneDraftById((prev) => ({ ...prev, [activeTemplateDetail.id]: e.target.value }))}
+                            className="w-full h-11 px-4 rounded-2xl bg-white border border-black/10 outline-none focus:border-black/20 text-sm text-gray-700"
+                            aria-label="编辑场景类别"
+                          >
+                            {SCENE_OPTIONS.map((scene) => (
+                              <option key={scene} value={scene}>
+                                {scene}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="h-11 px-4 rounded-2xl bg-white border border-black/10 flex items-center text-sm text-gray-700">
+                            {activeTemplateSceneValue}
+                          </div>
+                        )}
+                      </div>
+
+                      {previewRole === 'admin' && isAdminEditingAttributes && (
+                        <datalist id="template-size-options">
+                          {TEMPLATE_SIZE_OPTIONS.map((size) => (
+                            <option key={size.value} value={size.value}>
+                              {size.label}
+                            </option>
+                          ))}
+                        </datalist>
+                      )}
+                    </div>
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => {
-                      openTemplateInPublicCanvas(activeTemplateDetail);
+                      if (resolvedActiveTemplateDetail) {
+                        openTemplateInPublicCanvas(resolvedActiveTemplateDetail);
+                      }
                       closeTemplateDetail();
                     }}
-                    className="flex-1 justify-center px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
+                    className="w-full justify-center px-4 py-3 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
                   >
                     使用该模板
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      doSameFromPreview(activeTemplateDetail.title, activeTemplateDetail.previewUrl, activeTemplateDetail.width, activeTemplateDetail.height);
-                      closeTemplateDetail();
-                    }}
-                    className="flex-1 justify-center px-4 py-3 rounded-2xl bg-white text-gray-900 border border-gray-200 text-sm font-semibold hover:bg-gray-50 transition-colors"
-                  >
-                    应用到创建设计画布
                   </button>
                 </div>
               </div>

@@ -70,6 +70,18 @@ const makeId = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? 
 const DEFAULT_AI_WELCOME =
   '你好！我是你的 AI 设计助手。\n\n1. AI修改只针对背景图。\n2. AI溶图：最多融合2张图片。\n3. AI改图：不框选是改整张图，框选则是修改选定区域。\n4. AI擦除：请注意框选颜色与背景色不要高度重合。使用框选后，提示词请说明框的颜色（如：请帮我擦除红色框中的内容）。\n\n提示：目前版本只支持单轮对话，多轮对话功能敬请期待。';
 
+const DEFAULT_PREVIEW_BOUNDS = { width: 520, height: 390 };
+
+function resolveInitialImageSize(width: number, height: number) {
+  const safeWidth = width > 0 ? width : 1080;
+  const safeHeight = height > 0 ? height : 1920;
+  const ratio = Math.min(DEFAULT_PREVIEW_BOUNDS.width / safeWidth, DEFAULT_PREVIEW_BOUNDS.height / safeHeight);
+  return {
+    width: Math.max(160, Math.round(safeWidth * ratio)),
+    height: Math.max(160, Math.round(safeHeight * ratio)),
+  };
+}
+
 const mockTextImageLayering = (
   material: { id: string; name: string; src: string },
   imageRect: { x: number; y: number; width: number; height: number },
@@ -129,6 +141,12 @@ export default function PublicCanvas() {
   const materialSrc = searchParams.get('src') || '';
   const materialName = searchParams.get('name') || '';
   const materialId = searchParams.get('id') || '';
+  const materialWidth = Number(searchParams.get('width') || '1080');
+  const materialHeight = Number(searchParams.get('height') || '1920');
+  const initialImageSize = useMemo(
+    () => resolveInitialImageSize(materialWidth, materialHeight),
+    [materialHeight, materialWidth]
+  );
 
   const [isAppMenuOpen, setIsAppMenuOpen] = useState(false);
   const appMenuRef = useRef<HTMLDivElement | null>(null);
@@ -170,8 +188,8 @@ export default function PublicCanvas() {
       type: 'image',
       x: 24,
       y: 24,
-      width: 520,
-      height: 390,
+      width: initialImageSize.width,
+      height: initialImageSize.height,
       src: materialSrc || 'https://images.unsplash.com/photo-1557683311-eac922347aa1?q=80&w=900&auto=format&fit=crop',
     };
     return [initialImage];
@@ -206,8 +224,8 @@ export default function PublicCanvas() {
         type: 'image',
         x: 24,
         y: 24,
-        width: 520,
-        height: 390,
+        width: initialImageSize.width,
+        height: initialImageSize.height,
         src: materialSrc || 'https://images.unsplash.com/photo-1557683311-eac922347aa1?q=80&w=900&auto=format&fit=crop',
       };
       return [initialImage];
@@ -215,7 +233,7 @@ export default function PublicCanvas() {
     setSelectedId(null);
     setLayeredImageIds(new Set());
     setPan({ x: 0, y: 0 });
-  }, [materialSrc]);
+  }, [initialImageSize.height, initialImageSize.width, materialSrc]);
 
   const selectedElement = useMemo(() => elements.find((el) => el.id === selectedId) || null, [elements, selectedId]);
   const selectedCanvasAttachment = useMemo<AiImageAttachment | null>(() => {
