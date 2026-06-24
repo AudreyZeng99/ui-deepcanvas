@@ -7,18 +7,42 @@ import {
   Sparkles,
   ChevronDown,
   X,
+  ArrowRight,
+  Lightbulb,
+  MousePointerClick,
+  PencilRuler,
+  CheckCircle2,
 } from 'lucide-react';
 import clsx from 'clsx';
 
 import { inspirationCategories } from './Inspiration';
 
-type SearchSceneId = 'seat' | 'mobileBank' | 'portalPromo' | 'internalEvent' | 'partyBuilding' | 'more';
+type SearchExperienceVersion = 'a' | 'b' | 'c';
+type SearchChannelId = 'seat' | 'mobileBank' | 'portalPromo' | 'internalEvent' | 'partyBuilding' | 'more';
+
+type SearchScenario = {
+  id: string;
+  title: string;
+  description: string;
+  sizeHint: string;
+  previewUrl: string;
+};
+
+type SearchChannel = {
+  id: SearchChannelId;
+  label: string;
+  ink: string;
+  description: string;
+  sizeHint: string;
+  scenarios: SearchScenario[];
+};
 
 export default function Home() {
   const navigate = useNavigate();
   const [centerMode, setCenterMode] = useState<'search' | 'generate'>('search');
-  const [activeSearchSceneId, setActiveSearchSceneId] = useState<SearchSceneId | null>(null);
-  const [activeQuickStartKeyword, setActiveQuickStartKeyword] = useState<string | null>(null);
+  const [searchExperienceVersion, setSearchExperienceVersion] = useState<SearchExperienceVersion>('a');
+  const [activeSearchChannelId, setActiveSearchChannelId] = useState<SearchChannelId>('mobileBank');
+  const [activeSearchScenarioId, setActiveSearchScenarioId] = useState<string | null>(null);
   const [chatInput, setChatInput] = useState('');
   const chatInputRef = useRef<HTMLTextAreaElement | null>(null);
   const [selectedSize, setSelectedSize] = useState<'1080x1920' | '1920x1080' | '1080x1080' | '1200x628'>('1080x1920');
@@ -60,73 +84,264 @@ export default function Home() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
-  const submitSearch = (value: string) => {
-    const q = value.trim();
-    if (!q || !activeSearchScene) return;
+  const submitSearch = (channelLabel: string, scenarioTitle: string) => {
     const params = new URLSearchParams();
-    params.set('scene', activeSearchScene.label);
-    const keyword = activeQuickStartKeyword ?? q.replace(activeSearchScene.label, '').trim();
-    if (keyword) params.set('keyword', keyword);
+    params.set('channel', channelLabel);
+    params.set('scene', channelLabel);
+    params.set('keyword', scenarioTitle);
     navigate(`/templates?${params.toString()}`);
   };
 
   const handleSearchSubmit = () => {
-    if (!activeSearchSceneId) return;
-    submitSearch(searchQuery);
+    if (!activeSearchChannel || !activeSearchScenario) return;
+    submitSearch(activeSearchChannel.label, activeSearchScenario.title);
   };
 
-  const searchScenes = useMemo(
+  const searchGuideCards = useMemo(
     () => [
       {
-        id: 'seat' as const,
-        label: '坐席图',
-        ink: 'text-gray-900',
-        quickStarts: ['交行福利季', '周周有礼', '攻略', '节日节气宣传'],
+        id: 'idea',
+        title: '先选渠道',
+        description: '从你的投放渠道或内容阵地开始，不需要自己想分类。',
+        icon: Lightbulb,
       },
       {
-        id: 'mobileBank' as const,
-        label: '手机银行',
-        ink: 'text-[#2563EB]',
-        quickStarts: ['空白banner模板', '参考banner模板'],
+        id: 'pick',
+        title: '再选场景',
+        description: '系统会给出该渠道常见场景，直接点图卡即可进入下一步。',
+        icon: MousePointerClick,
       },
       {
-        id: 'portalPromo' as const,
-        label: '门户宣传',
-        ink: 'text-[#6F58F3]',
-        quickStarts: ['节日祝福', '感谢信'],
+        id: 'template',
+        title: '自动筛模板',
+        description: '我们会自动带你进入对应的公共模板页，避免重复搜索。',
+        icon: Sparkles,
       },
       {
-        id: 'internalEvent' as const,
-        label: '对内活动',
-        ink: 'text-[#B45309]',
-        quickStarts: ['讲座宣传'],
-      },
-      {
-        id: 'partyBuilding' as const,
-        label: '党建活动',
-        ink: 'text-[#DB2777]',
-        quickStarts: [],
-      },
-      {
-        id: 'more' as const,
-        label: '更多内容',
-        ink: 'text-gray-600',
-        quickStarts: [],
+        id: 'edit',
+        title: '直接开始设计',
+        description: '在模板页里挑中后即可进入编辑，不需要再做二次筛选。',
+        icon: PencilRuler,
       },
     ],
     []
   );
 
-  const activeSearchScene = useMemo(
-    () => searchScenes.find((scene) => scene.id === activeSearchSceneId) ?? null,
-    [activeSearchSceneId, searchScenes]
+  const searchChannels = useMemo<SearchChannel[]>(
+    () => [
+      {
+        id: 'seat' as const,
+        label: '微信',
+        ink: 'text-gray-900',
+        description: '适合朋友圈宣传、客户经理营销活动图和微信渠道常用物料。',
+        sizeHint: '朋友圈 / 微信营销素材',
+        scenarios: [
+          {
+            id: 'wechat-moments',
+            title: '朋友圈宣传3:4',
+            description: '适合朋友圈传播、活动曝光和轻量营销宣传。',
+            sizeHint: '3:4 竖版',
+            previewUrl: 'https://images.unsplash.com/photo-1497366412874-3415097a27e7?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'wechat-manager',
+            title: '客户经理营销活动图',
+            description: '适合客户经理转发、活动邀约和产品营销推广。',
+            sizeHint: '营销海报',
+            previewUrl: 'https://images.unsplash.com/photo-1497366754035-f200968a6e72?q=80&w=1200&auto=format&fit=crop',
+          },
+        ],
+      },
+      {
+        id: 'mobileBank' as const,
+        label: '手机银行',
+        ink: 'text-[#2563EB]',
+        description: '适合活动运营、功能上新、权益促活和 App 内投放物料。',
+        sizeHint: '开屏 / 竖版 Banner',
+        scenarios: [
+          {
+            id: 'mobile-small-banner',
+            title: '小banner',
+            description: '适合轻量曝光、卡片入口和低干扰运营位。',
+            sizeHint: '小尺寸 Banner',
+            previewUrl: 'https://images.unsplash.com/photo-1548625361-9f9392e2133f?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'mobile-medium-banner',
+            title: '中banner',
+            description: '适合常规活动宣传、权益曝光和功能推荐入口。',
+            sizeHint: '中尺寸 Banner',
+            previewUrl: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'mobile-new-medium-banner',
+            title: '新-中banner',
+            description: '适合新版中位资源位、重点活动和新版模块露出。',
+            sizeHint: '新版中位 Banner',
+            previewUrl: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'mobile-large-banner',
+            title: '大banner',
+            description: '适合主视觉曝光、重点活动和高优先级宣传位。',
+            sizeHint: '大尺寸 Banner',
+            previewUrl: 'https://images.unsplash.com/photo-1556745757-8d76bdb6984b?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'mobile-home-banner',
+            title: '首页banner（504x720）',
+            description: '适合首页核心曝光位，强调活动转化和重点产品展示。',
+            sizeHint: '504x720',
+            previewUrl: 'https://images.unsplash.com/photo-1556740749-887f6717d7e4?q=80&w=1200&auto=format&fit=crop',
+          },
+        ],
+      },
+      {
+        id: 'portalPromo' as const,
+        label: '门户宣传',
+        ink: 'text-[#6F58F3]',
+        description: '适合门户首页横幅、专题页宣传、品牌露出和活动导流。',
+        sizeHint: '横版 KV / 专题头图',
+        scenarios: [
+          {
+            id: 'portal-event',
+            title: '活动导流',
+            description: '适合报名活动、专题宣传和首页焦点图露出。',
+            sizeHint: '横版 Banner',
+            previewUrl: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'portal-brand',
+            title: '品牌露出',
+            description: '适合品牌宣传、能力介绍和重点产品曝光。',
+            sizeHint: '宽屏头图',
+            previewUrl: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'portal-festival',
+            title: '节日祝福',
+            description: '适合门户首页节庆氛围图、祝福横幅和节点换肤。',
+            sizeHint: '节日横幅',
+            previewUrl: 'https://images.unsplash.com/photo-1611003446057-08c35359146c?q=80&w=1200&auto=format&fit=crop',
+          },
+        ],
+      },
+      {
+        id: 'internalEvent' as const,
+        label: '对内活动',
+        ink: 'text-[#B45309]',
+        description: '适合通知公告、培训招募、讲座宣传和内部活动视觉物料。',
+        sizeHint: '长图 / 竖版通知',
+        scenarios: [
+          {
+            id: 'internal-notice',
+            title: '通知公告',
+            description: '适合制度通知、园区公告、会议安排和统一通知模板。',
+            sizeHint: '竖版通知',
+            previewUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'internal-training',
+            title: '培训招募',
+            description: '适合讲座、课程报名、内训计划和学习活动宣传。',
+            sizeHint: '讲座海报',
+            previewUrl: 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'internal-care',
+            title: '员工关怀',
+            description: '适合节日福利、员工活动、团建宣传和文化活动。',
+            sizeHint: '活动长图',
+            previewUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1200&auto=format&fit=crop',
+          },
+        ],
+      },
+      {
+        id: 'partyBuilding' as const,
+        label: '党建活动',
+        ink: 'text-[#DB2777]',
+        description: '适合主题党日、学习活动、志愿服务和党建宣传场景。',
+        sizeHint: '红色主题 / 展板海报',
+        scenarios: [
+          {
+            id: 'party-study',
+            title: '学习宣传',
+            description: '适合主题学习、党课活动和思想教育宣传物料。',
+            sizeHint: '竖版海报',
+            previewUrl: 'https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'party-service',
+            title: '志愿服务',
+            description: '适合社区服务、公益行动和党员志愿活动宣传。',
+            sizeHint: '活动展板',
+            previewUrl: 'https://images.unsplash.com/photo-1455849318743-b2233052fcff?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'party-day',
+            title: '主题党日',
+            description: '适合主题党日、红色教育和专题活动主视觉。',
+            sizeHint: '红金长图',
+            previewUrl: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?q=80&w=1200&auto=format&fit=crop',
+          },
+        ],
+      },
+      {
+        id: 'more' as const,
+        label: '更多内容',
+        ink: 'text-gray-600',
+        description: '适合直播预告、通用背景、图文排版和通用营销模板。',
+        sizeHint: '通用模板 / 多尺寸',
+        scenarios: [
+          {
+            id: 'more-live',
+            title: '直播预告',
+            description: '适合直播预热、嘉宾预告和时间提醒场景。',
+            sizeHint: '直播海报',
+            previewUrl: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'more-cards',
+            title: '信息卡片',
+            description: '适合产品卖点、图文卡片和多模块信息排版。',
+            sizeHint: '图文卡片',
+            previewUrl: 'https://images.unsplash.com/photo-1490730141103-6cac27aaab94?q=80&w=1200&auto=format&fit=crop',
+          },
+          {
+            id: 'more-bg',
+            title: '通用背景',
+            description: '适合做底图、留白海报和二次加工的通用素材。',
+            sizeHint: '底图模板',
+            previewUrl: 'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?q=80&w=1200&auto=format&fit=crop',
+          },
+        ],
+      },
+    ],
+    []
+  );
+
+  const activeSearchChannel = useMemo(
+    () => searchChannels.find((scene) => scene.id === activeSearchChannelId) ?? null,
+    [activeSearchChannelId, searchChannels]
+  );
+  const activeSearchScenario = useMemo(
+    () => activeSearchChannel?.scenarios.find((scenario) => scenario.id === activeSearchScenarioId) ?? null,
+    [activeSearchChannel, activeSearchScenarioId]
   );
   const searchQuery = useMemo(() => {
-    if (!activeSearchScene) return '';
-    const tokens = [activeSearchScene.label];
-    if (activeQuickStartKeyword) tokens.push(activeQuickStartKeyword);
+    if (!activeSearchChannel || !activeSearchScenario) return '';
+    const tokens = [activeSearchChannel.label, activeSearchScenario.title];
     return tokens.join(' ');
-  }, [activeQuickStartKeyword, activeSearchScene]);
+  }, [activeSearchChannel, activeSearchScenario]);
+
+  useEffect(() => {
+    if (!activeSearchChannel) {
+      setActiveSearchScenarioId(null);
+      return;
+    }
+    if (activeSearchChannel.scenarios.some((scenario) => scenario.id === activeSearchScenarioId)) return;
+    setActiveSearchScenarioId(activeSearchChannel.scenarios[0]?.id ?? null);
+  }, [activeSearchChannel, activeSearchScenarioId]);
 
   const backgroundInspirationItems = useMemo(() => {
     const category = inspirationCategories.find((c) => c.id === 'backgrounds');
@@ -448,123 +663,464 @@ export default function Home() {
 
           <div className="pt-5">
             {centerMode === 'search' ? (
-              <div className="space-y-5">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="text-[11px] font-semibold tracking-[0.18em] text-gray-400">常用场景</div>
-                  <div className="grid w-full grid-cols-3 gap-x-1 gap-y-2 sm:grid-cols-6">
-                    {searchScenes.map((scene) => {
-                      const isActive = activeSearchSceneId === scene.id;
-                      return (
-                        <button
-                          key={scene.id}
-                          type="button"
-                          onClick={() => {
-                            setActiveSearchSceneId(scene.id);
-                            setActiveQuickStartKeyword(null);
-                          }}
-                          className={clsx(
-                            'group flex flex-col items-center justify-center gap-2 h-[84px] rounded-2xl border border-transparent bg-transparent transition-colors',
-                            'group-hover:[--scene-stroke:2.9]'
-                          )}
-                          aria-label={`搜索${scene.label}`}
-                          style={{
-                            backgroundColor: isActive ? 'rgba(143, 122, 251, 0.12)' : 'transparent',
-                            ['--scene-stroke' as any]: isActive ? '2.9' : '2.4',
-                          }}
-                        >
-                          <div className={clsx('w-11 h-11 rounded-2xl border border-transparent flex items-center justify-center bg-transparent transition-colors', scene.ink)}>
-                            <SceneIllustration id={scene.id} className="w-9 h-9" />
-                          </div>
-                          <div
-                            className={clsx(
-                              'text-xs font-semibold text-gray-800 leading-none transition-colors',
-                              isActive ? 'text-gray-900 font-bold' : 'group-hover:text-gray-900 group-hover:font-bold'
-                            )}
-                          >
-                            {scene.label}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-                <div className="rounded-[28px] border border-black/5 bg-white shadow-[0_22px_50px_-36px_rgba(0,0,0,0.24)] overflow-hidden">
-                  <div className="relative px-5 pt-4 pb-3">
-                    <input
-                      placeholder="请选择一个常用场景"
-                      className="w-full h-12 pl-11 pr-24 border-0 bg-transparent focus:outline-none focus:ring-0 text-sm text-gray-900 placeholder:text-gray-400"
-                      value={searchQuery}
-                      readOnly
-                      aria-readonly="true"
-                      tabIndex={-1}
-                      style={{ cursor: 'default' }}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleSearchSubmit();
-                        }
-                      }}
-                    />
-                    <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                      <Search size={18} />
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="space-y-2 text-left">
+                    <div className="text-xl font-bold text-gray-950">像专业设计师一样快速开始</div>
+                    <div className="text-sm text-gray-500 leading-relaxed">
+                      不用自己搜索关键词，先选渠道，再选场景，系统会自动把你带到合适的模板页。
                     </div>
+                  </div>
+                  <div className="inline-flex items-center rounded-full p-1 border border-black/5 bg-white shadow-sm">
                     <button
-                      onClick={handleSearchSubmit}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 h-9 px-4 rounded-full text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_22px_-12px_rgba(88,28,135,0.5)]"
-                      disabled={!activeSearchSceneId}
-                      style={{ backgroundColor: purple.solid }}
-                      onMouseEnter={(e) => {
-                        if ((e.currentTarget as HTMLButtonElement).disabled) return;
-                        e.currentTarget.style.backgroundColor = purple.solidHover;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = purple.solid;
-                      }}
+                      type="button"
+                      onClick={() => setSearchExperienceVersion('a')}
+                      className={clsx(
+                        'h-9 px-4 rounded-full text-sm font-semibold transition-colors',
+                        searchExperienceVersion === 'a' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                      )}
                     >
-                      开始设计
+                      方案 A
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSearchExperienceVersion('b')}
+                      className={clsx(
+                        'h-9 px-4 rounded-full text-sm font-semibold transition-colors',
+                        searchExperienceVersion === 'b' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                      )}
+                    >
+                      方案 B
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSearchExperienceVersion('c')}
+                      className={clsx(
+                        'h-9 px-4 rounded-full text-sm font-semibold transition-colors',
+                        searchExperienceVersion === 'c' ? 'bg-gray-900 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                      )}
+                    >
+                      方案 C
                     </button>
                   </div>
-                  <div className="px-5 pb-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-gray-400">
-                    <div className="inline-flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-gray-300" />
-                      <span>搜索后进入公共模板社区</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-gray-300" />
-                      <span>支持活动、银行、招聘等场景</span>
-                    </div>
-                  </div>
                 </div>
-                {activeSearchScene && activeSearchScene.quickStarts.length > 0 ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-400">快速开始</div>
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {activeSearchScene.quickStarts.map((keyword) => {
-                        const isActive = activeQuickStartKeyword === keyword;
+
+                {searchExperienceVersion === 'a' ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {searchGuideCards.map((card, index) => {
+                        const Icon = card.icon;
                         return (
-                          <button
-                            key={keyword}
-                            type="button"
-                            onClick={() => {
-                              setActiveQuickStartKeyword((prev) => (prev === keyword ? null : keyword));
-                            }}
-                            className={clsx(
-                              'h-7 px-3 rounded-full border text-[11px] font-medium transition-colors',
-                              isActive ? 'text-gray-900' : 'text-gray-500 border-black/5 hover:text-gray-700 hover:border-black/10'
-                            )}
-                            style={
-                              isActive
-                                ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
-                                : { backgroundColor: 'rgba(255,255,255,0.55)' }
-                            }
+                          <div
+                            key={card.id}
+                            className="rounded-[26px] border border-black/5 bg-white/90 px-5 py-5 text-left shadow-[0_18px_40px_-36px_rgba(0,0,0,0.35)]"
                           >
-                            {keyword}
-                          </button>
+                            <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-gray-50 text-gray-900">
+                              <Icon size={20} />
+                            </div>
+                            <div className="mt-5 text-xs font-semibold tracking-[0.18em] text-gray-400">STEP {index + 1}</div>
+                            <div className="mt-2 text-base font-semibold text-gray-900">{card.title}</div>
+                            <div className="mt-2 text-sm leading-relaxed text-gray-500">{card.description}</div>
+                          </div>
                         );
                       })}
                     </div>
+
+                    <div className="rounded-[32px] border border-black/5 bg-white p-5 shadow-[0_22px_60px_-40px_rgba(0,0,0,0.26)]">
+                      <div className="text-[11px] font-semibold tracking-[0.2em] text-gray-400">第一步 选择投放渠道</div>
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                        {searchChannels.map((channel) => {
+                          const isActive = activeSearchChannelId === channel.id;
+                          return (
+                            <button
+                              key={channel.id}
+                              type="button"
+                              onClick={() => setActiveSearchChannelId(channel.id)}
+                              className={clsx(
+                                'rounded-[26px] border px-4 py-4 text-left transition-all',
+                                isActive ? 'border-transparent shadow-sm' : 'border-black/5 hover:border-black/10 hover:bg-gray-50/70'
+                              )}
+                              style={isActive ? { backgroundColor: purple.softBg } : undefined}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className={clsx('inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-white', channel.ink)}>
+                                  <SceneIllustration id={channel.id} className="h-8 w-8" />
+                                </div>
+                                {isActive ? (
+                                  <span
+                                    className="inline-flex h-7 items-center rounded-full px-3 text-[11px] font-semibold"
+                                    style={{ backgroundColor: 'rgba(255,255,255,0.86)', color: purple.text }}
+                                  >
+                                    已选择
+                                  </span>
+                                ) : null}
+                              </div>
+                              <div className="mt-4 text-base font-semibold text-gray-900">{channel.label}</div>
+                              <div className="mt-2 text-sm leading-relaxed text-gray-500">{channel.description}</div>
+                              <div className="mt-3 text-xs font-medium text-gray-400">{channel.sizeHint}</div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {activeSearchChannel ? (
+                      <div className="rounded-[32px] border border-black/5 bg-white p-5 shadow-[0_22px_60px_-40px_rgba(0,0,0,0.26)]">
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div>
+                            <div className="text-[11px] font-semibold tracking-[0.2em] text-gray-400">第二步 选择应用场景</div>
+                            <div className="mt-2 text-sm text-gray-500">
+                              已切换到 <span className="font-semibold text-gray-900">{activeSearchChannel.label}</span>，点击下方图卡即可继续。
+                            </div>
+                          </div>
+                          <div className="text-xs text-gray-400">{activeSearchChannel.sizeHint}</div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                          {activeSearchChannel.scenarios.map((scenario) => {
+                            const isActive = activeSearchScenarioId === scenario.id;
+                            return (
+                              <button
+                                key={scenario.id}
+                                type="button"
+                                onClick={() => setActiveSearchScenarioId(scenario.id)}
+                                className={clsx(
+                                  'group overflow-hidden rounded-[24px] border bg-white text-left transition-all',
+                                  isActive ? 'border-transparent shadow-lg -translate-y-0.5' : 'border-black/5 hover:border-black/10 hover:-translate-y-0.5 hover:shadow-md'
+                                )}
+                                style={isActive ? { boxShadow: '0 18px 40px -28px rgba(111, 88, 243, 0.42)' } : undefined}
+                              >
+                                <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                                  <img src={scenario.previewUrl} alt={scenario.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                                  <div className={clsx('absolute inset-0 transition-colors', isActive ? 'bg-black/10' : 'bg-black/0 group-hover:bg-black/10')} />
+                                </div>
+                                <div className="space-y-2 px-4 py-4">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="text-base font-semibold text-gray-900">{scenario.title}</div>
+                                    {isActive ? <CheckCircle2 size={18} style={{ color: purple.text }} /> : null}
+                                  </div>
+                                  <div className="text-sm leading-relaxed text-gray-500">{scenario.description}</div>
+                                  <div className="text-xs font-medium text-gray-400">{scenario.sizeHint}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="rounded-[32px] border border-black/5 bg-white px-5 py-5 shadow-[0_20px_60px_-42px_rgba(0,0,0,0.28)]">
+                      <div className="text-[11px] font-semibold tracking-[0.2em] text-gray-400">第三步 进入模板库</div>
+                      <div className="mt-4 flex items-center justify-between gap-4 flex-wrap">
+                        <div className="min-w-[260px] flex-1">
+                          <div className="text-base font-semibold text-gray-900">
+                            {searchQuery ? `已选择：${searchQuery}` : '请选择渠道和场景'}
+                          </div>
+                          <div className="mt-2 text-sm leading-relaxed text-gray-500">
+                            {searchQuery
+                              ? '系统将直接打开该渠道、该场景下的公共模板列表，帮助你快速开始。'
+                              : '完成上面的两个步骤后，这里会出现一键进入模板库的入口。'}
+                          </div>
+                        </div>
+                        <button
+                          onClick={handleSearchSubmit}
+                          className="inline-flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={!activeSearchChannel || !activeSearchScenario}
+                          style={{ backgroundColor: purple.solid }}
+                          onMouseEnter={(e) => {
+                            if ((e.currentTarget as HTMLButtonElement).disabled) return;
+                            e.currentTarget.style.backgroundColor = purple.solidHover;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = purple.solid;
+                          }}
+                        >
+                          <span>查看这个场景的模板</span>
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                ) : null}
+                ) : searchExperienceVersion === 'b' ? (
+                  <div className="rounded-[34px] border border-black/5 bg-white p-5 shadow-[0_28px_80px_-46px_rgba(0,0,0,0.28)]">
+                    <div className="grid grid-cols-1 gap-5 xl:grid-cols-[280px_minmax(0,1fr)]">
+                      <div className="rounded-[28px] bg-gray-50/80 p-5">
+                        <div className="text-[11px] font-semibold tracking-[0.2em] text-gray-400">新手路线</div>
+                        <div className="mt-3 text-lg font-bold text-gray-900">按步骤完成，直接进入模板</div>
+                        <div className="mt-2 text-sm leading-relaxed text-gray-500">
+                          方案 B 更像一个带路型首页，左边告诉用户现在做到了哪一步，右边直接给出可点选的场景结果。
+                        </div>
+
+                        <div className="mt-5 space-y-3">
+                          {[
+                            { step: '01', title: '选择渠道', description: '先锁定你的投放阵地' },
+                            { step: '02', title: '点击场景', description: '只保留这个渠道常用模板' },
+                            { step: '03', title: '进入模板页', description: '直接开始挑模板并编辑' },
+                          ].map((item) => (
+                            <div key={item.step} className="flex items-start gap-3 rounded-2xl bg-white px-4 py-3 border border-black/5">
+                              <div className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">
+                                {item.step}
+                              </div>
+                              <div>
+                                <div className="text-sm font-semibold text-gray-900">{item.title}</div>
+                                <div className="mt-1 text-xs leading-relaxed text-gray-500">{item.description}</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-6">
+                          <div className="text-[11px] font-semibold tracking-[0.18em] text-gray-400">选择渠道</div>
+                          <div className="mt-3 space-y-2">
+                            {searchChannels.map((channel) => {
+                              const isActive = activeSearchChannelId === channel.id;
+                              return (
+                                <button
+                                  key={channel.id}
+                                  type="button"
+                                  onClick={() => setActiveSearchChannelId(channel.id)}
+                                  className={clsx(
+                                    'w-full rounded-2xl border px-4 py-3 text-left transition-all',
+                                    isActive ? 'border-transparent text-gray-900 shadow-sm' : 'border-black/5 bg-white text-gray-600 hover:border-black/10 hover:text-gray-900'
+                                  )}
+                                  style={isActive ? { backgroundColor: purple.softBg } : undefined}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className={clsx('inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white', channel.ink)}>
+                                      <SceneIllustration id={channel.id} className="h-7 w-7" />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <div className="text-sm font-semibold">{channel.label}</div>
+                                      <div className="mt-1 text-xs text-gray-400">{channel.sizeHint}</div>
+                                    </div>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-5">
+                        {activeSearchChannel ? (
+                          <div
+                            className="rounded-[28px] px-6 py-6 text-left text-white"
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(111,88,243,0.96), rgba(37,99,235,0.92))',
+                            }}
+                          >
+                            <div className="text-xs font-semibold tracking-[0.2em] text-white/65">当前渠道</div>
+                            <div className="mt-3 flex items-end justify-between gap-4 flex-wrap">
+                              <div>
+                                <div className="text-2xl font-bold">{activeSearchChannel.label}</div>
+                                <div className="mt-2 max-w-[620px] text-sm leading-relaxed text-white/82">
+                                  {activeSearchChannel.description}
+                                </div>
+                              </div>
+                              <div className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white">
+                                {activeSearchChannel.sizeHint}
+                              </div>
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div>
+                            <div className="text-[11px] font-semibold tracking-[0.2em] text-gray-400">第二步 选择应用场景</div>
+                            <div className="mt-2 text-sm text-gray-500">点击场景卡片，下方会出现最终确认按钮。</div>
+                          </div>
+                          <div className="inline-flex items-center gap-2 rounded-full bg-gray-50 px-3 py-2 text-xs text-gray-500">
+                            <Search size={14} />
+                            <span>{activeSearchChannel?.scenarios.length ?? 0} 个推荐场景</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                          {activeSearchChannel?.scenarios.map((scenario, index) => {
+                            const isActive = activeSearchScenarioId === scenario.id;
+                            return (
+                              <button
+                                key={scenario.id}
+                                type="button"
+                                onClick={() => setActiveSearchScenarioId(scenario.id)}
+                                className={clsx(
+                                  'group overflow-hidden rounded-[28px] border bg-white text-left transition-all',
+                                  isActive ? 'border-transparent shadow-xl' : 'border-black/5 hover:border-black/10 hover:shadow-md'
+                                )}
+                                style={isActive ? { boxShadow: '0 24px 60px -40px rgba(111, 88, 243, 0.52)' } : undefined}
+                              >
+                                <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
+                                  <img src={scenario.previewUrl} alt={scenario.title} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0" />
+                                  <div className="absolute left-4 top-4 inline-flex h-8 items-center rounded-full bg-white/88 px-3 text-xs font-semibold text-gray-900">
+                                    方案 {index + 1}
+                                  </div>
+                                  <div className="absolute left-4 right-4 bottom-4">
+                                    <div className="text-lg font-semibold text-white">{scenario.title}</div>
+                                    <div className="mt-1 text-sm text-white/78">{scenario.sizeHint}</div>
+                                  </div>
+                                </div>
+                                <div className="space-y-3 px-5 py-5">
+                                  <div className="text-sm leading-relaxed text-gray-500">{scenario.description}</div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="inline-flex items-center gap-2 text-xs font-semibold" style={{ color: isActive ? purple.text : '#6b7280' }}>
+                                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: isActive ? purple.solid : '#9ca3af' }} />
+                                      <span>{isActive ? '已选中这个场景' : '点击后进入该场景模板'}</span>
+                                    </div>
+                                    <ArrowRight size={16} className={clsx('transition-transform', isActive ? 'translate-x-0.5 text-gray-900' : 'text-gray-400 group-hover:translate-x-0.5')} />
+                                  </div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        <div className="rounded-[28px] border border-black/5 bg-gray-50/70 px-5 py-5">
+                          <div className="flex items-center justify-between gap-4 flex-wrap">
+                            <div className="min-w-[260px] flex-1">
+                              <div className="text-[11px] font-semibold tracking-[0.2em] text-gray-400">第三步 一键进入模板</div>
+                              <div className="mt-2 text-base font-semibold text-gray-900">
+                                {searchQuery ? `已锁定：${searchQuery}` : '请选择一个场景'}
+                              </div>
+                              <div className="mt-2 text-sm text-gray-500">
+                                进入模板页后会展示当前渠道下对应场景的公共模板，并保留筛选状态。
+                              </div>
+                            </div>
+                            <button
+                              onClick={handleSearchSubmit}
+                              className="inline-flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={!activeSearchChannel || !activeSearchScenario}
+                              style={{ backgroundColor: purple.solid }}
+                              onMouseEnter={(e) => {
+                                if ((e.currentTarget as HTMLButtonElement).disabled) return;
+                                e.currentTarget.style.backgroundColor = purple.solidHover;
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = purple.solid;
+                              }}
+                            >
+                              <span>查看这个场景的模板</span>
+                              <ArrowRight size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="text-[11px] font-semibold tracking-[0.18em] text-gray-400">常用场景</div>
+                      <div className="grid w-full grid-cols-3 gap-x-1 gap-y-2 sm:grid-cols-6">
+                        {searchChannels.map((channel) => {
+                          const isActive = activeSearchChannelId === channel.id;
+                          return (
+                            <button
+                              key={channel.id}
+                              type="button"
+                              onClick={() => setActiveSearchChannelId(channel.id)}
+                              className={clsx(
+                                'group flex flex-col items-center justify-center gap-2 h-[84px] rounded-2xl border border-transparent bg-transparent transition-colors',
+                                'group-hover:[--scene-stroke:2.9]'
+                              )}
+                              aria-label={`搜索${channel.label}`}
+                              style={{
+                                backgroundColor: isActive ? 'rgba(143, 122, 251, 0.12)' : 'transparent',
+                                ['--scene-stroke' as any]: isActive ? '2.9' : '2.4',
+                              }}
+                            >
+                              <div className={clsx('w-11 h-11 rounded-2xl border border-transparent flex items-center justify-center bg-transparent transition-colors', channel.ink)}>
+                                <SceneIllustration id={channel.id} className="w-9 h-9" />
+                              </div>
+                              <div
+                                className={clsx(
+                                  'text-xs font-semibold text-gray-800 leading-none transition-colors',
+                                  isActive ? 'text-gray-900 font-bold' : 'group-hover:text-gray-900 group-hover:font-bold'
+                                )}
+                              >
+                                {channel.label}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="rounded-[28px] border border-black/5 bg-white shadow-[0_22px_50px_-36px_rgba(0,0,0,0.24)] overflow-hidden">
+                      <div className="relative px-5 pt-4 pb-3">
+                        <input
+                          placeholder="请选择一个常用场景"
+                          className="w-full h-12 pl-11 pr-24 border-0 bg-transparent focus:outline-none focus:ring-0 text-sm text-gray-900 placeholder:text-gray-400"
+                          value={searchQuery}
+                          readOnly
+                          aria-readonly="true"
+                          tabIndex={-1}
+                          style={{ cursor: 'default' }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSearchSubmit();
+                            }
+                          }}
+                        />
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                          <Search size={18} />
+                        </div>
+                        <button
+                          onClick={handleSearchSubmit}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 h-9 px-4 rounded-full text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_10px_22px_-12px_rgba(88,28,135,0.5)]"
+                          disabled={!activeSearchChannel || !activeSearchScenario}
+                          style={{ backgroundColor: purple.solid }}
+                          onMouseEnter={(e) => {
+                            if ((e.currentTarget as HTMLButtonElement).disabled) return;
+                            e.currentTarget.style.backgroundColor = purple.solidHover;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = purple.solid;
+                          }}
+                        >
+                          开始设计
+                        </button>
+                      </div>
+                      <div className="px-5 pb-4 flex flex-wrap items-center justify-between gap-3 text-[11px] text-gray-400">
+                        <div className="inline-flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-gray-300" />
+                          <span>搜索后进入公共模板社区</span>
+                        </div>
+                        <div className="inline-flex items-center gap-2">
+                          <span className="w-1 h-1 rounded-full bg-gray-300" />
+                          <span>支持活动、银行、招聘等场景</span>
+                        </div>
+                      </div>
+                    </div>
+                    {activeSearchChannel && activeSearchChannel.scenarios.length > 0 ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="text-[11px] font-semibold tracking-[0.14em] text-gray-400">快速开始</div>
+                        <div className="flex flex-wrap justify-center gap-2">
+                          {activeSearchChannel.scenarios.map((scenario) => {
+                            const isActive = activeSearchScenarioId === scenario.id;
+                            return (
+                              <button
+                                key={scenario.id}
+                                type="button"
+                                onClick={() => setActiveSearchScenarioId(scenario.id)}
+                                className={clsx(
+                                  'h-7 px-3 rounded-full border text-[11px] font-medium transition-colors',
+                                  isActive ? 'text-gray-900' : 'text-gray-500 border-black/5 hover:text-gray-700 hover:border-black/10'
+                                )}
+                                style={
+                                  isActive
+                                    ? { backgroundColor: purple.softBg, borderColor: purple.softBorder }
+                                    : { backgroundColor: 'rgba(255,255,255,0.55)' }
+                                }
+                              >
+                                {scenario.title}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -931,7 +1487,7 @@ function SceneIllustration({
   id,
   className,
 }: {
-  id: SearchSceneId;
+  id: SearchChannelId;
   className?: string;
 }) {
   const shared = {
