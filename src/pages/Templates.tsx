@@ -34,8 +34,8 @@ const generateMockData = (): Section[] => {
   const categories = [
     {
       id: 'seat',
-      title: '坐席图',
-      subtitle: '坐席信息展示、通讯录排版、组织分工与岗位公示等',
+      title: '微信',
+      subtitle: '朋友圈宣传、客户经理营销活动图与微信渠道常用物料',
     },
     {
       id: 'mobile-bank',
@@ -130,8 +130,8 @@ const generateMockData = (): Section[] => {
   ];
 
   const templateTitlesByCategory: Record<string, string[]> = {
-    seat: ['营业网点坐席图', '客服坐席分布图', '部门联络坐席表', '岗位职责坐席图', '值班安排坐席表', '团队组织坐席图', '柜面服务坐席图', '楼层坐席导览图'],
-    'mobile-bank': ['手机银行功能上新海报', '掌上银行权益活动海报', 'App 开屏主视觉', '会员日权益长图', '转账免费提现活动', '生活缴费促活海报', '理财专区运营KV', '信用卡活动主视觉'],
+    seat: ['朋友圈宣传 3:4 模板', '客户经理营销活动图', '朋友圈活动海报', '微信社群宣传图', '朋友圈权益宣传图', '客户经理邀约海报', '产品推荐朋友圈配图', '活动裂变宣传图'],
+    'mobile-bank': ['小banner 模板', '中banner 模板', '新-中banner 模板', '大banner 模板', '首页banner（504x720）', '手机银行权益 Banner', 'App 重点活动 Banner', '首页运营主视觉'],
     'portal-promo': ['门户首页焦点图', '内网专题宣传横幅', '品牌宣传主视觉', '活动报名导流图', '产品能力介绍横幅', '门户频道运营Banner', '服务公告焦点图', '专题页头图'],
     'internal-event': ['内部活动通知海报', '园区公告长图', '培训报名海报', '会议议程长图', '员工关怀活动海报', '安全生产宣传海报', '周报/月报封面', '内宣活动长图'],
     'party-building': ['党建主题活动海报', '党员学习日海报', '主题党日活动长图', '先进典型宣传海报', '组织生活会海报', '志愿服务活动海报', '红色教育活动长图', '党建展板封面'],
@@ -181,7 +181,7 @@ type PublicTemplateDetail = {
 
 function resolveSceneLabelFromTemplateId(templateId: string): string {
   const id = templateId.trim();
-  if (id.startsWith('seat-') || id.startsWith('search-seat-')) return '坐席图';
+  if (id.startsWith('seat-') || id.startsWith('search-seat-')) return '微信';
   if (id.startsWith('mobile-bank-') || id.startsWith('search-mobile-bank-')) return '手机银行';
   if (id.startsWith('portal-promo-') || id.startsWith('search-portal-promo-')) return '门户宣传';
   if (id.startsWith('internal-event-') || id.startsWith('search-internal-event-')) return '对内活动';
@@ -189,7 +189,7 @@ function resolveSceneLabelFromTemplateId(templateId: string): string {
   return '更多内容';
 }
 
-const SCENE_OPTIONS = ['坐席图', '手机银行', '门户宣传', '对内活动', '党建活动', '更多内容'] as const;
+const SCENE_OPTIONS = ['微信', '手机银行', '门户宣传', '对内活动', '党建活动', '更多内容'] as const;
 type SceneOption = typeof SCENE_OPTIONS[number];
 type PreviewRole = 'user' | 'admin';
 
@@ -608,6 +608,7 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     if (!scene) return null;
     return SCENE_OPTIONS.includes(scene as SceneOption) ? (scene as SceneOption) : null;
   }, [searchParams]);
+  const requestedPublicChannel = searchParams.get('channel')?.trim() || '';
   const requestedPublicKeyword = searchParams.get('keyword')?.trim() || '';
 
   useEffect(() => {
@@ -1001,18 +1002,27 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                       >
                         返回
                       </button>
-                      <h2 className="text-xl font-bold text-gray-900">{activePublicSection.title}</h2>
+                      <h2 className="text-xl font-bold text-gray-900">
+                        {requestedPublicKeyword ? `${activePublicSection.title} · ${requestedPublicKeyword}` : activePublicSection.title}
+                      </h2>
                     </div>
                     <p className="text-xs text-gray-500">
-                      {activePublicSection.subtitle}
+                      {requestedPublicKeyword
+                        ? `已为你筛选出适合 ${requestedPublicChannel || activePublicSection.title} 渠道、${requestedPublicKeyword} 场景的公共模板`
+                        : activePublicSection.subtitle}
                       {` · ${publicSceneResults.length} 条`}
                     </p>
-                    {requestedPublicKeyword && (
-                      <div className="mt-3 inline-flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
-                        <span className="text-[11px] font-semibold tracking-wide text-gray-500">已筛选分类</span>
-                        <span className="inline-flex items-center h-7 px-3 rounded-full bg-gray-900 text-white text-xs font-semibold shadow-sm">
-                          {requestedPublicKeyword}
+                    {(requestedPublicChannel || requestedPublicKeyword) && (
+                      <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 shadow-sm">
+                        <span className="text-[11px] font-semibold tracking-wide text-gray-500">当前筛选</span>
+                        <span className="inline-flex items-center h-7 px-3 rounded-full bg-white border border-black/10 text-xs font-semibold text-gray-700">
+                          渠道：{requestedPublicChannel || activePublicSection.title}
                         </span>
+                        {requestedPublicKeyword ? (
+                          <span className="inline-flex items-center h-7 px-3 rounded-full bg-gray-900 text-white text-xs font-semibold shadow-sm">
+                            场景：{requestedPublicKeyword}
+                          </span>
+                        ) : null}
                       </div>
                     )}
                   </div>
