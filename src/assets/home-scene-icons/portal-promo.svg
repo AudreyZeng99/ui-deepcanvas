@@ -1,0 +1,7 @@
+<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+  <path d="M18 14h28a4 4 0 0 1 4 4v28a4 4 0 0 1-4 4H18a4 4 0 0 1-4-4V18a4 4 0 0 1 4-4Z"/>
+  <path d="M22 22h16" opacity="0.55"/>
+  <path d="M22 28h20" opacity="0.55"/>
+  <path d="M22 34h12" opacity="0.55"/>
+  <path d="M41 40l2.2 4.2L48 45l-3.6 3.2.9 4.8-4.3-2.2-4.3 2.2.9-4.8L34 45l4.8-.8L41 40Z"/>
+</svg>
