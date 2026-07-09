@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import type { ElementType } from 'react';
 import {
   Building2,
+  Package,
   Eraser,
   FileText,
   FlaskConical,
-  Folder,
   History,
   Home,
   Image as ImageIcon,
@@ -15,6 +15,7 @@ import {
   Plus,
   Scissors,
   Sparkles,
+  User,
   Users,
   Wand2,
 } from 'lucide-react';
@@ -91,6 +92,14 @@ const TOOL_CARDS = [
     openInNewTab: false,
   },
   {
+    id: 'material-batch-generator',
+    icon: Package,
+    label: '素材批量生成',
+    desc: '元素、状态、色系一键组合',
+    path: '/tools/material-batch-generator',
+    openInNewTab: false,
+  },
+  {
     id: 'good-news',
     icon: MoreHorizontal,
     label: '喜报生成',
@@ -145,7 +154,7 @@ export default function Sidebar() {
 
       <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2">
         <IconNavLink icon={Home} label="首页" to="/" />
-        <IconNavLink icon={Folder} label="个人空间" to="/projects" />
+        <IconNavLink icon={User} label="个人空间" to="/projects" />
         <IconNavLink icon={Layers} label="图层库" to="/layer-library" />
 
         <div className="relative w-full flex items-center justify-center" ref={createMenuRef}>
