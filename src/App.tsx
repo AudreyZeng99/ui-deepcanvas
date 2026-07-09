@@ -20,6 +20,7 @@ import PPTGen from './pages/tools/PPTGen';
 import AICopy from './pages/tools/AICopy';
 import IDPhoto from './pages/tools/IDPhoto';
 import OldPhotoRestore from './pages/tools/OldPhotoRestore';
+import MaterialBatchGenerator from './pages/tools/MaterialBatchGenerator';
 import clsx from 'clsx';
 import Feedback from './pages/Feedback';
 
@@ -81,6 +82,7 @@ function Layout() {
           <Route path="/tools/ppt-gen" element={<PPTGen />} />
           <Route path="/tools/id-photo" element={<IDPhoto />} />
           <Route path="/tools/old-photo" element={<OldPhotoRestore />} />
+          <Route path="/tools/material-batch-generator" element={<MaterialBatchGenerator />} />
         </Routes>
       </main>
     </div>

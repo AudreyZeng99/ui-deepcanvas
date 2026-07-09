@@ -27,6 +27,7 @@ type SearchChannel = {
   ink: string;
   description: string;
   sizeHint: string;
+  previewImageUrl: string;
   scenarios: SearchScenario[];
 };
 
@@ -39,6 +40,10 @@ type HomeTemplateDetail = {
   height: number;
   scene: string;
 };
+
+function buildGeneratedImageUrl(prompt: string, imageSize: 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9') {
+  return `https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=${encodeURIComponent(prompt)}&image_size=${imageSize}`;
+}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -112,6 +117,10 @@ export default function Home() {
         ink: 'text-gray-900',
         description: '适合品牌宣传、节气海报和固定栏目类微信物料。',
         sizeHint: '品牌传播 / 3:4 海报',
+        previewImageUrl: buildGeneratedImageUrl(
+          'premium fintech brand poster scene, elegant 3:4 marketing visual on mobile social media, chinese seasonal campaign aesthetic, soft purple and cream palette, clean typography placeholders, realistic polished design mockup, professional advertising art direction',
+          'portrait_4_3'
+        ),
         scenarios: [
           {
             id: 'brand-season',
@@ -135,6 +144,10 @@ export default function Home() {
         ink: 'text-[#2563EB]',
         description: '适合活动运营、功能上新、权益促活和 App 内投放物料。',
         sizeHint: '开屏 / 竖版 Banner',
+        previewImageUrl: buildGeneratedImageUrl(
+          'mobile banking app campaign banner mockup, smartphone screen with financial promotion cards, clean blue interface, polished realistic marketing asset preview, premium fintech advertising visual, bright app homepage composition',
+          'portrait_4_3'
+        ),
         scenarios: [
           {
             id: 'mobile-small-banner',
@@ -179,6 +192,10 @@ export default function Home() {
         ink: 'text-[#6F58F3]',
         description: '适合门户首页横幅、专题页宣传、品牌露出和活动导流。',
         sizeHint: '横版 KV / 专题头图',
+        previewImageUrl: buildGeneratedImageUrl(
+          'corporate portal homepage hero banner, festive appreciation message visual, widescreen website promotion mockup, modern enterprise campaign page, premium purple editorial design, realistic polished header composition',
+          'portrait_4_3'
+        ),
         scenarios: [
           {
             id: 'portal-festival',
@@ -202,6 +219,10 @@ export default function Home() {
         ink: 'text-[#B45309]',
         description: '适合通知公告、培训招募、讲座宣传和内部活动视觉物料。',
         sizeHint: '长图 / 竖版通知',
+        previewImageUrl: buildGeneratedImageUrl(
+          'internal company event notice poster, employee training and care campaign visual, warm office community atmosphere, clean corporate communication design, realistic polished poster mockup, modern enterprise editorial layout',
+          'portrait_4_3'
+        ),
         scenarios: [
           {
             id: 'internal-notice',
@@ -239,6 +260,10 @@ export default function Home() {
         ink: 'text-[#DB2777]',
         description: '适合活动营销导流、转化引导和落地页相关宣传物料。',
         sizeHint: '营销引导 / 落地页',
+        previewImageUrl: buildGeneratedImageUrl(
+          'marketing campaign landing page visual, conversion focused promotional graphic, event participation guide poster, energetic pink commerce style, realistic polished advertising mockup, premium digital marketing design',
+          'portrait_4_3'
+        ),
         scenarios: [
           {
             id: 'marketing-guide',
@@ -262,6 +287,10 @@ export default function Home() {
         ink: 'text-gray-600',
         description: '进入图层模板库页面，查看并筛选图层模板。',
         sizeHint: '图层模板 / 可筛选',
+        previewImageUrl: buildGeneratedImageUrl(
+          'design asset library interface preview, layered template thumbnails, material components panel, clean modern creative tool UI, realistic software product mockup, premium neutral design system aesthetic',
+          'portrait_4_3'
+        ),
         scenarios: [],
       },
     ],
@@ -675,7 +704,7 @@ export default function Home() {
                             type="button"
                             onClick={() => handleSearchChannelToggle(channel)}
                             className={clsx(
-                              'group flex flex-col items-center justify-center gap-1.5 h-[92px] rounded-2xl border border-transparent bg-transparent transition-colors',
+                              'group flex flex-col items-center gap-2 rounded-2xl border border-transparent bg-transparent px-2 py-2 transition-colors',
                               'group-hover:[--scene-stroke:2.9]'
                             )}
                             aria-label={`搜索${channel.label}`}
@@ -684,7 +713,7 @@ export default function Home() {
                               ['--scene-stroke' as any]: isActive ? '2.9' : '2.4',
                             }}
                           >
-                            <div className={clsx('w-11 h-11 rounded-2xl border border-transparent flex items-center justify-center bg-transparent transition-colors', channel.ink)}>
+                            <div className={clsx('w-12 h-12 rounded-2xl border border-transparent flex items-center justify-center bg-white/70 transition-colors', channel.ink)}>
                               <SceneIllustration id={channel.id} className="w-9 h-9" />
                             </div>
                             <div
