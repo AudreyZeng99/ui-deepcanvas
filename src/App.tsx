@@ -30,6 +30,7 @@ import AIAdDesignAssistant from './pages/AIAdDesignAssistant';
 import AIAdProjectCanvas from './pages/AIAdProjectCanvas';
 import PublicCanvas from './pages/PublicCanvas';
 import LayerLibrary from './pages/LayerLibrary';
+import ProjectManagement from './pages/ProjectManagement';
 
 function Layout() {
   const location = useLocation();
@@ -56,6 +57,7 @@ function Layout() {
           <Route path="/" element={<Home />} />
           <Route path="/layer-library" element={<LayerLibrary />} />
           <Route path="/projects" element={<Projects />} />
+          <Route path="/project-management" element={<ProjectManagement />} />
           <Route path="/public" element={<Projects />} />
           <Route path="/public-canvas" element={<PublicCanvas />} />
           <Route path="/editor" element={<Editor />} />
