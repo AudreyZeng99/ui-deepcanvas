@@ -6,6 +6,7 @@ import {
   Eraser,
   FileText,
   FlaskConical,
+  Folder,
   History,
   Home,
   Image as ImageIcon,
@@ -155,6 +156,7 @@ export default function Sidebar() {
       <nav className="mt-4 flex flex-col items-center gap-2 w-full px-2">
         <IconNavLink icon={Home} label="首页" to="/" />
         <IconNavLink icon={User} label="个人空间" to="/projects" />
+        <IconNavLink icon={Folder} label="项目" to="/project-management" />
         <IconNavLink icon={Layers} label="图层库" to="/layer-library" />
 
         <div className="relative w-full flex items-center justify-center" ref={createMenuRef}>

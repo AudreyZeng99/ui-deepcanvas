@@ -1163,6 +1163,184 @@ export default function Editor() {
   const canvasFitScale = Math.min(800 / projectCanvasWidth, 600 / projectCanvasHeight);
   const renderedCanvasWidth = Math.max(280, Math.round(projectCanvasWidth * canvasFitScale));
   const renderedCanvasHeight = Math.max(180, Math.round(projectCanvasHeight * canvasFitScale));
+  const exportPreviewContent = useMemo(
+    () => (
+      <div
+        style={{
+          position: 'relative',
+          width: projectCanvasWidth,
+          height: projectCanvasHeight,
+          background: canvasBackground,
+          overflow: 'hidden',
+        }}
+      >
+        {elements.map((el) => {
+          const props = el.props || {};
+          const currentShapeType = el.subType;
+          return (
+            <div
+              key={el.id}
+              style={{
+                position: 'absolute',
+                left: props.x ?? 0,
+                top: props.y ?? 0,
+                width: props.w ?? 0,
+                height: props.h ?? 0,
+                transform: `rotate(${props.rotation || 0}deg) scaleX(${props.flipX ? -1 : 1}) scaleY(${props.flipY ? -1 : 1})`,
+                opacity: (props.opacity ?? 100) / 100,
+                backgroundColor:
+                  currentShapeType === 'line' || currentShapeType === 'arrow' || el.type === 'text' || el.type === 'draw'
+                    ? 'transparent'
+                    : props.fill || 'transparent',
+                borderColor: props.stroke || 'transparent',
+                borderWidth:
+                  currentShapeType === 'line' || currentShapeType === 'arrow' || el.type === 'draw'
+                    ? 0
+                    : `${props.strokeWidth || 0}px`,
+                borderStyle: 'solid',
+                borderRadius: currentShapeType === 'circle' ? '50%' : `${props.radius || 0}px`,
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {el.type === 'draw' && (
+                <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
+                  <path
+                    d={`M ${(props.points || []).map((p: { x: number; y: number }) => `${p.x},${p.y}`).join(' L ')}`}
+                    stroke={props.stroke || '#000000'}
+                    strokeWidth={props.strokeWidth || 2}
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    vectorEffect="non-scaling-stroke"
+                    style={{
+                      strokeDasharray: props.brushType === 'dashed' ? '10,10' : props.brushType === 'dotted' ? '2,2' : 'none',
+                    }}
+                  />
+                </svg>
+              )}
+
+              {el.type === 'table' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    overflow: 'hidden',
+                    borderRadius: `${props.radius || 0}px`,
+                    border: props.borderOuter !== false ? `${props.borderWidth || 1}px solid ${props.borderColor || '#D1D5DB'}` : 'none',
+                    backgroundColor: props.backgroundColor || 'transparent',
+                  }}
+                >
+                  <table style={{ width: '100%', height: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <tbody>
+                      {(props.data || []).map((row: string[], rowIndex: number) => (
+                        <tr key={rowIndex} style={{ height: props.rowHeight ? `${props.rowHeight}px` : 'auto' }}>
+                          {row.map((cell: string, colIndex: number) => {
+                            const isHeader = props.showHead && rowIndex === 0;
+                            const isAlternate = props.zebra && rowIndex % 2 === 0 && !isHeader;
+                            return (
+                              <td
+                                key={colIndex}
+                                style={{
+                                  padding: '8px',
+                                  overflow: 'hidden',
+                                  wordBreak: 'break-word',
+                                  backgroundColor: isHeader ? props.headerBg : isAlternate ? props.alternateBg : props.cellBg,
+                                  color: isHeader ? props.headerColor : props.cellColor,
+                                  border: props.borderInner !== false ? `${props.borderWidth || 1}px solid ${props.borderColor || '#D1D5DB'}` : 'none',
+                                  textAlign: props.textAlign || 'left',
+                                  fontFamily: props.fontFamily || 'Inter',
+                                  fontSize: `${props.fontSize || 14}px`,
+                                  fontWeight: isHeader ? 'bold' : 'normal',
+                                  verticalAlign: 'middle',
+                                }}
+                              >
+                                {cell}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {el.type === 'text' && (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: props.fontFamily || 'Inter',
+                    fontSize: `${props.fontSize || 24}px`,
+                    fontWeight: props.fontWeight || 'normal',
+                    fontStyle: props.fontStyle || 'normal',
+                    textDecoration: props.textDecoration || 'none',
+                    textAlign: props.textAlign || 'left',
+                    lineHeight: props.lineHeight || 1.2,
+                    letterSpacing: `${props.letterSpacing || 0}px`,
+                    writingMode: props.writingMode || 'horizontal-tb',
+                    color: props.fill || '#111827',
+                  }}
+                >
+                  {el.content || 'Hello World'}
+                </div>
+              )}
+
+              {currentShapeType === 'triangle' && (
+                <div
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: `${(props.w || 0) / 2}px solid transparent`,
+                    borderRight: `${(props.w || 0) / 2}px solid transparent`,
+                    borderBottom: `${props.h || 0}px solid ${props.fill || '#111827'}`,
+                  }}
+                />
+              )}
+
+              {(currentShapeType === 'line' || currentShapeType === 'arrow') && (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
+                  <div
+                    style={{
+                      width: '100%',
+                      height: Math.max(2, props.strokeWidth || 2),
+                      backgroundColor: props.stroke || '#111827',
+                    }}
+                  />
+                  {currentShapeType === 'arrow' && (
+                    <div
+                      style={{
+                        width: 0,
+                        height: 0,
+                        borderTop: '4px solid transparent',
+                        borderBottom: '4px solid transparent',
+                        borderLeft: `8px solid ${props.stroke || '#111827'}`,
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {(el.type === 'image' || el.type === 'bocom') && (
+                el.src ? (
+                  <img src={el.src} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-xs text-gray-400 bg-gray-100">
+                    {el.type === 'bocom' ? 'BoCom Asset' : 'Image'}
+                  </div>
+                )
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ),
+    [canvasBackground, elements, projectCanvasHeight, projectCanvasWidth]
+  );
 
   return (
     <div className="h-screen relative bg-white overflow-hidden flex flex-col">
@@ -1408,6 +1586,14 @@ export default function Editor() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIsExportModalOpen(true)}
+            className="py-1.5 px-3 text-sm flex items-center gap-2 rounded-lg transition-colors bg-[#2563EB] text-white hover:bg-[#1D4ED8]"
+          >
+            <Download size={16} />
+            导出
+          </button>
           <Tooltip content={isDirty ? "保存 (Ctrl+S)" : "已保存"} position="bottom">
             <div
               className="inline-flex"
@@ -3722,7 +3908,7 @@ export default function Editor() {
                 <div className="flex items-center gap-3">
                    <button 
                      onClick={() => setIsExportModalOpen(true)}
-                     className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors flex items-center gap-2 px-4"
+                     className="p-2 rounded-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white transition-colors flex items-center gap-2 px-4"
                    >
                      <Download size={18} />
                      <span className="text-sm">导出</span>
@@ -3820,9 +4006,16 @@ export default function Editor() {
         <ExportModal
           isOpen={isExportModalOpen}
           onClose={() => setIsExportModalOpen(false)}
-          previewImage={previewImage || 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800&q=80'}
+          previewImage={previewImage || undefined}
+          previewContent={exportPreviewContent}
+          previewSize={{ width: projectCanvasWidth, height: projectCanvasHeight }}
+          enableSceneSelection
           onExport={(settings) => {
-            if (previewImage) recordExportedAsset(previewImage, { source: 'Editor', export: settings });
+            if (previewImage) {
+              recordExportedAsset(previewImage, { source: 'Editor', export: settings });
+            } else {
+              recordExportedAsset('editor-canvas-preview', { source: 'Editor', export: settings });
+            }
             setIsExportModalOpen(false);
             toast.success('导出成功');
           }}

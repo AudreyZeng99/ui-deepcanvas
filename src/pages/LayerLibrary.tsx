@@ -1,32 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import clsx from 'clsx';
-import { Search, Plus } from 'lucide-react';
+import { Search, Plus, Star } from 'lucide-react';
 import { useToast } from '../components/ToastProvider';
-
-type LibraryScope = 'public' | 'team';
-
-type ToneColor = 'red' | 'orange' | 'yellow' | 'green' | 'cyan' | 'blue' | 'purple';
-
-type LayerTemplate = {
-  id: string;
-  name: string;
-  scope: LibraryScope;
-  projectId: string;
-  projectName: string;
-  previewUrl: string;
-  createdAt: number;
-  hasXiaofulu: boolean;
-  hasJiaojiao: boolean;
-  color: ToneColor;
-};
-
-const STORAGE_KEY = 'deepcanvas_layer_templates_v1';
+import {
+  LAYER_TEMPLATES_STORAGE_KEY,
+  type LayerTemplate,
+  type LibraryScope,
+  type ToneColor,
+  type ImageSize,
+  type ActivityType,
+  type BenefitType,
+  readLayerTemplates,
+} from '../utils/layerTemplates';
 
 const PROJECTS: Array<{ id: string; name: string }> = [
   { id: 'p-shenxiang', name: '深享福利周周有礼' },
   { id: 'p-jianbu', name: '分行健步走' },
   { id: 'p-login', name: '登陆有礼' },
 ];
+
+const IMAGE_SIZE_OPTIONS: Array<{ value: ImageSize; label: string }> = [
+  { value: 'large_banner', label: '大banner' },
+  { value: 'small_banner', label: '小banner' },
+  { value: 'hero_banner', label: '首图banner' },
+];
+
+const ACTIVITY_TYPE_OPTIONS: ActivityType[] = ['拉新活动', '节日营销', '权益推广', '品牌宣传'];
+
+const BENEFIT_TYPE_OPTIONS: BenefitType[] = ['红包福利', '积分权益', '礼品权益', '会员权益'];
 
 const COLOR_OPTIONS: Array<{ id: ToneColor; label: string; className: string }> = [
   { id: 'red', label: '红', className: 'bg-red-50 text-red-700 border-red-200' },
@@ -42,111 +43,22 @@ function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
-function safeParseJson<T>(raw: string | null, fallback: T): T {
-  if (!raw) return fallback;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function seedTemplatesIfMissing() {
-  const existing = safeParseJson<LayerTemplate[] | null>(localStorage.getItem(STORAGE_KEY), null);
-  if (Array.isArray(existing) && existing.length > 0) return;
-  const now = Date.now();
-  const samples: LayerTemplate[] = [
-    {
-      id: 'lt-001',
-      name: '主KV-利益点叠层（红金）',
-      scope: 'team',
-      projectId: 'p-shenxiang',
-      projectName: '深享福利周周有礼',
-      previewUrl: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?q=80&w=1200&auto=format&fit=crop',
-      createdAt: now - 1000 * 60 * 60 * 12,
-      hasXiaofulu: true,
-      hasJiaojiao: false,
-      color: 'red',
-    },
-    {
-      id: 'lt-002',
-      name: '信息流横幅-强CTA（蓝）',
-      scope: 'public',
-      projectId: 'p-shenxiang',
-      projectName: '深享福利周周有礼',
-      previewUrl: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=1200&auto=format&fit=crop',
-      createdAt: now - 1000 * 60 * 60 * 22,
-      hasXiaofulu: false,
-      hasJiaojiao: true,
-      color: 'blue',
-    },
-    {
-      id: 'lt-003',
-      name: '弹屏-留白结构（紫）',
-      scope: 'team',
-      projectId: 'p-login',
-      projectName: '登陆有礼',
-      previewUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1200&auto=format&fit=crop',
-      createdAt: now - 1000 * 60 * 60 * 36,
-      hasXiaofulu: false,
-      hasJiaojiao: false,
-      color: 'purple',
-    },
-    {
-      id: 'lt-004',
-      name: '长图海报-活动流程（绿）',
-      scope: 'public',
-      projectId: 'p-jianbu',
-      projectName: '分行健步走',
-      previewUrl: 'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1200&auto=format&fit=crop',
-      createdAt: now - 1000 * 60 * 60 * 44,
-      hasXiaofulu: true,
-      hasJiaojiao: true,
-      color: 'green',
-    },
-  ];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(samples));
-}
-
-function readTemplates(): LayerTemplate[] {
-  seedTemplatesIfMissing();
-  const parsed = safeParseJson<LayerTemplate[]>(localStorage.getItem(STORAGE_KEY), []);
-  if (!Array.isArray(parsed)) return [];
-  return parsed
-    .filter((t) => t && typeof t.id === 'string' && typeof t.name === 'string' && typeof t.previewUrl === 'string')
-    .map((t): LayerTemplate => ({
-      id: t.id,
-      name: t.name,
-      scope: t.scope === 'team' ? 'team' : 'public',
-      projectId: typeof t.projectId === 'string' ? t.projectId : 'p-shenxiang',
-      projectName: typeof t.projectName === 'string' ? t.projectName : '未命名项目',
-      previewUrl: t.previewUrl,
-      createdAt: typeof t.createdAt === 'number' ? t.createdAt : Date.now(),
-      hasXiaofulu: !!t.hasXiaofulu,
-      hasJiaojiao: !!t.hasJiaojiao,
-      color: (t.color as ToneColor) || 'red',
-    }))
-    .sort((a, b) => b.createdAt - a.createdAt);
-}
-
 function writeTemplates(next: LayerTemplate[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  localStorage.setItem(LAYER_TEMPLATES_STORAGE_KEY, JSON.stringify(next));
 }
 
-function formatTime(ts: number) {
-  const d = new Date(ts);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+type SortMode = 'latest' | 'hottest' | 'usage';
 
 export default function LayerLibrary() {
   const toast = useToast();
-  const [scope, setScope] = useState<LibraryScope>('public');
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(() => PROJECTS[0].id);
   const [query, setQuery] = useState('');
-  const [hasXiaofulu, setHasXiaofulu] = useState<boolean | null>(null);
-  const [hasJiaojiao, setHasJiaojiao] = useState<boolean | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('latest');
+  const [imageSize, setImageSize] = useState<ImageSize | ''>('');
   const [color, setColor] = useState<ToneColor | null>(null);
+  const [activityType, setActivityType] = useState<ActivityType | ''>('');
+  const [benefitType, setBenefitType] = useState<BenefitType | ''>('');
+  const [scope, setScope] = useState<LibraryScope | ''>('');
+  const [onlyFavorites, setOnlyFavorites] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 9;
 
@@ -154,29 +66,42 @@ export default function LayerLibrary() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    templatesRef.current = readTemplates();
+    templatesRef.current = readLayerTemplates();
     setTick((v) => v + 1);
   }, []);
 
   useEffect(() => {
     setPage(1);
-  }, [scope, selectedProjectId, query, hasXiaofulu, hasJiaojiao, color]);
-
-  const project = useMemo(() => PROJECTS.find((p) => p.id === selectedProjectId) || PROJECTS[0], [selectedProjectId]);
+  }, [query, sortMode, imageSize, color, activityType, benefitType, scope, onlyFavorites]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return templatesRef.current
-      .filter((t) => t.scope === scope)
-      .filter((t) => t.projectId === selectedProjectId)
+    const list = templatesRef.current
+      .filter((t) => (scope ? t.scope === scope : true))
       .filter((t) => {
         if (!q) return true;
-        return t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q);
+        return (
+          t.name.toLowerCase().includes(q) ||
+          t.id.toLowerCase().includes(q) ||
+          t.projectName.toLowerCase().includes(q)
+        );
       })
-      .filter((t) => (hasXiaofulu === null ? true : t.hasXiaofulu === hasXiaofulu))
-      .filter((t) => (hasJiaojiao === null ? true : t.hasJiaojiao === hasJiaojiao))
-      .filter((t) => (color === null ? true : t.color === color));
-  }, [tick, scope, selectedProjectId, query, hasXiaofulu, hasJiaojiao, color]);
+      .filter((t) => (imageSize ? t.imageSize === imageSize : true))
+      .filter((t) => (color === null ? true : t.color === color))
+      .filter((t) => (activityType ? t.activityType === activityType : true))
+      .filter((t) => (benefitType ? t.benefitType === benefitType : true))
+      .filter((t) => (onlyFavorites ? t.isFavorite : true));
+
+    return [...list].sort((a, b) => {
+      if (sortMode === 'usage') return b.usageCount - a.usageCount;
+      if (sortMode === 'hottest') {
+        const scoreA = a.usageCount + (a.isFavorite ? 30 : 0);
+        const scoreB = b.usageCount + (b.isFavorite ? 30 : 0);
+        return scoreB - scoreA;
+      }
+      return b.createdAt - a.createdAt;
+    });
+  }, [tick, scope, query, sortMode, imageSize, color, activityType, benefitType, onlyFavorites]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
@@ -185,17 +110,23 @@ export default function LayerLibrary() {
   const createTemplate = () => {
     const name = window.prompt('请输入图层模板名称');
     if (!name || !name.trim()) return;
+    const fallbackProject = PROJECTS[0];
     const next: LayerTemplate = {
       id: makeId('lt'),
       name: name.trim(),
-      scope,
-      projectId: project.id,
-      projectName: project.name,
+      scope: scope || 'public',
+      projectId: fallbackProject.id,
+      projectName: fallbackProject.name,
       previewUrl: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?q=80&w=1200&auto=format&fit=crop',
       createdAt: Date.now(),
       hasXiaofulu: false,
       hasJiaojiao: false,
       color: 'red',
+      imageSize: 'small_banner',
+      activityType: '权益推广',
+      benefitType: '红包福利',
+      usageCount: 0,
+      isFavorite: false,
     };
     const nextList = [next, ...templatesRef.current];
     writeTemplates(nextList);
@@ -204,43 +135,93 @@ export default function LayerLibrary() {
     toast.show('已新建图层模板（模拟）');
   };
 
-  const scopeLabel = scope === 'public' ? '公共图层库' : '深圳分行图层库';
+  const toggleFavorite = (templateId: string) => {
+    const nextList = templatesRef.current.map((item) =>
+      item.id === templateId
+        ? {
+            ...item,
+            isFavorite: !item.isFavorite,
+          }
+        : item
+    );
+    writeTemplates(nextList);
+    templatesRef.current = nextList;
+    setTick((v) => v + 1);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      <div className="w-full px-8 py-8 space-y-6">
-        <div className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <div className="text-xl font-bold text-gray-900">图层库</div>
-            <div className="text-sm text-gray-500 mt-1">按项目管理图层模板 · {scopeLabel}</div>
+      <div className="w-full space-y-6 px-8 py-8">
+        <div className="space-y-4 border-b border-black/5 pb-5">
+          <div className="relative">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="搜索图层模板名称 / 项目 / ID"
+              className="h-11 w-full border border-black/10 bg-white pl-11 pr-4 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-black/30"
+            />
           </div>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex items-center rounded-full bg-gray-100 p-1 border border-black/5">
-              <button
-                type="button"
-                onClick={() => setScope('public')}
-                className={clsx(
-                  'h-9 px-4 rounded-full text-sm font-semibold transition-all',
-                  scope === 'public' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                )}
-              >
-                公共图层库
-              </button>
-              <button
-                type="button"
-                onClick={() => setScope('team')}
-                className={clsx(
-                  'h-9 px-4 rounded-full text-sm font-semibold transition-all',
-                  scope === 'team' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                )}
-              >
-                团队图层库
-              </button>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <span className="font-medium text-gray-700">排序筛选：</span>
+              <ToolbarToggle label="最新" active={sortMode === 'latest'} onClick={() => setSortMode('latest')} />
+              <ToolbarToggle label="最热" active={sortMode === 'hottest'} onClick={() => setSortMode('hottest')} />
+              <ToolbarToggle label="使用频率" active={sortMode === 'usage'} onClick={() => setSortMode('usage')} />
             </div>
+
+            <ToolbarSelect
+              value={imageSize}
+              onChange={(value) => setImageSize((value as ImageSize | '') || '')}
+              placeholder="图片尺寸"
+              options={IMAGE_SIZE_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+            />
+            <ToolbarSelect
+              value={color ?? ''}
+              onChange={(value) => setColor(value ? (value as ToneColor) : null)}
+              placeholder="颜色"
+              options={COLOR_OPTIONS.map((item) => ({ value: item.id, label: item.label }))}
+            />
+            <ToolbarSelect
+              value={activityType}
+              onChange={(value) => setActivityType((value as ActivityType | '') || '')}
+              placeholder="活动类型"
+              options={ACTIVITY_TYPE_OPTIONS.map((item) => ({ value: item, label: item }))}
+            />
+            <ToolbarSelect
+              value={benefitType}
+              onChange={(value) => setBenefitType((value as BenefitType | '') || '')}
+              placeholder="权益类型"
+              options={BENEFIT_TYPE_OPTIONS.map((item) => ({ value: item, label: item }))}
+            />
+            <ToolbarSelect
+              value={scope}
+              onChange={(value) => setScope((value as LibraryScope | '') || '')}
+              placeholder="模版权限"
+              options={[
+                { value: 'team', label: '团队' },
+                { value: 'public', label: '个人' },
+              ]}
+            />
+
+            <button
+              type="button"
+              onClick={() => setOnlyFavorites((prev) => !prev)}
+              className={clsx(
+                'ml-auto inline-flex h-10 items-center gap-2 rounded-[10px] border px-4 text-sm font-medium transition-colors',
+                onlyFavorites
+                  ? 'border-black bg-black text-white'
+                  : 'border-black/10 bg-white text-gray-700 hover:bg-gray-50'
+              )}
+            >
+              <Star size={15} className={onlyFavorites ? 'fill-current' : ''} />
+              只看收藏
+            </button>
             <button
               type="button"
               onClick={createTemplate}
-              className="h-10 px-4 rounded-full bg-black text-white hover:bg-gray-900 transition-colors text-sm font-semibold flex items-center gap-2"
+              className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-black px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-900"
             >
               <Plus size={16} />
               新建图层模板
@@ -248,109 +229,46 @@ export default function LayerLibrary() {
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-500">项目</span>
-              <select
-                value={selectedProjectId}
-                onChange={(e) => setSelectedProjectId(e.target.value)}
-                className="h-9 px-3 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-900 focus:outline-none focus:ring-2 focus:ring-black/5"
-              >
-                {PROJECTS.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex-1 min-w-[240px] relative">
-              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="搜索图层模板（名称 / ID）"
-                className="w-full h-9 pl-9 pr-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-black/5"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <FilterToggle
-                label="含小福鹿"
-                value={hasXiaofulu}
-                onChange={setHasXiaofulu}
-              />
-              <FilterToggle
-                label="含娇娇"
-                value={hasJiaojiao}
-                onChange={setHasJiaojiao}
-              />
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-gray-500">颜色</span>
-                <div className="flex items-center gap-1 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={() => setColor(null)}
-                    className={clsx(
-                      'h-8 px-3 rounded-full border text-xs font-semibold transition',
-                      color === null ? 'bg-black text-white border-black' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    )}
-                  >
-                    全部
-                  </button>
-                  {COLOR_OPTIONS.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setColor((prev) => (prev === c.id ? null : c.id))}
-                      className={clsx(
-                        'h-8 px-3 rounded-full border text-xs font-semibold transition',
-                        color === c.id ? 'bg-black text-white border-black' : clsx('border', c.className, 'hover:opacity-90')
-                      )}
-                    >
-                      {c.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           <button
             type="button"
             onClick={createTemplate}
-            className="rounded-2xl border border-dashed border-gray-300 bg-white hover:bg-gray-50 transition p-5 text-left"
+            className="border border-dashed border-gray-300 bg-white p-3 text-left transition hover:bg-gray-50"
           >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-black text-white flex items-center justify-center">
-                <Plus size={18} />
+            <div className="flex flex-col gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-black text-white">
+                <Plus size={16} />
               </div>
               <div>
                 <div className="text-sm font-semibold text-gray-900">新建图层模板</div>
-                <div className="text-xs text-gray-500 mt-1">项目：{project.name}</div>
+                <div className="mt-1 text-[11px] leading-5 text-gray-500">快速添加模板条目</div>
               </div>
             </div>
           </button>
 
           {paged.map((t) => (
-            <div key={t.id} className="rounded-2xl border border-gray-200 bg-white overflow-hidden hover:shadow-md transition">
-              <div className="aspect-[16/10] bg-gray-50">
+            <div key={t.id} className="overflow-hidden border border-gray-200 bg-white transition hover:shadow-md">
+              <div className={clsx('relative bg-gray-50', getTemplatePreviewAspectClass(t.imageSize))}>
                 <img src={t.previewUrl} alt={t.name} className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => toggleFavorite(t.id)}
+                  className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-[8px] border border-white/60 bg-white/90 text-gray-600 backdrop-blur transition-colors hover:text-gray-900"
+                  aria-label={t.isFavorite ? '取消收藏' : '收藏模板'}
+                >
+                  <Star size={13} className={t.isFavorite ? 'fill-current text-amber-400' : ''} />
+                </button>
               </div>
-              <div className="p-4">
-                <div className="text-sm font-semibold text-gray-900 line-clamp-1">{t.name}</div>
-                <div className="text-xs text-gray-500 mt-1">ID：{t.id}</div>
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {t.hasXiaofulu && <Chip>小福鹿</Chip>}
-                    {t.hasJiaojiao && <Chip>娇娇</Chip>}
+              <div className="space-y-2 p-3">
+                <div className="text-xs font-semibold text-gray-900 line-clamp-2">{t.name}</div>
+                <div className="text-[11px] text-gray-500 line-clamp-1">{t.projectName}</div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                    <Chip>{IMAGE_SIZE_OPTIONS.find((item) => item.value === t.imageSize)?.label || '—'}</Chip>
                     <Chip>{COLOR_OPTIONS.find((c) => c.id === t.color)?.label || '—'}</Chip>
-                  </div>
-                  <div className="text-xs text-gray-400">{formatTime(t.createdAt)}</div>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-gray-400">
+                  <span>{t.scope === 'team' ? '团队' : '个人'}</span>
+                  <span>{t.usageCount} 次</span>
                 </div>
               </div>
             </div>
@@ -389,32 +307,58 @@ function Chip({ children }: { children: React.ReactNode }) {
   return <span className="px-2 py-0.5 rounded-full bg-gray-100 border border-black/5 text-[10px] font-semibold text-gray-700">{children}</span>;
 }
 
-function FilterToggle({
+function getTemplatePreviewAspectClass(imageSize: ImageSize) {
+  if (imageSize === 'large_banner') return 'aspect-[16/9]';
+  if (imageSize === 'hero_banner') return 'aspect-[3/4]';
+  return 'aspect-[4/3]';
+}
+
+function ToolbarToggle({
   label,
-  value,
-  onChange,
+  active,
+  onClick,
 }: {
   label: string;
-  value: boolean | null;
-  onChange: (next: boolean | null) => void;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={() => {
-        onChange(value === null ? true : value === true ? false : null);
-      }}
+      onClick={onClick}
       className={clsx(
-        'h-8 px-3 rounded-full border text-xs font-semibold transition',
-        value === null
-          ? 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-          : value
-            ? 'bg-black text-white border-black'
-            : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+        'inline-flex h-8 items-center rounded-[999px] border px-3 text-xs font-semibold transition-colors',
+        active ? 'border-black bg-black text-white' : 'border-black/10 bg-white text-gray-700 hover:bg-gray-50'
       )}
     >
       {label}
-      {value === null ? '' : value ? '：是' : '：否'}
     </button>
+  );
+}
+
+function ToolbarSelect({
+  value,
+  onChange,
+  placeholder,
+  options,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-10 min-w-[112px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-black/30"
+    >
+      <option value="">{placeholder}</option>
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
   );
 }
