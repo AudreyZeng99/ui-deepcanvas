@@ -31,6 +31,8 @@ import AIAdProjectCanvas from './pages/AIAdProjectCanvas';
 import PublicCanvas from './pages/PublicCanvas';
 import LayerLibrary from './pages/LayerLibrary';
 import ProjectManagement from './pages/ProjectManagement';
+import ProjectDetail from './pages/ProjectDetail';
+import RiskNotice from './components/RiskNotice';
 
 function Layout() {
   const location = useLocation();
@@ -58,6 +60,7 @@ function Layout() {
           <Route path="/layer-library" element={<LayerLibrary />} />
           <Route path="/projects" element={<Projects />} />
           <Route path="/project-management" element={<ProjectManagement />} />
+          <Route path="/project-management/:projectId" element={<ProjectDetail />} />
           <Route path="/public" element={<Projects />} />
           <Route path="/public-canvas" element={<PublicCanvas />} />
           <Route path="/editor" element={<Editor />} />
@@ -86,6 +89,7 @@ function Layout() {
           <Route path="/tools/old-photo" element={<OldPhotoRestore />} />
           <Route path="/tools/material-batch-generator" element={<MaterialBatchGenerator />} />
         </Routes>
+        <RiskNotice />
       </main>
     </div>
   );

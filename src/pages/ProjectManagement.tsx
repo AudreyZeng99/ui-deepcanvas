@@ -1,58 +1,32 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import { Briefcase, FolderOpen, Plus, Users, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Briefcase, ChevronRight, Plus, Users, X } from 'lucide-react';
 import clsx from 'clsx';
 
+import { useToast } from '../components/ToastProvider';
+import {
+  CURRENT_USER_NAME,
+  type ManagedProject,
+  type ProjectFormState,
+  formatTeamName,
+  getLevel2Options,
+  readManagedProjects,
+  writeManagedProjects,
+} from '../utils/managedProjects';
+
 type ProjectTab = 'personal' | 'team';
-type PermissionScope = 'self' | 'team';
-
-type ManagedProject = {
-  id: string;
-  name: string;
-  businessSystemType: string;
-  businessProjectId: string;
-  teamName: string;
-  creatorName: string;
-  permissionScope: PermissionScope;
-  createdAt: number;
-};
-
-type ProjectFormState = {
-  name: string;
-  businessSystemType: string;
-  businessProjectId: string;
-  teamName: string;
-  creatorName: string;
-  permissionScope: PermissionScope;
-};
-
-const STORAGE_KEY = 'trae_deepcanvas_project_management_v1';
-const CURRENT_USER_NAME = '当前用户';
-const ORG_CODE = 'orgcode';
-const ORG_NAME = 'orgname';
 
 const BUSINESS_SYSTEM_OPTIONS = ['零售银行', '信用卡中心', '财富管理', '营销中台'];
-const TEAM_OPTIONS = ['品牌设计组', '增长运营组', '活动策划组', '平台产品组'];
-
 const INITIAL_FORM: ProjectFormState = {
   name: '',
   businessSystemType: '',
   businessProjectId: '',
   teamName: '',
+  orgLevel1: '',
+  orgLevel2: '',
   creatorName: CURRENT_USER_NAME,
   permissionScope: 'self',
 };
-
-function readStoredProjects() {
-  if (typeof window === 'undefined') return [] as ManagedProject[];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [] as ManagedProject[];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as ManagedProject[]) : [];
-  } catch {
-    return [] as ManagedProject[];
-  }
-}
 
 function formatDate(timestamp: number) {
   return new Date(timestamp).toLocaleString('zh-CN', {
@@ -65,14 +39,18 @@ function formatDate(timestamp: number) {
 }
 
 export default function ProjectManagement() {
+  const navigate = useNavigate();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<ProjectTab>('personal');
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [projects, setProjects] = useState<ManagedProject[]>(() => readStoredProjects());
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [filterBusinessSystemType, setFilterBusinessSystemType] = useState('');
+  const [filterBusinessProjectId, setFilterBusinessProjectId] = useState('');
+  const [projects, setProjects] = useState<ManagedProject[]>(() => readManagedProjects());
   const [form, setForm] = useState<ProjectFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Partial<Record<keyof ProjectFormState, string>>>({});
 
   useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+    writeManagedProjects(projects);
   }, [projects]);
 
   const personalProjects = useMemo(
@@ -84,23 +62,43 @@ export default function ProjectManagement() {
     [projects]
   );
 
-  const visibleProjects = activeTab === 'personal' ? personalProjects : teamProjects;
+  const businessProjectIdOptions = useMemo(() => {
+    const source = activeTab === 'personal' ? personalProjects : teamProjects;
+    const next = new Set<string>();
+    source
+      .filter((project) => (filterBusinessSystemType ? project.businessSystemType === filterBusinessSystemType : true))
+      .forEach((project) => {
+        if (project.businessProjectId) next.add(project.businessProjectId);
+      });
+    return Array.from(next).sort((a, b) => a.localeCompare(b));
+  }, [activeTab, filterBusinessSystemType, personalProjects, teamProjects]);
+
+  const visibleProjects = useMemo(() => {
+    const source = activeTab === 'personal' ? personalProjects : teamProjects;
+    return source
+      .filter((project) =>
+        filterBusinessSystemType ? project.businessSystemType === filterBusinessSystemType : true
+      )
+      .filter((project) => (filterBusinessProjectId ? project.businessProjectId === filterBusinessProjectId : true));
+  }, [activeTab, filterBusinessProjectId, filterBusinessSystemType, personalProjects, teamProjects]);
 
   const resetForm = () => {
     setForm(INITIAL_FORM);
     setErrors({});
   };
 
-  const closeModal = () => {
-    setIsCreateModalOpen(false);
+  const closeFormModal = () => {
+    setIsFormModalOpen(false);
     resetForm();
   };
 
-  const openModal = () => {
-    setIsCreateModalOpen(true);
+  const openCreateModal = () => {
+    setIsFormModalOpen(true);
     setForm(INITIAL_FORM);
     setErrors({});
   };
+  const level1Options = useMemo(() => ['深圳分行', '广州分行', '总行数字金融'], []);
+  const level2Options = getLevel2Options(form.orgLevel1);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -108,9 +106,9 @@ export default function ProjectManagement() {
     const nextErrors: Partial<Record<keyof ProjectFormState, string>> = {};
     if (!form.name.trim()) nextErrors.name = '请输入项目名称';
     if (!form.businessSystemType) nextErrors.businessSystemType = '请选择关联业务系统类型';
-    if (!form.teamName) nextErrors.teamName = '请选择归属团队';
     if (!form.creatorName.trim()) nextErrors.creatorName = '项目创建人不能为空';
     if (!form.permissionScope) nextErrors.permissionScope = '请选择操作权限';
+    if (!form.orgLevel1) nextErrors.orgLevel1 = '请选择一级机构';
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
@@ -120,15 +118,19 @@ export default function ProjectManagement() {
       name: form.name.trim(),
       businessSystemType: form.businessSystemType,
       businessProjectId: form.businessProjectId.trim(),
-      teamName: form.teamName,
+      teamName: formatTeamName(form.orgLevel1, form.orgLevel2),
+      orgLevel1: form.orgLevel1,
+      orgLevel2: form.orgLevel2,
       creatorName: form.creatorName.trim(),
       permissionScope: form.permissionScope,
       createdAt: Date.now(),
+      assignedTemplates: [],
     };
 
     setProjects((current) => [newProject, ...current]);
     setActiveTab(newProject.permissionScope === 'team' ? 'team' : 'personal');
-    closeModal();
+    toast.show('已新建项目（模拟）');
+    closeFormModal();
   };
 
   return (
@@ -136,30 +138,13 @@ export default function ProjectManagement() {
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-6 border-b border-black/5 pb-6 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
-            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
-              <FolderOpen size={14} />
-              Project Space
-            </div>
             <h1 className="text-[34px] font-semibold leading-none tracking-[-0.04em] text-gray-950">项目</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-500">
-              用更清晰的方式管理个人项目和团队项目。初始状态为空，创建后自动进入对应分页。
-            </p>
           </div>
 
           <div className="flex flex-col items-start gap-4 md:items-end">
-            <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-[0.16em] text-gray-400">orgcode</span>
-                <span className="font-medium text-gray-900">{ORG_CODE}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-[0.16em] text-gray-400">orgname</span>
-                <span className="font-medium text-gray-900">{ORG_NAME}</span>
-              </div>
-            </div>
             <button
               type="button"
-              onClick={openModal}
+              onClick={openCreateModal}
               className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-black/10 px-4 text-sm font-semibold text-gray-900 transition-colors hover:bg-black hover:text-white"
             >
               <Plus size={16} />
@@ -184,36 +169,55 @@ export default function ProjectManagement() {
                 onClick={() => setActiveTab('team')}
               />
             </div>
+          </div>
 
-            <button
-              type="button"
-              onClick={openModal}
-              className="inline-flex h-9 items-center gap-2 self-start rounded-[10px] border border-black/10 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+          <div className="flex flex-col gap-3 border-b border-black/5 py-4 md:flex-row md:items-center">
+            <select
+              value={filterBusinessSystemType}
+              onChange={(event) => setFilterBusinessSystemType(event.target.value)}
+              className="h-10 min-w-[180px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-black/30"
             >
-              <Plus size={15} />
-              新建项目
-            </button>
+              <option value="">关联业务系统类型</option>
+              {BUSINESS_SYSTEM_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <select
+              value={filterBusinessProjectId}
+              onChange={(event) => setFilterBusinessProjectId(event.target.value)}
+              className="h-10 min-w-[220px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-black/30"
+            >
+              <option value="">关联业务项目ID</option>
+              {businessProjectIdOptions.map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
           </div>
 
           {visibleProjects.length === 0 ? (
-            <EmptyState activeTab={activeTab} onCreate={openModal} />
+            <EmptyState activeTab={activeTab} onCreate={openCreateModal} />
           ) : (
             <div className="pt-4">
-              <div className="hidden grid-cols-[minmax(220px,1.6fr)_1fr_1fr_1fr_1fr] gap-6 border-b border-black/5 pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 md:grid">
+              <div className="hidden grid-cols-[minmax(260px,1.6fr)_1fr_1.2fr_1fr_120px] gap-6 border-b border-black/5 pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 md:grid">
                 <span>项目</span>
                 <span>业务系统</span>
                 <span>归属团队</span>
                 <span>创建人</span>
-                <span>权限 / 时间</span>
+                <span className="text-right">查看</span>
               </div>
 
               <div>
                 {visibleProjects.map((project) => (
                   <article
                     key={project.id}
-                    className="border-b border-black/5 py-4 transition-colors hover:bg-black/[0.015]"
+                    className="border-b border-black/5 py-4 transition-colors hover:bg-black/[0.015] cursor-pointer"
+                    onClick={() => navigate(`/project-management/${encodeURIComponent(project.id)}`)}
                   >
-                    <div className="hidden grid-cols-[minmax(220px,1.6fr)_1fr_1fr_1fr_1fr] gap-6 md:grid">
+                    <div className="hidden grid-cols-[minmax(260px,1.6fr)_1fr_1.2fr_1fr_120px] gap-6 md:grid">
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
                           <div className="flex h-9 w-9 items-center justify-center border border-black/10 bg-[#fafafa] text-gray-700">
@@ -229,10 +233,14 @@ export default function ProjectManagement() {
                       </div>
                       <div className="flex items-center text-sm text-gray-600">{project.businessSystemType}</div>
                       <div className="flex items-center text-sm text-gray-600">{project.teamName}</div>
-                      <div className="flex items-center text-sm text-gray-600">{project.creatorName}</div>
                       <div className="flex flex-col justify-center text-sm text-gray-600">
-                        <span>{project.permissionScope === 'team' ? '团队可操作' : '仅本人'}</span>
+                        <span>{project.creatorName}</span>
                         <span className="mt-1 text-xs text-gray-400">{formatDate(project.createdAt)}</span>
+                      </div>
+                      <div className="flex items-center justify-end">
+                        <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-black/10 text-gray-600">
+                          <ChevronRight size={16} />
+                        </div>
                       </div>
                     </div>
 
@@ -250,7 +258,6 @@ export default function ProjectManagement() {
                         <MobileDetail label="业务系统" value={project.businessSystemType} />
                         <MobileDetail label="归属团队" value={project.teamName} />
                         <MobileDetail label="创建人" value={project.creatorName} />
-                        <MobileDetail label="操作权限" value={project.permissionScope === 'team' ? '团队可操作' : '仅本人'} />
                         <MobileDetail label="业务项目ID" value={project.businessProjectId || '未填写'} />
                       </div>
                     </div>
@@ -262,9 +269,9 @@ export default function ProjectManagement() {
         </section>
       </div>
 
-      {isCreateModalOpen && (
+      {isFormModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
-          <div className="absolute inset-0 bg-black/30" onClick={closeModal} />
+          <div className="absolute inset-0 bg-black/30" onClick={closeFormModal} />
           <div className="relative z-10 w-full max-w-3xl rounded-[18px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
             <div className="flex items-center justify-between border-b border-black/5 px-6 py-5 md:px-8">
               <div>
@@ -273,7 +280,7 @@ export default function ProjectManagement() {
               </div>
               <button
                 type="button"
-                onClick={closeModal}
+                onClick={closeFormModal}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-transparent text-gray-400 transition-colors hover:border-black/10 hover:text-gray-800"
                 aria-label="关闭新建项目弹窗"
               >
@@ -318,43 +325,97 @@ export default function ProjectManagement() {
                   />
                 </Field>
 
-                <Field label="归属团队" required error={errors.teamName}>
-                  <select
-                    value={form.teamName}
-                    onChange={(event) => setForm((current) => ({ ...current, teamName: event.target.value }))}
-                    className={INPUT_CLASSNAME}
-                  >
-                    <option value="">请选择归属团队</option>
-                    {TEAM_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-
                 <Field label="项目创建人" required error={errors.creatorName}>
                   <input
                     type="text"
                     value={form.creatorName}
-                    onChange={(event) => setForm((current) => ({ ...current, creatorName: event.target.value }))}
-                    className={INPUT_CLASSNAME}
+                    readOnly
+                    className={`${INPUT_CLASSNAME} bg-[#fafafa] text-gray-500`}
                   />
                 </Field>
 
-                <Field label="操作权限" required error={errors.permissionScope}>
+                <Field label="项目归属" required error={errors.orgLevel1} className="md:col-span-2">
+                  <div className="space-y-2">
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <select
+                        value={form.orgLevel1}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            orgLevel1: event.target.value,
+                            orgLevel2: '',
+                            teamName: '',
+                          }))
+                        }
+                        className={INPUT_CLASSNAME}
+                      >
+                        <option value="">请选择一级机构</option>
+                        {level1Options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={form.orgLevel2}
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            orgLevel2: event.target.value,
+                            teamName: formatTeamName(current.orgLevel1, event.target.value),
+                          }))
+                        }
+                        className={clsx(
+                          INPUT_CLASSNAME,
+                          !form.orgLevel1 && 'cursor-not-allowed bg-[#f7f7f8] text-gray-400'
+                        )}
+                        disabled={!form.orgLevel1}
+                      >
+                        <option value="">
+                          {form.orgLevel1 ? '请选择二级机构（可选）' : '请先选择一级机构'}
+                        </option>
+                        {level2Options.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="text-xs text-gray-400">一级机构必选，二级机构可选</div>
+                  </div>
+                </Field>
+
+                <Field label="操作权限" required error={errors.permissionScope} className="md:col-span-2">
                   <div className="space-y-3">
                     <PermissionOption
                       title="仅限本人操作"
-                      description="创建后归入个人项目"
+                      description="项目归入个人空间，仅本人可操作"
                       checked={form.permissionScope === 'self'}
-                      onChange={() => setForm((current) => ({ ...current, permissionScope: 'self' }))}
+                      onChange={() =>
+                        setForm((current) => ({
+                          ...current,
+                          permissionScope: 'self',
+                        }))
+                      }
                     />
                     <PermissionOption
                       title="归属团队可操作"
-                      description="创建后归入团队项目"
+                      description="项目归入团队空间，团队成员可协作操作"
                       checked={form.permissionScope === 'team'}
-                      onChange={() => setForm((current) => ({ ...current, permissionScope: 'team' }))}
+                      onChange={() =>
+                        setForm((current) => {
+                          if (!current.orgLevel1) {
+                            setErrors((prev) => ({ ...prev, orgLevel1: '请选择一级机构' }));
+                            toast.show('请先选择项目归属（一级机构）');
+                            return current;
+                          }
+                          return {
+                            ...current,
+                            permissionScope: 'team',
+                          };
+                        })
+                      }
                     />
                   </div>
                 </Field>
@@ -363,7 +424,7 @@ export default function ProjectManagement() {
               <div className="flex items-center justify-end gap-3 border-t border-black/5 px-6 py-4 md:px-8">
                 <button
                   type="button"
-                  onClick={closeModal}
+                  onClick={closeFormModal}
                   className="inline-flex h-10 items-center rounded-[10px] border border-black/10 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                 >
                   取消
@@ -450,14 +511,16 @@ function Field({
   required,
   error,
   children,
+  className,
 }: {
   label: string;
   required?: boolean;
   error?: string;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <label className="block">
+    <label className={clsx('block', className)}>
       <div className="mb-2 flex items-center gap-1 text-sm font-medium text-gray-800">
         <span>{label}</span>
         {required ? <span className="text-red-500">*</span> : null}
