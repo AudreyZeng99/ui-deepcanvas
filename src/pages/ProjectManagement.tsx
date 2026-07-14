@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Briefcase, ChevronRight, Plus, Users, X } from 'lucide-react';
+import { Briefcase, ChevronRight, Plus, Search, Users, X } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useToast } from '../components/ToastProvider';
@@ -43,6 +43,7 @@ export default function ProjectManagement() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<ProjectTab>('personal');
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterBusinessSystemType, setFilterBusinessSystemType] = useState('');
   const [filterBusinessProjectId, setFilterBusinessProjectId] = useState('');
   const [projects, setProjects] = useState<ManagedProject[]>(() => readManagedProjects());
@@ -75,12 +76,27 @@ export default function ProjectManagement() {
 
   const visibleProjects = useMemo(() => {
     const source = activeTab === 'personal' ? personalProjects : teamProjects;
+    const query = searchQuery.trim().toLowerCase();
     return source
+      .filter((project) =>
+        query
+          ? [
+              project.name,
+              project.businessProjectId,
+              project.businessSystemType,
+              project.teamName,
+              project.creatorName,
+            ]
+              .join(' ')
+              .toLowerCase()
+              .includes(query)
+          : true
+      )
       .filter((project) =>
         filterBusinessSystemType ? project.businessSystemType === filterBusinessSystemType : true
       )
       .filter((project) => (filterBusinessProjectId ? project.businessProjectId === filterBusinessProjectId : true));
-  }, [activeTab, filterBusinessProjectId, filterBusinessSystemType, personalProjects, teamProjects]);
+  }, [activeTab, filterBusinessProjectId, filterBusinessSystemType, personalProjects, searchQuery, teamProjects]);
 
   const resetForm = () => {
     setForm(INITIAL_FORM);
@@ -134,7 +150,7 @@ export default function ProjectManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-white px-8 py-8 md:px-12">
+    <div className="min-h-screen bg-background px-8 py-8 md:px-12">
       <div className="mx-auto max-w-7xl">
         <header className="flex flex-col gap-6 border-b border-black/5 pb-6 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
@@ -145,7 +161,7 @@ export default function ProjectManagement() {
             <button
               type="button"
               onClick={openCreateModal}
-              className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-black/10 px-4 text-sm font-semibold text-gray-900 transition-colors hover:bg-black hover:text-white"
+              className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
             >
               <Plus size={16} />
               新建项目
@@ -154,7 +170,32 @@ export default function ProjectManagement() {
         </header>
 
         <section className="pt-6">
-          <div className="flex flex-col gap-4 border-b border-black/5 pb-4 md:flex-row md:items-center md:justify-between">
+          <div className="pb-4">
+            <div className="flex max-w-md items-center gap-2">
+              <div className="relative flex-1">
+                <Search
+                  size={16}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="搜索项目名称 / 业务项目ID / 归属团队"
+                  className="h-10 w-full rounded-[10px] border border-black/10 bg-background pl-9 pr-3 text-sm text-gray-700 outline-none transition-colors placeholder:text-gray-400 focus:border-accent-primary"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setSearchQuery((current) => current.trim())}
+                className="inline-flex h-10 items-center rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
+              >
+                搜索
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-4 border-b border-black/5 pb-4 pt-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-8">
               <TabButton
                 label="个人项目"
@@ -175,7 +216,7 @@ export default function ProjectManagement() {
             <select
               value={filterBusinessSystemType}
               onChange={(event) => setFilterBusinessSystemType(event.target.value)}
-              className="h-10 min-w-[180px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-black/30"
+              className="h-10 min-w-[180px] rounded-[10px] border border-black/10 bg-background px-3 text-sm text-gray-700 outline-none transition-colors focus:border-accent-primary"
             >
               <option value="">关联业务系统类型</option>
               {BUSINESS_SYSTEM_OPTIONS.map((option) => (
@@ -187,7 +228,7 @@ export default function ProjectManagement() {
             <select
               value={filterBusinessProjectId}
               onChange={(event) => setFilterBusinessProjectId(event.target.value)}
-              className="h-10 min-w-[220px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-black/30"
+              className="h-10 min-w-[220px] rounded-[10px] border border-black/10 bg-background px-3 text-sm text-gray-700 outline-none transition-colors focus:border-accent-primary"
             >
               <option value="">关联业务项目ID</option>
               {businessProjectIdOptions.map((id) => (
@@ -202,8 +243,9 @@ export default function ProjectManagement() {
             <EmptyState activeTab={activeTab} onCreate={openCreateModal} />
           ) : (
             <div className="pt-4">
-              <div className="hidden grid-cols-[minmax(260px,1.6fr)_1fr_1.2fr_1fr_120px] gap-6 border-b border-black/5 pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 md:grid">
-                <span>项目</span>
+              <div className="hidden grid-cols-[minmax(240px,1.4fr)_1fr_1fr_1.1fr_1.1fr_120px] gap-6 border-b border-black/5 pb-3 text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 md:grid">
+                <span>项目名称</span>
+                <span>业务项目ID</span>
                 <span>业务系统</span>
                 <span>归属团队</span>
                 <span>创建人</span>
@@ -217,20 +259,18 @@ export default function ProjectManagement() {
                     className="border-b border-black/5 py-4 transition-colors hover:bg-black/[0.015] cursor-pointer"
                     onClick={() => navigate(`/project-management/${encodeURIComponent(project.id)}`)}
                   >
-                    <div className="hidden grid-cols-[minmax(260px,1.6fr)_1fr_1.2fr_1fr_120px] gap-6 md:grid">
+                    <div className="hidden grid-cols-[minmax(240px,1.4fr)_1fr_1fr_1.1fr_1.1fr_120px] gap-6 md:grid">
                       <div className="min-w-0">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center border border-black/10 bg-[#fafafa] text-gray-700">
+                          <div className="flex h-9 w-9 items-center justify-center border border-black/10 bg-background text-gray-700">
                             {project.permissionScope === 'team' ? <Users size={16} /> : <Briefcase size={16} />}
                           </div>
                           <div className="min-w-0">
                             <div className="truncate text-sm font-semibold text-gray-950">{project.name}</div>
-                            <div className="mt-1 truncate text-xs text-gray-400">
-                              业务项目ID：{project.businessProjectId || '未填写'}
-                            </div>
                           </div>
                         </div>
                       </div>
+                      <div className="flex items-center text-sm text-gray-600">{project.businessProjectId || '未填写'}</div>
                       <div className="flex items-center text-sm text-gray-600">{project.businessSystemType}</div>
                       <div className="flex items-center text-sm text-gray-600">{project.teamName}</div>
                       <div className="flex flex-col justify-center text-sm text-gray-600">
@@ -255,10 +295,11 @@ export default function ProjectManagement() {
                         <div className="text-xs text-gray-400">{formatDate(project.createdAt)}</div>
                       </div>
                       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                        <MobileDetail label="项目名称" value={project.name} />
+                        <MobileDetail label="业务项目ID" value={project.businessProjectId || '未填写'} />
                         <MobileDetail label="业务系统" value={project.businessSystemType} />
                         <MobileDetail label="归属团队" value={project.teamName} />
                         <MobileDetail label="创建人" value={project.creatorName} />
-                        <MobileDetail label="业务项目ID" value={project.businessProjectId || '未填写'} />
                       </div>
                     </div>
                   </article>
@@ -431,7 +472,7 @@ export default function ProjectManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="inline-flex h-10 items-center rounded-[10px] bg-black px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-900"
+                  className="inline-flex h-10 items-center rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
                 >
                   创建项目
                 </button>
@@ -469,7 +510,7 @@ function TabButton({
       <span
         className={clsx(
           'absolute bottom-0 left-0 h-px w-full transition-colors',
-          isActive ? 'bg-gray-900' : 'bg-transparent'
+          isActive ? 'bg-accent-primary' : 'bg-transparent'
         )}
       />
     </button>
@@ -497,7 +538,7 @@ function EmptyState({
       <button
         type="button"
         onClick={onCreate}
-        className="mt-7 inline-flex h-10 items-center gap-2 rounded-[10px] border border-black/10 px-4 text-sm font-semibold text-gray-900 transition-colors hover:bg-black hover:text-white"
+        className="mt-7 inline-flex h-10 items-center gap-2 rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
       >
         <Plus size={16} />
         新建项目
@@ -555,10 +596,10 @@ function PermissionOption({
     <label
       className={clsx(
         'flex cursor-pointer items-start gap-3 rounded-[12px] border px-4 py-3 transition-colors',
-        checked ? 'border-black bg-black/[0.02]' : 'border-black/10 hover:bg-gray-50'
+        checked ? 'border-accent-primary bg-accent-primary/5' : 'border-black/10 hover:bg-gray-50'
       )}
     >
-      <input type="radio" checked={checked} onChange={onChange} className="mt-1" />
+      <input type="radio" checked={checked} onChange={onChange} className="mt-1 accent-accent-primary" />
       <div>
         <div className="text-sm font-medium text-gray-900">{title}</div>
         <div className="mt-1 text-xs text-gray-500">{description}</div>
@@ -568,4 +609,4 @@ function PermissionOption({
 }
 
 const INPUT_CLASSNAME =
-  'h-11 w-full rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-black/30';
+  'h-11 w-full rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-accent-primary';

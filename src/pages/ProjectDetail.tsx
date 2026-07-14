@@ -1,16 +1,13 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Search, Sparkles, Star, X } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Search, Star, X } from 'lucide-react';
 import clsx from 'clsx';
 
 import { useToast } from '../components/ToastProvider';
 import {
-  CURRENT_USER_NAME,
   type ManagedProject,
   type ProjectTemplatePlacement,
-  type ProjectFormState,
   formatTeamName,
-  getLevel2Options,
   readManagedProjects,
   writeManagedProjects,
 } from '../utils/managedProjects';
@@ -43,9 +40,6 @@ const COLOR_OPTIONS: Array<{ id: ToneColor; label: string }> = [
 ];
 const IMAGE_SIZE_SECTION_ORDER: ImageSize[] = ['hero_banner', 'large_banner', 'small_banner'];
 
-const INPUT_CLASSNAME =
-  'h-11 w-full rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-black/30';
-
 function formatDateTime(timestamp: number) {
   if (!Number.isFinite(timestamp)) return '-';
   return new Date(timestamp).toLocaleString('zh-CN', {
@@ -57,17 +51,6 @@ function formatDateTime(timestamp: number) {
     second: '2-digit',
   });
 }
-
-const INITIAL_FORM: ProjectFormState = {
-  name: '',
-  businessSystemType: '',
-  businessProjectId: '',
-  teamName: '',
-  orgLevel1: '',
-  orgLevel2: '',
-  creatorName: CURRENT_USER_NAME,
-  permissionScope: 'self',
-};
 
 type SortMode = 'latest' | 'hottest' | 'usage';
 
@@ -83,9 +66,11 @@ export default function ProjectDetail() {
   const projectId = params.projectId ? decodeURIComponent(params.projectId) : '';
 
   const [projects, setProjects] = useState<ManagedProject[]>(() => readManagedProjects());
-  const [isScopeModalOpen, setIsScopeModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [pendingTemplate, setPendingTemplate] = useState<LayerTemplate | null>(null);
+  const [isScopeEditing, setIsScopeEditing] = useState(false);
+  const [pendingScopeConfirm, setPendingScopeConfirm] = useState(false);
+  const [permissionScopeDraft, setPermissionScopeDraft] = useState<ManagedProject['permissionScope']>('self');
   const [templateQuery, setTemplateQuery] = useState('');
   const [templateSortMode, setTemplateSortMode] = useState<SortMode>('latest');
   const [templateImageSize, setTemplateImageSize] = useState<ImageSize | ''>('');
@@ -94,8 +79,6 @@ export default function ProjectDetail() {
   const [templateBenefitType, setTemplateBenefitType] = useState<BenefitType | ''>('');
   const [templateScope, setTemplateScope] = useState<LibraryScope | ''>('');
   const [templateOnlyFavorites, setTemplateOnlyFavorites] = useState(false);
-  const [form, setForm] = useState<ProjectFormState>(INITIAL_FORM);
-  const [errors, setErrors] = useState<Partial<Record<keyof ProjectFormState, string>>>({});
   const [templates, setTemplates] = useState<LayerTemplate[]>(() => readLayerTemplates());
 
   useEffect(() => {
@@ -168,52 +151,45 @@ export default function ProjectDetail() {
     templates,
   ]);
 
-  const level1Options = useMemo(() => ['深圳分行', '广州分行', '总行数字金融'], []);
-  const level2Options = getLevel2Options(form.orgLevel1);
-
-  const openScopeModal = () => {
+  const openScopeEditor = () => {
     if (!project) return;
-    setForm({
-      name: '',
-      businessSystemType: '',
-      businessProjectId: '',
-      teamName: project.teamName,
-      orgLevel1: project.orgLevel1,
-      orgLevel2: project.orgLevel2,
-      creatorName: project.creatorName,
-      permissionScope: project.permissionScope,
-    });
-    setErrors({});
-    setIsScopeModalOpen(true);
+    setPermissionScopeDraft(project.permissionScope);
+    setIsScopeEditing(true);
   };
 
-  const closeScopeModal = () => {
-    setIsScopeModalOpen(false);
-    setErrors({});
+  const cancelScopeEditor = () => {
+    setIsScopeEditing(false);
+    setPendingScopeConfirm(false);
   };
 
-  const handleSave = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const requestSaveScope = () => {
     if (!project) return;
+    if (permissionScopeDraft === project.permissionScope) {
+      setIsScopeEditing(false);
+      return;
+    }
+    if (permissionScopeDraft === 'team' && !project.orgLevel1) {
+      toast.show('请先选择项目归属（一级机构）后再切换为团队可操作');
+      return;
+    }
+    setPendingScopeConfirm(true);
+  };
 
-    const nextErrors: Partial<Record<keyof ProjectFormState, string>> = {};
-    if (!form.permissionScope) nextErrors.permissionScope = '请选择操作权限';
-    if (!form.orgLevel1) nextErrors.orgLevel1 = '请选择一级机构';
-
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
-
+  const confirmSaveScope = () => {
+    if (!project) return;
+    if (permissionScopeDraft === project.permissionScope) {
+      setPendingScopeConfirm(false);
+      setIsScopeEditing(false);
+      return;
+    }
     const updated: ManagedProject = {
       ...project,
-      permissionScope: form.permissionScope,
-      orgLevel1: form.orgLevel1,
-      orgLevel2: form.orgLevel2,
-      teamName: formatTeamName(form.orgLevel1, form.orgLevel2),
+      permissionScope: permissionScopeDraft,
     };
-
     setProjects((current) => current.map((p) => (p.id === updated.id ? updated : p)));
-    toast.show('已调整项目归属（模拟）');
-    closeScopeModal();
+    toast.show('已更新操作权限（模拟）');
+    setPendingScopeConfirm(false);
+    setIsScopeEditing(false);
   };
 
   const applyTemplate = (template: LayerTemplate) => {
@@ -257,7 +233,7 @@ export default function ProjectDetail() {
 
   if (!project) {
     return (
-      <div className="min-h-screen bg-white px-8 py-8 md:px-12">
+      <div className="min-h-screen bg-background px-8 py-8 md:px-12">
         <div className="mx-auto max-w-5xl space-y-6">
           <button
             type="button"
@@ -277,7 +253,7 @@ export default function ProjectDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-white px-8 py-8 md:px-12">
+    <div className="min-h-screen bg-background px-8 py-8 md:px-12">
       <div className="mx-auto max-w-6xl space-y-6">
         <div className="flex flex-col gap-4 border-b border-black/5 pb-6 md:flex-row md:items-start md:justify-between">
           <button
@@ -293,33 +269,97 @@ export default function ProjectDetail() {
             <button
               type="button"
               onClick={() => setIsTemplateModalOpen(true)}
-              className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-black px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-900"
+              className="inline-flex h-10 items-center gap-2 rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
             >
               <Plus size={16} />
               模板选用
             </button>
-            <button
-              type="button"
-              onClick={openScopeModal}
-              className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-black/10 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-            >
-              <Sparkles size={16} />
-              项目归属调整
-            </button>
           </div>
         </div>
 
-        <section className="overflow-hidden border border-black/5 bg-white">
+        <section className="overflow-hidden border border-black/5 bg-background">
           <div className="flex items-center justify-between border-b border-black/5 px-4 py-3 md:px-6">
             <div className="text-sm font-semibold text-gray-950">项目信息</div>
-            <div className="text-xs text-gray-400">共 8 项</div>
+            <div className="text-xs text-gray-400">共 7 项</div>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3">
             <KeyField label="项目名称" value={project.name} />
             <KeyField label="关联业务系统类型" value={project.businessSystemType} />
             <KeyField label="关联业务项目ID" value={project.businessProjectId || '未填写'} />
-            <KeyField label="项目归属" value={project.permissionScope === 'team' ? '团队项目' : '个人项目'} />
-            <KeyField label="归属团队" value={project.teamName} />
+            <KeyField label="项目归属" value={formatTeamName(project.orgLevel1, project.orgLevel2) || '未设置'} />
+            <div className="border-b border-black/5 px-4 py-3 md:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-semibold text-gray-600">操作权限</div>
+                {isScopeEditing ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={cancelScopeEditor}
+                      className="inline-flex h-8 items-center rounded-[10px] border border-black/10 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      onClick={requestSaveScope}
+                      className="inline-flex h-8 items-center rounded-[10px] bg-accent-primary px-3 text-xs font-semibold text-white transition-colors hover:opacity-90"
+                    >
+                      保存
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={openScopeEditor}
+                    className="inline-flex h-8 items-center gap-2 rounded-[10px] border border-black/10 px-3 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-50"
+                  >
+                    <Pencil size={14} />
+                    编辑
+                  </button>
+                )}
+              </div>
+
+              {isScopeEditing ? (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    aria-pressed={permissionScopeDraft === 'self'}
+                    onClick={() => setPermissionScopeDraft('self')}
+                    className={clsx(
+                      'inline-flex h-10 items-center justify-center rounded-[10px] border px-3 text-sm font-semibold transition-colors',
+                      permissionScopeDraft === 'self'
+                        ? 'border-accent-primary bg-accent-primary text-white'
+                        : 'border-black/10 bg-background text-gray-700 hover:bg-gray-50'
+                    )}
+                  >
+                    仅限本人操作
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={permissionScopeDraft === 'team'}
+                    onClick={() => {
+                      if (!project.orgLevel1) {
+                        toast.show('请先选择项目归属（一级机构）');
+                        return;
+                      }
+                      setPermissionScopeDraft('team');
+                    }}
+                    className={clsx(
+                      'inline-flex h-10 items-center justify-center rounded-[10px] border px-3 text-sm font-semibold transition-colors',
+                      permissionScopeDraft === 'team'
+                        ? 'border-accent-primary bg-accent-primary text-white'
+                        : 'border-black/10 bg-background text-gray-700 hover:bg-gray-50'
+                    )}
+                  >
+                    归属团队可操作
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-1 text-sm font-semibold text-gray-950">
+                  {project.permissionScope === 'team' ? '归属团队可操作' : '仅限本人操作'}
+                </div>
+              )}
+            </div>
             <KeyField label="项目创建人" value={project.creatorName} />
             <KeyField
               label="创建时间"
@@ -330,11 +370,10 @@ export default function ProjectDetail() {
                 </div>
               }
             />
-            <KeyField label="已添加模板" value={`${assignedTemplateCards.length} 个`} />
           </div>
         </section>
 
-        <section className="border border-black/5 bg-[#fafafa] p-4 md:p-6">
+        <section className="border border-black/5 bg-card-light p-4 md:p-6">
           {assignedTemplateCards.length === 0 ? (
             <div className="flex min-h-[420px] items-center justify-center text-center">
               <div className="max-w-md px-6">
@@ -353,7 +392,7 @@ export default function ProjectDetail() {
                   </div>
                   <div className={getAssignedSectionGridClass(section.size)}>
                     {section.items.map((item) => (
-                      <article key={`${item.templateId}-${item.flowId}`} className="group overflow-hidden border border-black/10 bg-white">
+                      <article key={`${item.templateId}-${item.flowId}`} className="group overflow-hidden border border-black/10 bg-background">
                         <div className={clsx('relative w-full overflow-hidden bg-[#f3f4f6]', getAssignedCardAspectClass(section.size))}>
                           <img
                             src={item.template.previewUrl}
@@ -364,10 +403,6 @@ export default function ProjectDetail() {
                             <span className="text-[11px] font-medium">流程id：{item.flowId}</span>
                             <span className="text-[11px] font-medium">出图数：{item.outputCount}</span>
                           </div>
-                        </div>
-                        <div className="space-y-1.5 px-3 py-3">
-                          <div className="text-xs font-semibold text-gray-900 line-clamp-2">{item.template.name}</div>
-                          <div className="text-[11px] text-gray-500 line-clamp-1">{item.template.projectName}</div>
                         </div>
                       </article>
                     ))}
@@ -406,7 +441,7 @@ export default function ProjectDetail() {
                   value={templateQuery}
                   onChange={(event) => setTemplateQuery(event.target.value)}
                   placeholder="搜索图层模板名称 / 项目 / ID"
-                  className="h-11 w-full border border-black/10 bg-white pl-11 pr-4 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-black/30"
+                  className="h-11 w-full border border-black/10 bg-white pl-11 pr-4 text-sm text-gray-900 outline-none transition-colors placeholder:text-gray-400 focus:border-accent-primary"
                 />
               </div>
 
@@ -458,7 +493,7 @@ export default function ProjectDetail() {
                   className={clsx(
                     'ml-auto inline-flex h-10 items-center gap-2 rounded-[10px] border px-4 text-sm font-medium transition-colors',
                     templateOnlyFavorites
-                      ? 'border-black bg-black text-white'
+                      ? 'border-accent-primary bg-accent-primary text-white'
                       : 'border-black/10 bg-white text-gray-700 hover:bg-gray-50'
                   )}
                 >
@@ -470,7 +505,7 @@ export default function ProjectDetail() {
 
             <div className="max-h-[560px] overflow-y-auto px-6 py-6 md:px-8">
               {filteredTemplates.length === 0 ? (
-                <div className="flex min-h-[240px] items-center justify-center border border-dashed border-black/10 bg-[#fafafa] text-center">
+                <div className="flex min-h-[240px] items-center justify-center border border-dashed border-black/10 bg-card-light text-center">
                   <div className="max-w-md px-6">
                     <div className="text-base font-semibold text-gray-900">暂无匹配模板</div>
                     <div className="mt-2 text-sm text-gray-500">尝试切换图层库范围或调整搜索关键词。</div>
@@ -528,130 +563,44 @@ export default function ProjectDetail() {
         </div>
       )}
 
-      {isScopeModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8">
-          <div className="absolute inset-0 bg-black/30" onClick={closeScopeModal} />
-          <div className="relative z-10 w-full max-w-3xl rounded-[18px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.12)]">
-            <div className="flex items-center justify-between border-b border-black/5 px-6 py-5 md:px-8">
+      {pendingScopeConfirm ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/35" onClick={() => setPendingScopeConfirm(false)} />
+          <div className="relative z-10 w-full max-w-md overflow-hidden rounded-[18px] border border-black/10 bg-white shadow-[0_24px_60px_rgba(0,0,0,0.18)]">
+            <div className="border-b border-black/5 px-6 py-5">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Confirm</div>
+              <div className="mt-2 text-xl font-semibold tracking-[-0.03em] text-gray-950">确认修改操作权限</div>
+            </div>
+            <div className="space-y-3 px-6 py-5 text-sm leading-6 text-gray-600">
               <div>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">Project Assignment</div>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em] text-gray-950">项目归属调整</h2>
+                修改后操作权限将更新为：
+                <span className="ml-2 font-semibold text-gray-900">
+                  {permissionScopeDraft === 'team' ? '归属团队可操作' : '仅限本人操作'}
+                </span>
               </div>
+              <div className="rounded-[12px] border border-black/10 bg-[#fafafa] px-3 py-2 text-gray-600">
+                修改后会影响项目在“个人项目 / 团队项目”中的归类展示。
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 border-t border-black/5 px-6 py-4">
               <button
                 type="button"
-                onClick={closeScopeModal}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] border border-transparent text-gray-400 transition-colors hover:border-black/10 hover:text-gray-800"
-                aria-label="关闭项目归属调整弹窗"
+                onClick={() => setPendingScopeConfirm(false)}
+                className="inline-flex h-10 items-center rounded-[10px] border border-black/10 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
               >
-                <X size={18} />
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={confirmSaveScope}
+                className="inline-flex h-10 items-center rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
+              >
+                确认修改
               </button>
             </div>
-
-            <form onSubmit={handleSave}>
-              <div className="grid gap-6 px-6 py-6 md:grid-cols-2 md:px-8 md:py-8">
-                <Field label="项目归属" required error={errors.orgLevel1} className="md:col-span-2">
-                  <div className="space-y-2">
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <select
-                        value={form.orgLevel1}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            orgLevel1: event.target.value,
-                            orgLevel2: '',
-                            teamName: '',
-                          }))
-                        }
-                        className={INPUT_CLASSNAME}
-                      >
-                        <option value="">请选择一级机构</option>
-                        {level1Options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={form.orgLevel2}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            orgLevel2: event.target.value,
-                            teamName: formatTeamName(current.orgLevel1, event.target.value),
-                          }))
-                        }
-                        className={clsx(
-                          INPUT_CLASSNAME,
-                          !form.orgLevel1 && 'cursor-not-allowed bg-[#f7f7f8] text-gray-400'
-                        )}
-                        disabled={!form.orgLevel1}
-                      >
-                        <option value="">
-                          {form.orgLevel1 ? '请选择二级机构（可选）' : '请先选择一级机构'}
-                        </option>
-                        {level2Options.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="text-xs text-gray-400">一级机构必选，二级机构可选</div>
-                  </div>
-                </Field>
-
-                <Field label="操作权限" required error={errors.permissionScope} className="md:col-span-2">
-                  <div className="space-y-3">
-                    <PermissionOption
-                      title="仅限本人操作"
-                      description="项目归入个人空间，仅本人可操作"
-                      checked={form.permissionScope === 'self'}
-                      onChange={() =>
-                        setForm((current) => ({
-                          ...current,
-                          permissionScope: 'self',
-                        }))
-                      }
-                    />
-                    <PermissionOption
-                      title="归属团队可操作"
-                      description="项目归入团队空间，团队成员可协作操作"
-                      checked={form.permissionScope === 'team'}
-                      onChange={() =>
-                        setForm((current) => {
-                          if (!current.orgLevel1) {
-                            setErrors((prev) => ({ ...prev, orgLevel1: '请选择一级机构' }));
-                            toast.show('请先选择项目归属（一级机构）');
-                            return current;
-                          }
-                          return { ...current, permissionScope: 'team' };
-                        })
-                      }
-                    />
-                  </div>
-                </Field>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 border-t border-black/5 px-6 py-4 md:px-8">
-                <button
-                  type="button"
-                  onClick={closeScopeModal}
-                  className="inline-flex h-10 items-center rounded-[10px] border border-black/10 px-4 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
-                >
-                  取消
-                </button>
-                <button
-                  type="submit"
-                  className="inline-flex h-10 items-center rounded-[10px] bg-black px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-900"
-                >
-                  保存归属
-                </button>
-              </div>
-            </form>
           </div>
         </div>
-      )}
+      ) : null}
 
       {pendingTemplate && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -688,7 +637,7 @@ export default function ProjectDetail() {
               <button
                 type="button"
                 onClick={() => applyTemplate(pendingTemplate)}
-                className="inline-flex h-10 items-center rounded-[10px] bg-black px-4 text-sm font-semibold text-white transition-colors hover:bg-gray-900"
+                className="inline-flex h-10 items-center rounded-[10px] bg-accent-primary px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
               >
                 确认添加
               </button>
@@ -706,58 +655,6 @@ function KeyField({ label, value }: { label: string; value: ReactNode }) {
       <div className="text-xs font-semibold text-gray-600">{label}</div>
       <div className="mt-1 text-sm font-semibold text-gray-950">{value}</div>
     </div>
-  );
-}
-
-function Field({
-  label,
-  required,
-  error,
-  children,
-  className,
-}: {
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <label className={clsx('block', className)}>
-      <div className="mb-2 flex items-center gap-1 text-sm font-medium text-gray-800">
-        <span>{label}</span>
-        {required ? <span className="text-red-500">*</span> : null}
-      </div>
-      {children}
-      {error ? <div className="mt-2 text-xs text-red-500">{error}</div> : null}
-    </label>
-  );
-}
-
-function PermissionOption({
-  title,
-  description,
-  checked,
-  onChange,
-}: {
-  title: string;
-  description: string;
-  checked: boolean;
-  onChange: () => void;
-}) {
-  return (
-    <label
-      className={clsx(
-        'flex cursor-pointer items-start gap-3 rounded-[12px] border px-4 py-3 transition-colors',
-        checked ? 'border-black bg-black/[0.02]' : 'border-black/10 hover:bg-gray-50'
-      )}
-    >
-      <input type="radio" checked={checked} onChange={onChange} className="mt-1" />
-      <div>
-        <div className="text-sm font-medium text-gray-900">{title}</div>
-        <div className="mt-1 text-xs text-gray-500">{description}</div>
-      </div>
-    </label>
   );
 }
 
@@ -798,7 +695,9 @@ function ToolbarToggle({
       onClick={onClick}
       className={clsx(
         'inline-flex h-8 items-center rounded-[999px] border px-3 text-xs font-semibold transition-colors',
-        active ? 'border-black bg-black text-white' : 'border-black/10 bg-white text-gray-700 hover:bg-gray-50'
+        active
+          ? 'border-accent-primary bg-accent-primary text-white'
+          : 'border-black/10 bg-white text-gray-700 hover:bg-gray-50'
       )}
     >
       {label}
@@ -821,7 +720,7 @@ function ToolbarSelect({
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-10 min-w-[112px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-black/30"
+      className="h-10 min-w-[112px] rounded-[10px] border border-black/10 bg-white px-3 text-sm text-gray-700 outline-none transition-colors focus:border-accent-primary"
     >
       <option value="">{placeholder}</option>
       {options.map((option) => (
