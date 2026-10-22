@@ -6,6 +6,24 @@ import { useToast } from '../components/ToastProvider';
 import { useProject } from '../context/ProjectContext';
 import { createP2PShareRecord, makeTemplateElements } from '../utils/p2pShare';
 
+const PUBLIC_TEMPLATE_OFFICIAL_AUTHOR = '交心绘图官方帐号';
+
+function stableLikesCount(seed: string, min = 12, max = 2486) {
+  let h = 2166136261;
+  const s = `${seed}`;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return min + (h % (max - min + 1));
+}
+
+function formatLikesCount(v: number) {
+  if (v >= 10000) return `${(v / 10000).toFixed(1)}w`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+  return String(v);
+}
+
 // Mock Data Interfaces
 interface Template {
   id: string;
@@ -62,13 +80,6 @@ const generateMockData = (): Section[] => {
       title: '更多内容',
       subtitle: '通用底图、信息排版与更多灵感模板',
     },
-  ];
-
-  const authors = [
-    { name: '大大大林子lin', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix' },
-    { name: '星火YY', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka' },
-    { name: 'Ody0', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob' },
-    { name: '用户NrUiLk9y', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Cal' },
   ];
 
   // CNY Red/Gold themed images from Unsplash
@@ -157,10 +168,14 @@ const generateMockData = (): Section[] => {
         title: titlePool[i % titlePool.length],
         imageUrl: imagePool[i % imagePool.length],
         type: i % 3 === 0 ? 'video' : 'image',
-        author: authors[i % authors.length],
+        author: {
+          name: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Deepcanvas',
+        },
         stats: {
           views: Math.floor(Math.random() * 10000),
         },
+        likes: stableLikesCount(`${cat.id}-${i}-likes`),
       })),
     };
   });
@@ -216,13 +231,24 @@ function parseSizeValue(value: string, fallbackWidth: number, fallbackHeight: nu
 }
 
 type TemplateCardProps = {
-  item: Template;
+  item: Template & { likes?: number };
   onUseTemplate: (detail: PublicTemplateDetail) => void;
   onOpenDetail: (detail: PublicTemplateDetail) => void;
+  onToggleLike?: (itemId: string) => void;
+  isLiked?: boolean;
+  likesOverride?: number;
   className?: string;
 };
 
-const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: TemplateCardProps) => {
+const TemplateCard = ({
+  item,
+  onUseTemplate,
+  onOpenDetail,
+  onToggleLike,
+  isLiked = false,
+  likesOverride,
+  className,
+}: TemplateCardProps) => {
   const toast = useToast();
   const detail: PublicTemplateDetail = {
     id: item.id,
@@ -234,6 +260,7 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: Template
     scene: resolveSceneLabelFromTemplateId(item.id),
     elements: ['元素：海报'],
   };
+  const likes = typeof likesOverride === 'number' ? likesOverride : (item.likes ?? stableLikesCount(`${item.id}-likes`));
   return (
     <div
       className={clsx('flex-shrink-0 group cursor-pointer flex flex-col gap-2', className ?? 'w-full')}
@@ -289,9 +316,31 @@ const TemplateCard = ({ item, onUseTemplate, onOpenDetail, className }: Template
         </button>
       </div>
 
-      <div className="flex items-center gap-2 px-1">
-        <img src={item.author.avatar} alt={item.author.name} className="w-5 h-5 rounded-full bg-gray-200" />
-        <span className="text-xs text-gray-500 truncate flex-1">{item.author.name}</span>
+      <div className="px-1 space-y-1">
+        <div className="text-sm font-semibold text-gray-950 line-clamp-1">{item.title}</div>
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0 overflow-hidden flex items-center justify-center text-[9px] font-bold text-gray-600">
+              <img src={item.author.avatar} alt="" className="w-full h-full object-cover" />
+            </div>
+            <span className="text-[11px] text-gray-500 truncate">{item.author.name}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLike?.(item.id);
+            }}
+            className={clsx(
+              'inline-flex items-center gap-1 shrink-0 transition-colors',
+              isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+            )}
+            aria-label={isLiked ? '取消点赞' : '点赞'}
+          >
+            <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+            <span className="text-[11px] font-semibold">{formatLikesCount(likes)}</span>
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -303,6 +352,7 @@ type TrafficTeamTemplate = {
   previewUrl: string;
   clickRate: number;
   useRate: number;
+  likes?: number;
 };
 
 const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
@@ -312,6 +362,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1520975897680-8f8cde0b7b1a?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.186,
     useRate: 0.72,
+    likes: 1286,
   },
   {
     id: 'traffic-2',
@@ -319,6 +370,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1557683311-eac922347aa1?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.171,
     useRate: 0.63,
+    likes: 948,
   },
   {
     id: 'traffic-3',
@@ -326,6 +378,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.158,
     useRate: 0.58,
+    likes: 812,
   },
   {
     id: 'traffic-4',
@@ -333,6 +386,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.149,
     useRate: 0.52,
+    likes: 734,
   },
   {
     id: 'traffic-5',
@@ -340,6 +394,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1557682260-96773eb01377?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.142,
     useRate: 0.47,
+    likes: 618,
   },
   {
     id: 'traffic-6',
@@ -347,6 +402,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.136,
     useRate: 0.44,
+    likes: 562,
   },
   {
     id: 'traffic-7',
@@ -354,6 +410,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1548625361-9f9392e2133f?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.128,
     useRate: 0.41,
+    likes: 498,
   },
   {
     id: 'traffic-8',
@@ -361,6 +418,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1613426742510-4497e8838507?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.121,
     useRate: 0.36,
+    likes: 441,
   },
   {
     id: 'traffic-9',
@@ -368,6 +426,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1611003446057-08c35359146c?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.113,
     useRate: 0.33,
+    likes: 387,
   },
   {
     id: 'traffic-10',
@@ -375,6 +434,7 @@ const TRAFFIC_TEAM_TEMPLATES: TrafficTeamTemplate[] = [
     previewUrl: 'https://images.unsplash.com/photo-1643940889271-70337c76742b?q=80&w=900&auto=format&fit=crop',
     clickRate: 0.102,
     useRate: 0.29,
+    likes: 312,
   },
 ];
 
@@ -383,13 +443,25 @@ const TEAM_TEMPLATE_FAVORITES_KEY = 'trae_deepcanvas_team_template_favorites_v1'
 type TrafficTemplateCardProps = {
   template: TrafficTeamTemplate;
   isFavorite: boolean;
+  authorName?: string;
+  isLiked?: boolean;
+  onToggleLike?: (templateId: string) => void;
   onToggleFavorite: (templateId: string) => void;
   onDoSame: (template: TrafficTeamTemplate) => void;
 };
 
-const TrafficTemplateCard = ({ template, isFavorite, onToggleFavorite, onDoSame }: TrafficTemplateCardProps) => {
+const TrafficTemplateCard = ({
+  template,
+  isFavorite,
+  authorName = '团队运营 OA',
+  isLiked = false,
+  onToggleLike,
+  onToggleFavorite,
+  onDoSame,
+}: TrafficTemplateCardProps) => {
   const clickRateText = `${(template.clickRate * 100).toFixed(1)}%`;
   const useRateText = `${(template.useRate * 100).toFixed(0)}%`;
+  const likes = template.likes ?? stableLikesCount(`${template.id}-likes`);
 
   return (
     <div className="w-full group cursor-pointer">
@@ -426,9 +498,32 @@ const TrafficTemplateCard = ({ template, isFavorite, onToggleFavorite, onDoSame 
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
-          <div className="text-sm font-semibold text-gray-900 line-clamp-2">{template.title}</div>
-          <div className="flex items-center gap-2 text-xs text-gray-600">
+        <div className="p-4 space-y-2">
+          <div className="text-sm font-semibold text-gray-950 line-clamp-2">{template.title}</div>
+          <div className="flex items-center justify-between gap-3 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-[9px] font-bold text-gray-600 overflow-hidden">
+                {authorName.trim().slice(0, 1)}
+              </div>
+              <span className="text-[11px] text-gray-500 truncate">{authorName}</span>
+            </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLike?.(template.id);
+              }}
+              className={clsx(
+                'inline-flex items-center gap-1 shrink-0 transition-colors',
+                isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+              )}
+              aria-label={isLiked ? '取消点赞' : '点赞'}
+            >
+              <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+              <span className="text-[11px] font-semibold">{formatLikesCount(likes)}</span>
+            </button>
+          </div>
+          <div className="flex items-center gap-2 text-[11px] text-gray-600 pt-1">
             <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5">点击率 {clickRateText}</span>
             <span className="px-2 py-1 rounded-full bg-gray-50 border border-black/5">使用率 {useRateText}</span>
           </div>
@@ -442,10 +537,26 @@ type TeamTemplateCardProps = {
   title: string;
   previewUrl?: string;
   teamName: string;
+  authorName?: string;
+  likes?: number;
+  isLiked?: boolean;
+  onToggleLike?: () => void;
   onDoSame: (payload: { title: string; previewUrl?: string }) => void;
 };
 
-const TeamTemplateCard = ({ title, previewUrl, teamName, onDoSame }: TeamTemplateCardProps) => {
+const TeamTemplateCard = ({
+  title,
+  previewUrl,
+  teamName,
+  authorName,
+  likes,
+  isLiked = false,
+  onToggleLike,
+  onDoSame,
+}: TeamTemplateCardProps) => {
+  const resolvedLikes = typeof likes === 'number' ? likes : stableLikesCount(`${title}-${teamName}-likes`);
+  const resolvedAuthor =
+    typeof authorName === 'string' && authorName.trim() ? authorName.trim() : `${teamName} · OA 成员`;
   return (
     <div className="flex-shrink-0 w-full group cursor-pointer flex flex-col gap-2">
       <div className="relative aspect-[9/16] rounded-xl overflow-hidden bg-gray-100 border border-gray-100 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
@@ -475,11 +586,32 @@ const TeamTemplateCard = ({ title, previewUrl, teamName, onDoSame }: TeamTemplat
         </button>
       </div>
 
-      <div className="flex items-center gap-2 px-1">
-        <span className="text-xs text-gray-500 truncate flex-1">{title}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-black/5">
-          {teamName}
-        </span>
+      <div className="px-1 space-y-1">
+        <div className="text-sm font-semibold text-gray-950 line-clamp-1">{title}</div>
+        <div className="flex items-center justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-[9px] font-bold text-gray-600 overflow-hidden">
+              {resolvedAuthor.trim().slice(0, 1)}
+            </div>
+            <span className="text-[11px] text-gray-500 truncate">{resolvedAuthor}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLike?.();
+            }}
+            className={clsx(
+              'inline-flex items-center gap-1 shrink-0 transition-colors',
+              isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+            )}
+            aria-label={isLiked ? '取消点赞' : '点赞'}
+          >
+            <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+            <span className="text-[11px] font-semibold">{formatLikesCount(resolvedLikes)}</span>
+          </button>
+        </div>
+        <div className="text-[10px] text-gray-500 truncate">{teamName}</div>
       </div>
     </div>
   );
@@ -546,7 +678,8 @@ function buildFakeTemplateResults(query: string, count: number): FakeTemplateRes
         id: `search-${matchedSection.id}-${i + 1}`,
         title,
         previewUrl: baseItem.imageUrl,
-        authorName: baseItem.author.name,
+        authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+        likes: stableLikesCount(`search-${matchedSection.id}-${i + 1}-likes`),
         elements: baseElements,
         width: size.width,
         height: size.height,
@@ -565,6 +698,7 @@ function buildFakeTemplateResults(query: string, count: number): FakeTemplateRes
       title,
       previewUrl: buildMockSvgDataUrl(seed, title),
       authorName: authors[i % authors.length],
+      likes: stableLikesCount(`fake-${seed}-likes`),
       elements: baseElements,
       width: size.width,
       height: size.height,
@@ -599,6 +733,16 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
     }
   });
   const [activeTemplateDetail, setActiveTemplateDetail] = useState<PublicTemplateDetail | null>(null);
+  const [likedTemplateIds, setLikedTemplateIds] = useState<Set<string>>(() => new Set());
+
+  const toggleTemplateLike = (templateId: string) => {
+    setLikedTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      return next;
+    });
+  };
 
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const teamId = searchParams.get('teamId') || 'team-1';
@@ -983,6 +1127,8 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                           item={item}
                           onUseTemplate={openTemplateInPublicCanvas}
                           onOpenDetail={(detail) => setActiveTemplateDetail(detail)}
+                          onToggleLike={toggleTemplateLike}
+                          isLiked={likedTemplateIds.has(item.id)}
                           className="w-[160px] sm:w-[180px]"
                         />
                       ))}
@@ -1040,6 +1186,11 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                       scene: resolveSceneLabelFromTemplateId(item.id),
                       elements: item.elements,
                     };
+                    const likes =
+                      typeof (item as FakeTemplateResult & { likes?: number }).likes === 'number'
+                        ? ((item as FakeTemplateResult & { likes?: number }).likes as number)
+                        : stableLikesCount(`${item.id}-likes`);
+                    const isLiked = likedTemplateIds.has(item.id);
 
                     return (
                       <div
@@ -1078,11 +1229,31 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                           </button>
                         </div>
 
-                        <div className="flex items-center gap-2 px-1">
-                          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
-                            {item.authorName.trim().slice(0, 1)}
+                        <div className="px-1 space-y-1">
+                          <div className="text-sm font-semibold text-gray-950 line-clamp-1">{item.title}</div>
+                          <div className="flex items-center justify-between gap-3 min-w-0">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-[9px] font-bold text-gray-600 overflow-hidden">
+                                {item.authorName.trim().slice(0, 1)}
+                              </div>
+                              <span className="text-[11px] text-gray-500 truncate">{item.authorName}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleTemplateLike(item.id);
+                              }}
+                              className={clsx(
+                                'inline-flex items-center gap-1 shrink-0 transition-colors',
+                                isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+                              )}
+                              aria-label={isLiked ? '取消点赞' : '点赞'}
+                            >
+                              <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+                              <span className="text-[11px] font-semibold">{formatLikesCount(likes)}</span>
+                            </button>
                           </div>
-                          <span className="text-xs text-gray-500 truncate flex-1">{item.authorName}</span>
                         </div>
                       </div>
                     );
@@ -1111,6 +1282,11 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                     scene: resolveSceneLabelFromTemplateId(item.id),
                     elements: item.elements,
                   };
+                  const likes =
+                    typeof (item as FakeTemplateResult & { likes?: number }).likes === 'number'
+                      ? ((item as FakeTemplateResult & { likes?: number }).likes as number)
+                      : stableLikesCount(`${item.id}-likes`);
+                  const isLiked = likedTemplateIds.has(item.id);
 
                   return (
                     <div
@@ -1149,11 +1325,31 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-2 px-1">
-                        <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
-                          {item.authorName.trim().slice(0, 1)}
+                      <div className="px-1 space-y-1">
+                        <div className="text-sm font-semibold text-gray-950 line-clamp-1">{item.title}</div>
+                        <div className="flex items-center justify-between gap-3 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-4 h-4 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-[9px] font-bold text-gray-600 overflow-hidden">
+                              {item.authorName.trim().slice(0, 1)}
+                            </div>
+                            <span className="text-[11px] text-gray-500 truncate">{item.authorName}</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleTemplateLike(item.id);
+                            }}
+                            className={clsx(
+                              'inline-flex items-center gap-1 shrink-0 transition-colors',
+                              isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+                            )}
+                            aria-label={isLiked ? '取消点赞' : '点赞'}
+                          >
+                            <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+                            <span className="text-[11px] font-semibold">{formatLikesCount(likes)}</span>
+                          </button>
                         </div>
-                        <span className="text-xs text-gray-500 truncate flex-1">{item.authorName}</span>
                       </div>
                     </div>
                   );
@@ -1199,6 +1395,9 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                         key={template.id}
                         template={template}
                         isFavorite={teamTemplateFavorites.has(template.id)}
+                        authorName="流量模板运营 OA"
+                        isLiked={likedTemplateIds.has(template.id)}
+                        onToggleLike={toggleTemplateLike}
                         onToggleFavorite={toggleTeamTemplateFavorite}
                         onDoSame={(t) => doSameFromPreview(t.title, t.previewUrl, 1920, 1080)}
                       />
@@ -1236,6 +1435,10 @@ export default function Templates({ scope: scopeOverride }: { scope?: TemplatesS
                           title={item.title}
                           previewUrl={item.previewUrl}
                           teamName={item.teamName}
+                          authorName={`${item.teamName} · OA 成员`}
+                          likes={stableLikesCount(`${item.id}-likes`)}
+                          isLiked={likedTemplateIds.has(item.id)}
+                          onToggleLike={() => toggleTemplateLike(item.id)}
                           onDoSame={(payload) => {
                             const url = payload.previewUrl || buildMockSvgDataUrl(payload.title, payload.title);
                             doSameFromPreview(payload.title, url, 1080, 1920);

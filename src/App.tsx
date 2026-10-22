@@ -89,7 +89,7 @@ function Layout() {
           <Route path="/tools/old-photo" element={<OldPhotoRestore />} />
           <Route path="/tools/material-batch-generator" element={<MaterialBatchGenerator />} />
         </Routes>
-        <RiskNotice />
+        {!isCanvasLike && <RiskNotice />}
       </main>
     </div>
   );

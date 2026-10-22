@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { memo, useEffect, useCallback, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Clock, Trash2, Folder, Share2, Heart, X, ArrowRight, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search } from 'lucide-react';
+import { Plus, Clock, Trash2, Folder, Share2, Heart, X, ArrowRight, Sparkles, Pencil, Download, Check, Users, ChevronDown, Search, SlidersHorizontal, Upload, Workflow, RefreshCcwDot } from 'lucide-react';
 import { Project, useProject, type PersonalAssetRecord } from '../context/ProjectContext';
 import clsx from 'clsx';
 import CreateCanvasModal from '../components/CreateCanvasModal';
@@ -19,6 +19,7 @@ type PublicProject = Pick<
   publishedAt: number;
   authorName: string;
   sourceProjectId?: string;
+  likes?: number;
 };
 
 type PublicTemplateDetail = {
@@ -38,6 +39,132 @@ const CURRENT_OA_STORAGE_KEY = 'trae_deepcanvas_current_oa_v1';
 const CURRENT_ORG_CODE_STORAGE_KEY = 'trae_deepcanvas_current_org_code_v1';
 const TEAM_MEMBERS_PAGE_SIZE = 10;
 
+const PUBLIC_TEMPLATE_OFFICIAL_AUTHOR = '交心绘图官方帐号';
+
+function stableLikesCount(seed: string, min = 12, max = 2486) {
+  let h = 2166136261;
+  const s = `${seed}`;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return min + (h % (max - min + 1));
+}
+
+function formatLikesCount(v: number) {
+  if (v >= 10000) return `${(v / 10000).toFixed(1)}w`;
+  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
+  return String(v);
+}
+
+const COMPLIANCE_OPTIONS = [
+  { id: 'all', label: '全部状态' },
+  { id: 'unprotected', label: '未消保' },
+  { id: 'processing', label: '消保中' },
+  { id: 'protected', label: '已消保' },
+  { id: 'experience_audit', label: '体验审核中' },
+  { id: 'experience_pass', label: '体验已通过' },
+  { id: 'experience_reject', label: '体验未通过' },
+  { id: 'compliance_pending', label: '合规待复核' },
+  { id: 'compliance_revise', label: '合规待修改' },
+  { id: 'compliance_publish', label: '可发布' },
+  { id: 'archived', label: '已归档' },
+] as const;
+
+type ComplianceStatusId = Exclude<(typeof COMPLIANCE_OPTIONS)[number]['id'], 'all'>;
+
+const COMPLIANCE_ID_SET = new Set<string>(COMPLIANCE_OPTIONS.map((o) => o.id));
+
+function resolveComplianceTone(status: ComplianceStatusId | 'all'): string {
+  switch (status) {
+    case 'protected':
+    case 'experience_pass':
+    case 'compliance_publish':
+      return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+    case 'processing':
+    case 'experience_audit':
+    case 'compliance_pending':
+      return 'bg-blue-50 text-blue-700 border-blue-100';
+    case 'unprotected':
+    case 'compliance_revise':
+    case 'experience_reject':
+      return 'bg-amber-50 text-amber-700 border-amber-100';
+    case 'archived':
+      return 'bg-gray-50 text-gray-600 border-gray-100';
+    default:
+      return 'bg-gray-50 text-gray-600 border-gray-100';
+  }
+}
+
+function resolveAssetComplianceStatus(asset: PersonalAssetRecord): ComplianceStatusId {
+  const raw = asset.meta?.complianceStatus;
+  if (typeof raw === 'string' && raw !== 'all' && COMPLIANCE_ID_SET.has(raw)) return raw as ComplianceStatusId;
+  const fallback = asset.meta?.compliance;
+  if (typeof fallback === 'string' && fallback !== 'all' && COMPLIANCE_ID_SET.has(fallback)) return fallback as ComplianceStatusId;
+  return 'unprotected';
+}
+
+function resolveAssetOrgCode(asset: PersonalAssetRecord, fallbackOrgCode: string): string {
+  const org = typeof asset.meta?.orgCode === 'string' ? asset.meta.orgCode.trim() : '';
+  return org || fallbackOrgCode;
+}
+
+function resolveAssetCreatorName(asset: PersonalAssetRecord, fallbackOaName: string): string {
+  const candidates = [
+    asset.meta?.creatorName,
+    asset.meta?.authorName,
+    asset.meta?.createdByName,
+    asset.meta?.createdBy,
+    asset.meta?.oaName,
+  ];
+  const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
+  return typeof resolved === 'string' && resolved.trim() ? resolved.trim() : fallbackOaName;
+}
+
+function resolveAssetCreatorOrg(asset: PersonalAssetRecord, fallbackOrgCode: string): string {
+  const candidates = [asset.meta?.creatorOrg, asset.meta?.creatorOrgCode, asset.meta?.orgName, asset.meta?.orgCode];
+  const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
+  return typeof resolved === 'string' && resolved.trim() ? resolved.trim() : fallbackOrgCode;
+}
+
+function getAssetCardTitle(asset: PersonalAssetRecord): string {
+  if (asset.kind === 'generated') return asset.prompt?.trim() ? asset.prompt.trim() : '文生图生成';
+  if (asset.kind === 'edited') return (typeof asset.meta?.tool === 'string' && asset.meta.tool.trim()) || asset.tool || '编辑生成';
+  return (typeof asset.meta?.source === 'string' && asset.meta.source.trim()) || '导出';
+}
+
+const PROVINCE_ORGS: readonly string[] = [
+  '北京分行', '天津分行', '上海分行', '重庆分行',
+  '广东省分行', '广州分行', '深圳分行', '珠海分行', '东莞分行', '佛山分行',
+  '江苏省分行', '南京分行', '苏州分行', '无锡分行', '常州分行', '南通分行',
+  '浙江省分行', '杭州分行', '宁波分行', '温州分行', '嘉兴分行', '绍兴分行', '金华分行',
+  '山东省分行', '济南分行', '青岛分行', '烟台分行', '潍坊分行',
+  '四川省分行', '成都分行', '绵阳分行', '德阳分行',
+  '湖北省分行', '武汉分行', '宜昌分行', '襄阳分行',
+  '湖南省分行', '长沙分行', '株洲分行',
+  '福建省分行', '福州分行', '厦门分行', '泉州分行',
+  '安徽省分行', '合肥分行', '芜湖分行',
+  '河北省分行', '石家庄分行', '唐山分行',
+  '河南省分行', '郑州分行', '洛阳分行',
+  '辽宁省分行', '沈阳分行', '大连分行',
+  '吉林省分行', '长春分行',
+  '黑龙江省分行', '哈尔滨分行',
+  '江西省分行', '南昌分行', '赣州分行',
+  '陕西省分行', '西安分行',
+  '山西省分行', '太原分行',
+  '云南省分行', '昆明分行',
+  '贵州省分行', '贵阳分行',
+  '广西壮族自治区分行', '南宁分行', '桂林分行',
+  '海南省分行', '海口分行',
+  '甘肃省分行', '兰州分行',
+  '内蒙古自治区分行', '呼和浩特分行',
+  '新疆维吾尔自治区分行', '乌鲁木齐分行',
+  '宁夏回族自治区分行', '银川分行',
+  '青海省分行', '西宁分行',
+  '西藏自治区分行', '拉萨分行',
+  '总行营业部',
+];
+
 function normalizeImageSrc(input: unknown): string {
   const raw = typeof input === 'string' ? input.trim() : '';
   if (!raw) return '';
@@ -46,6 +173,80 @@ function normalizeImageSrc(input: unknown): string {
   if ((raw.startsWith('http://') || raw.startsWith('https://')) && raw.includes(' ')) return encodeURI(raw);
   return raw;
 }
+
+type AssetCardProps = {
+  asset: PersonalAssetRecord;
+  isSelecting: boolean;
+  isSelected: boolean;
+  fallbackOrgCode: string;
+  onToggleSelected: (assetId: string) => void;
+  onOpenDetail: (asset: PersonalAssetRecord) => void;
+};
+
+const AssetCard = memo(function AssetCard({ asset, isSelecting, isSelected, fallbackOrgCode, onToggleSelected, onOpenDetail }: AssetCardProps) {
+  const orgCode = resolveAssetOrgCode(asset, fallbackOrgCode);
+  const status = resolveAssetComplianceStatus(asset);
+  const statusLabel = COMPLIANCE_OPTIONS.find((o) => o.id === status)?.label ?? '未消保';
+  const statusTone = resolveComplianceTone(status);
+  const title = getAssetCardTitle(asset);
+  const handleOpen = useCallback(() => {
+    if (isSelecting) {
+      onToggleSelected(asset.id);
+      return;
+    }
+    onOpenDetail(asset);
+  }, [asset, isSelecting, onOpenDetail, onToggleSelected]);
+  const handleToggle = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    onToggleSelected(asset.id);
+  }, [asset.id, onToggleSelected]);
+  return (
+    <div className="mb-4 break-inside-avoid">
+      <div
+        onClick={handleOpen}
+        className={clsx(
+          "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
+          isSelecting && "cursor-pointer select-none",
+          isSelecting && isSelected && "ring-2 ring-gray-300 border-gray-200"
+        )}
+      >
+        <div className="relative">
+          <img src={asset.url} alt={title} className="w-full h-auto object-cover" loading="lazy" decoding="async" />
+          <div className={clsx("absolute top-3 right-3 px-2.5 py-1 rounded-full border text-[11px] font-black shadow-sm backdrop-blur", statusTone)}>
+            {statusLabel}
+          </div>
+          {isSelecting && (
+            <button
+              type="button"
+              onClick={handleToggle}
+              className={clsx(
+                "absolute top-3 left-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
+                isSelected ? "bg-gray-800 border-gray-800 text-white" : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
+              )}
+              aria-pressed={isSelected}
+              title={isSelected ? '取消勾选' : '勾选'}
+            >
+              <Check size={16} strokeWidth={3} />
+            </button>
+          )}
+        </div>
+        <div className="p-3 space-y-1">
+          <div className="text-xs font-bold text-gray-900 line-clamp-2">{title}</div>
+          <div className="text-[11px] text-gray-500">{new Date(asset.createdAt).toLocaleString()}</div>
+          <div className="pt-1">
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-black/10 bg-gray-50 text-[10px] font-bold text-gray-600">{orgCode}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}, (prev, next) => {
+  if (prev.asset !== next.asset) return false;
+  if (prev.isSelecting !== next.isSelecting) return false;
+  if (prev.isSelected !== next.isSelected) return false;
+  if (prev.fallbackOrgCode !== next.fallbackOrgCode) return false;
+  return true;
+});
 
 function buildMockSvgDataUrl(seed: string, title: string, subtitle: string) {
   const safeTitle = title.replace(/[<>&"]/g, '');
@@ -130,7 +331,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 6,
-      authorName: '社区作者A',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-1'),
     },
     {
       id: 'public-2',
@@ -140,7 +342,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 10,
-      authorName: '社区作者B',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-2'),
     },
     {
       id: 'public-3',
@@ -150,7 +353,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 18,
-      authorName: '社区作者C',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-3'),
     },
     {
       id: 'public-4',
@@ -160,7 +364,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 30,
-      authorName: '社区作者D',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-4'),
     },
     {
       id: 'public-5',
@@ -170,7 +375,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 40,
-      authorName: '社区作者E',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-5'),
     },
     {
       id: 'public-6',
@@ -180,7 +386,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1548625361-9f9392e2133f?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 52,
-      authorName: '社区作者F',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-6'),
     },
     {
       id: 'public-7',
@@ -190,7 +397,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 70,
-      authorName: '社区作者G',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-7'),
     },
     {
       id: 'public-8',
@@ -200,7 +408,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 90,
-      authorName: '社区作者H',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-8'),
     },
     {
       id: 'public-9',
@@ -210,7 +419,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1545231097-cbd796f1d95d?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 110,
-      authorName: '社区作者I',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-9'),
     },
     {
       id: 'public-10',
@@ -220,7 +430,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1516455207990-7a41ce80f7ee?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 130,
-      authorName: '社区作者J',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-10'),
     },
     {
       id: 'public-11',
@@ -230,7 +441,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1520975916090-3105956dac38?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 150,
-      authorName: '社区作者K',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-11'),
     },
     {
       id: 'public-12',
@@ -240,7 +452,8 @@ function getDefaultPublicProjects(): PublicProject[] {
       thumbnail: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200&q=80',
       elements: [],
       publishedAt: now - 1000 * 60 * 60 * 170,
-      authorName: '社区作者L',
+      authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR,
+      likes: stableLikesCount('public-12'),
     },
   ];
 }
@@ -272,6 +485,7 @@ export default function Projects() {
     updateProject,
     saveProject,
     saveCurrentProjectAsNew,
+    recordGeneratedAssets,
   } = useProject();
 
   const space: SpaceMode = location.pathname.startsWith('/public') ? 'public' : 'personal';
@@ -296,6 +510,15 @@ export default function Projects() {
       return new Set();
     }
   });
+  const [likedPublicTemplateIds, setLikedPublicTemplateIds] = useState<Set<string>>(() => new Set());
+  const togglePublicTemplateLike = (templateId: string) => {
+    setLikedPublicTemplateIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(templateId)) next.delete(templateId);
+      else next.add(templateId);
+      return next;
+    });
+  };
   const [activePublicTemplateDetail, setActivePublicTemplateDetail] = useState<PublicTemplateDetail | null>(null);
   const [isHydrating, setIsHydrating] = useState(true);
   const [isCreateCanvasModalOpen, setIsCreateCanvasModalOpen] = useState(false);
@@ -304,8 +527,14 @@ export default function Projects() {
   const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(() => new Set());
   const [assetsTeamScopeId] = useState<'all' | 'unassigned' | string>('all');
   const [assetsOrgScopeId, setAssetsOrgScopeId] = useState<'all' | string>('all');
-  const [assetsComplianceScopeId, setAssetsComplianceScopeId] = useState<'all' | 'unprotected' | 'processing' | 'protected'>('all');
+  const [assetsComplianceScopeId, setAssetsComplianceScopeId] = useState<'all' | string>('all');
   const [activeAssetDetail, setActiveAssetDetail] = useState<PersonalAssetRecord | null>(null);
+  const [isAssetsFilterPanelOpen, setIsAssetsFilterPanelOpen] = useState(false);
+  const [isAssetsWorkflowMenuOpen, setIsAssetsWorkflowMenuOpen] = useState(false);
+  const [isAssetsSyncMenuOpen, setIsAssetsSyncMenuOpen] = useState(false);
+  const importPersonalAssetsInputRef = useRef<HTMLInputElement | null>(null);
+  const assetsWorkflowMenuRef = useRef<HTMLDivElement | null>(null);
+  const assetsSyncMenuRef = useRef<HTMLDivElement | null>(null);
   const [shareProjectId, setShareProjectId] = useState<string | null>(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [publicProjects] = useState<PublicProject[]>(() => {
@@ -617,22 +846,164 @@ export default function Projects() {
     return personalAssets.filter((a) => a.kind === 'exported');
   }, [personalAssets]);
 
-  const toggleAssetsSelecting = () => {
+  const generatedScopedItems = useMemo(() => {
+    if (assetsTeamScopeId === 'all') return generatedAssetItems;
+    if (assetsTeamScopeId === 'unassigned') {
+      return generatedAssetItems.filter((asset) => !asset.meta || typeof asset.meta?.teamId !== 'string' || !asset.meta.teamId.trim());
+    }
+    return generatedAssetItems.filter((asset) => typeof asset.meta?.teamId === 'string' && asset.meta.teamId === assetsTeamScopeId);
+  }, [generatedAssetItems, assetsTeamScopeId]);
+
+  const editedScopedItems = useMemo(() => {
+    if (assetsTeamScopeId === 'all') return editedAssetItems;
+    if (assetsTeamScopeId === 'unassigned') {
+      return editedAssetItems.filter((asset) => !asset.meta || typeof asset.meta?.teamId !== 'string' || !asset.meta.teamId.trim());
+    }
+    return editedAssetItems.filter((asset) => typeof asset.meta?.teamId === 'string' && asset.meta.teamId === assetsTeamScopeId);
+  }, [editedAssetItems, assetsTeamScopeId]);
+
+  const exportedScopedItems = useMemo(() => {
+    if (assetsTeamScopeId === 'all') return exportedAssetItems;
+    if (assetsTeamScopeId === 'unassigned') {
+      return exportedAssetItems.filter((asset) => !asset.meta || typeof asset.meta?.teamId !== 'string' || !asset.meta.teamId.trim());
+    }
+    return exportedAssetItems.filter((asset) => typeof asset.meta?.teamId === 'string' && asset.meta.teamId === assetsTeamScopeId);
+  }, [exportedAssetItems, assetsTeamScopeId]);
+
+  const orgOptions = useMemo(() => {
+    const allCandidates = [...generatedScopedItems, ...editedScopedItems, ...exportedScopedItems];
+    const seen = new Set<string>();
+    for (let i = 0; i < allCandidates.length; i += 1) {
+      const code = resolveAssetOrgCode(allCandidates[i], currentOrgCode);
+      if (code) seen.add(code);
+    }
+    const out: string[] = [];
+    const pushed = new Set<string>();
+    const push = (value?: string | null) => {
+      if (!value) return;
+      if (pushed.has(value)) return;
+      pushed.add(value);
+      out.push(value);
+    };
+    push(currentOrgCode);
+    seen.forEach(push);
+    for (let i = 0; i < PROVINCE_ORGS.length; i += 1) push(PROVINCE_ORGS[i]);
+    return out;
+  }, [generatedScopedItems, editedScopedItems, exportedScopedItems, currentOrgCode]);
+
+  const generatedFilteredItems = useMemo(() => {
+    if (assetsOrgScopeId === 'all') return generatedScopedItems;
+    return generatedScopedItems.filter((asset) => resolveAssetOrgCode(asset, currentOrgCode) === assetsOrgScopeId);
+  }, [generatedScopedItems, assetsOrgScopeId, currentOrgCode]);
+
+  const editedFilteredItems = useMemo(() => {
+    if (assetsOrgScopeId === 'all') return editedScopedItems;
+    return editedScopedItems.filter((asset) => resolveAssetOrgCode(asset, currentOrgCode) === assetsOrgScopeId);
+  }, [editedScopedItems, assetsOrgScopeId, currentOrgCode]);
+
+  const exportedFilteredItems = useMemo(() => {
+    if (assetsOrgScopeId === 'all') return exportedScopedItems;
+    return exportedScopedItems.filter((asset) => resolveAssetOrgCode(asset, currentOrgCode) === assetsOrgScopeId);
+  }, [exportedScopedItems, assetsOrgScopeId, currentOrgCode]);
+
+  const visibleAssetsByTab = useMemo(() => {
+    const baseItems =
+      assetsTab === 'generated'
+        ? generatedFilteredItems
+        : assetsTab === 'edited'
+          ? editedFilteredItems
+          : exportedFilteredItems;
+    if (assetsComplianceScopeId === 'all') return baseItems;
+    const out: PersonalAssetRecord[] = [];
+    for (let i = 0; i < baseItems.length; i += 1) {
+      const asset = baseItems[i];
+      if (resolveAssetComplianceStatus(asset) === assetsComplianceScopeId) out.push(asset);
+    }
+    return out;
+  }, [assetsTab, assetsComplianceScopeId, generatedFilteredItems, editedFilteredItems, exportedFilteredItems]);
+
+  const sortedAssetItems = useMemo(() => {
+    if (visibleAssetsByTab.length <= 1) return visibleAssetsByTab;
+    return [...visibleAssetsByTab].sort((a, b) => b.createdAt - a.createdAt);
+  }, [visibleAssetsByTab]);
+
+  const selectedAssetCount = useMemo(() => selectedAssetIds.size, [selectedAssetIds]);
+
+  const toggleAssetsSelecting = useCallback(() => {
     setIsAssetsSelecting((prev) => {
       const next = !prev;
       if (!next) setSelectedAssetIds(new Set());
+      setIsAssetsWorkflowMenuOpen(false);
+      setIsAssetsSyncMenuOpen(false);
       return next;
     });
-  };
+  }, []);
 
-  const toggleAssetSelected = (assetId: string) => {
+  const toggleAssetSelected = useCallback((assetId: string) => {
     setSelectedAssetIds((prev) => {
       const next = new Set(prev);
       if (next.has(assetId)) next.delete(assetId);
       else next.add(assetId);
       return next;
     });
-  };
+  }, []);
+
+  const handleBulkDeleteAssets = useCallback(() => {
+    const ids = Array.from(selectedAssetIds);
+    if (ids.length === 0) {
+      toast.show('请先选择需要删除的资产');
+      return;
+    }
+    toast.show(`已删除 ${ids.length} 个资产`);
+    setIsAssetsSelecting(false);
+    setSelectedAssetIds(new Set());
+  }, [selectedAssetIds, toast]);
+
+  const handleBulkWorkflow = useCallback((type: 'compliance' | 'experience') => {
+    const ids = Array.from(selectedAssetIds);
+    if (ids.length === 0) {
+      toast.show('请先选择需要发起流程的资产');
+      return;
+    }
+    const label = type === 'compliance' ? '消保审核' : '体验审核';
+    toast.show(`已为 ${ids.length} 个资产发起「${label}」流程`);
+    setIsAssetsWorkflowMenuOpen(false);
+  }, [selectedAssetIds, toast]);
+
+  const handleBulkSync = useCallback((target: 'loan' | 'marketing') => {
+    const ids = Array.from(selectedAssetIds);
+    if (ids.length === 0) {
+      toast.show('请先选择需要同步的资产');
+      return;
+    }
+    const label = target === 'loan' ? '贷款小程序平台' : '营销中台';
+    toast.show(`已同步 ${ids.length} 个资产到「${label}」`);
+    setIsAssetsSyncMenuOpen(false);
+  }, [selectedAssetIds, toast]);
+
+  const openImportPersonalAssetsDialog = useCallback(() => {
+    const input = importPersonalAssetsInputRef.current;
+    if (!input) return;
+    input.value = '';
+    input.click();
+  }, []);
+
+  const handleImportPersonalAssetsChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
+    const urls: string[] = [];
+    await Promise.all(files.map(async (file) => {
+      const reader = new FileReader();
+      const url = await new Promise<string>((resolve) => {
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsDataURL(file);
+      });
+      urls.push(url);
+    }));
+    recordGeneratedAssets(urls, '本地导入 · 个人素材库', { source: 'import' });
+    toast.show(`已导入 ${urls.length} 张图片至个人素材库`);
+    if (importPersonalAssetsInputRef.current) importPersonalAssetsInputRef.current.value = '';
+  }, [recordGeneratedAssets, toast]);
 
   const handleCreateNew = () => {
     if (space === 'public') return;
@@ -885,18 +1256,21 @@ export default function Projects() {
     const projectsToRender = space === 'public' ? filteredVisibleProjects : visibleProjects;
 
     const renderPublicTemplateCard = (project: any, variant: 'row' | 'masonry') => {
-      const title = typeof project?.name === 'string' && project.name.trim() ? project.name.trim() : '公共模板';
-      const previewUrl = normalizeImageSrc((project as any)?.thumbnail);
-      const authorName = typeof project?.authorName === 'string' && project.authorName.trim() ? project.authorName.trim() : '社区作者';
+      const title = typeof project?.name === 'string' && project.name.trim() ? project.name.trim() : (typeof project?.title === 'string' ? project.title : '公共模板');
+      const previewUrl = normalizeImageSrc((project as any)?.thumbnail) || (typeof project?.previewUrl === 'string' ? project.previewUrl : '');
+      const rawAuthorName = typeof project?.authorName === 'string' && project.authorName.trim() ? project.authorName.trim() : '社区作者';
+      const finalAuthorName = space === 'public' ? PUBLIC_TEMPLATE_OFFICIAL_AUTHOR : rawAuthorName;
       const width = typeof project?.width === 'number' && project.width > 0 ? project.width : 1080;
       const height = typeof project?.height === 'number' && project.height > 0 ? project.height : 1920;
       const elementChips = ['元素：小狗'];
+      const likes = typeof project?.likes === 'number' ? project.likes : stableLikesCount(project.id ?? 'unknown');
+      const isLiked = likedPublicTemplateIds.has(project.id);
 
       const detail: PublicTemplateDetail = {
         id: project.id,
         title,
         previewUrl,
-        authorName,
+        authorName: finalAuthorName,
         width,
         height,
         elements: elementChips,
@@ -944,14 +1318,31 @@ export default function Projects() {
             </div>
           </div>
 
-          {variant === 'masonry' && (
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
-                {authorName.trim().slice(0, 1)}
+          <div className="px-1 space-y-1">
+            <div className="text-sm font-semibold text-gray-950 line-clamp-1">{title}</div>
+            <div className="flex items-center justify-between gap-3 min-w-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#7C5CFA] to-[#6F58F3] shrink-0 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white">
+                  {finalAuthorName.trim().slice(0, 1)}
+                </div>
+                <span className="text-[11px] text-gray-500 truncate">{finalAuthorName}</span>
               </div>
-              <span className="text-xs text-gray-500 truncate flex-1">{authorName}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  togglePublicTemplateLike(project.id);
+                }}
+                className={clsx(
+                  'inline-flex items-center gap-1 shrink-0 transition-colors',
+                  isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+                )}
+              >
+                <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+                <span className="text-[11px] font-semibold">{formatLikesCount(likes)}</span>
+              </button>
             </div>
-          )}
+          </div>
         </div>
       );
     };
@@ -992,7 +1383,7 @@ export default function Projects() {
           const id = `fake-public-${q}-${i + 1}`;
           const previewUrl = buildMockSvgDataUrl(`${q}-${i + 1}`, title, 'Fake 公共模板搜索结果');
           const elements = ['元素：小狗'];
-          return { id, title, previewUrl, elements };
+          return { id, title, previewUrl, elements, authorName: PUBLIC_TEMPLATE_OFFICIAL_AUTHOR, likes: stableLikesCount(id) };
         });
 
         return (
@@ -1009,12 +1400,13 @@ export default function Projects() {
                   id: item.id,
                   title: item.title,
                   previewUrl: item.previewUrl,
-                  authorName: '社区作者',
+                  authorName: item.authorName,
                   width: 1080,
                   height: 1920,
                   elements: item.elements,
                 };
                 const fallback = buildMockSvgDataUrl(detail.id, detail.title, '封面加载失败');
+                const isLiked = likedPublicTemplateIds.has(item.id);
                 return (
                   <div
                     key={item.id}
@@ -1045,6 +1437,31 @@ export default function Projects() {
                           aria-label="使用该模板"
                         >
                           使用该模板
+                        </button>
+                      </div>
+                    </div>
+                    <div className="px-1 space-y-1">
+                      <div className="text-sm font-semibold text-gray-950 line-clamp-1">{item.title}</div>
+                      <div className="flex items-center justify-between gap-3 min-w-0">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className="w-4 h-4 rounded-full bg-gradient-to-br from-[#7C5CFA] to-[#6F58F3] shrink-0 overflow-hidden flex items-center justify-center text-[9px] font-bold text-white">
+                            {item.authorName.trim().slice(0, 1)}
+                          </div>
+                          <span className="text-[11px] text-gray-500 truncate">{item.authorName}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePublicTemplateLike(item.id);
+                          }}
+                          className={clsx(
+                            'inline-flex items-center gap-1 shrink-0 transition-colors',
+                            isLiked ? 'text-[#EF4444]' : 'text-gray-400 hover:text-gray-600'
+                          )}
+                        >
+                          <Heart size={13} fill={isLiked ? 'currentColor' : 'none'} />
+                          <span className="text-[11px] font-semibold">{formatLikesCount(item.likes)}</span>
                         </button>
                       </div>
                     </div>
@@ -1145,239 +1562,502 @@ export default function Projects() {
   };
 
   const renderAssetsModule = () => {
-    const resolveOrgCode = (asset: PersonalAssetRecord) => {
-      const org = typeof asset.meta?.orgCode === 'string' ? asset.meta.orgCode.trim() : '';
-      return org || currentOrgCode;
-    };
+    const filteredCount = sortedAssetItems.length;
+    const orgLabel = assetsOrgScopeId === 'all' ? '全部组织' : assetsOrgScopeId;
+    const complianceLabel = COMPLIANCE_OPTIONS.find((o) => o.id === assetsComplianceScopeId)?.label ?? '全部状态';
+    const hasActiveFilter = assetsOrgScopeId !== 'all' || assetsComplianceScopeId !== 'all';
 
-    const resolveCreatorName = (asset: PersonalAssetRecord) => {
-      const candidates = [
-        asset.meta?.creatorName,
-        asset.meta?.authorName,
-        asset.meta?.createdByName,
-        asset.meta?.createdBy,
-        asset.meta?.oaName,
-      ];
-      const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
-      return typeof resolved === 'string' && resolved.trim() ? resolved.trim() : currentOaName;
-    };
+    return (
+      <div className="relative space-y-4">
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <div className="flex-1 min-w-0 border-b border-black/5">
+            <nav className="flex items-end gap-6 min-w-0">
+              {(
+                [
+                  { id: 'generated', label: '生图资产', count: generatedFilteredItems.length },
+                  { id: 'edited', label: '编辑资产', count: editedFilteredItems.length },
+                  { id: 'exported', label: '导出资产', count: exportedFilteredItems.length },
+                ] as const
+              ).map((item) => {
+                const active = assetsTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setAssetsTab(item.id)}
+                    className={clsx(
+                      "group inline-flex items-baseline gap-2 py-3 -mb-px border-b-2 transition-colors",
+                      active
+                        ? "text-gray-950 border-gray-900"
+                        : "text-gray-400 border-transparent hover:text-gray-700 hover:border-black/10"
+                    )}
+                    aria-selected={active}
+                  >
+                    <span className={clsx("transition-all", active ? "text-[18px] font-black tracking-tight" : "text-sm font-semibold")}>{item.label}</span>
+                    <span className={clsx(
+                      "rounded-full border font-bold transition-all",
+                      active
+                        ? "text-[11px] px-2.5 py-1 bg-gray-900 text-white border-gray-900 shadow-[0_6px_16px_-8px_rgba(17,24,39,0.45)]"
+                        : "text-[11px] px-2 py-0.5 bg-gray-50 text-gray-500 border-black/10 group-hover:bg-gray-100 group-hover:text-gray-700"
+                    )}>{active ? filteredCount : item.count}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
 
-    const resolveCreatorOrg = (asset: PersonalAssetRecord) => {
-      const candidates = [
-        asset.meta?.creatorOrg,
-        asset.meta?.creatorOrgCode,
-        asset.meta?.orgName,
-        asset.meta?.orgCode,
-      ];
-      const resolved = candidates.find((value) => typeof value === 'string' && value.trim());
-      return typeof resolved === 'string' && resolved.trim() ? resolved.trim() : currentOrgCode;
-    };
-
-    type ComplianceStatus = 'unprotected' | 'processing' | 'protected';
-    const resolveComplianceStatus = (asset: PersonalAssetRecord): ComplianceStatus => {
-      const raw = asset.meta?.complianceStatus;
-      if (raw === 'unprotected' || raw === 'processing' || raw === 'protected') return raw;
-      const fallback = asset.meta?.compliance;
-      if (fallback === 'unprotected' || fallback === 'processing' || fallback === 'protected') return fallback;
-      return 'unprotected';
-    };
-
-    const filterByTeamScope = (items: PersonalAssetRecord[]) => {
-      if (assetsTeamScopeId === 'all') return items;
-      if (assetsTeamScopeId === 'unassigned') {
-        return items.filter((asset) => !asset.meta || typeof asset.meta?.teamId !== 'string' || !asset.meta.teamId.trim());
-      }
-      return items.filter((asset) => typeof asset.meta?.teamId === 'string' && asset.meta.teamId === assetsTeamScopeId);
-    };
-
-    const generatedScopedItems = filterByTeamScope(generatedAssetItems);
-    const editedScopedItems = filterByTeamScope(editedAssetItems);
-    const exportedScopedItems = filterByTeamScope(exportedAssetItems);
-
-    const allOrgCandidates = [...generatedScopedItems, ...editedScopedItems, ...exportedScopedItems];
-    const uniqueOrgCodes = Array.from(new Set(allOrgCandidates.map(resolveOrgCode).filter(Boolean)));
-    const orgOptions = Array.from(new Set([currentOrgCode, ...uniqueOrgCodes, '深圳分行', '青岛分行', '海南分行', '上海分行'].filter(Boolean)));
-
-    const filterByOrgScope = (items: PersonalAssetRecord[]) => {
-      if (assetsOrgScopeId === 'all') return items;
-      return items.filter((asset) => resolveOrgCode(asset) === assetsOrgScopeId);
-    };
-
-    const generatedFilteredItems = filterByOrgScope(generatedScopedItems);
-    const editedFilteredItems = filterByOrgScope(editedScopedItems);
-    const exportedFilteredItems = filterByOrgScope(exportedScopedItems);
-
-    const baseItems = assetsTab === 'generated' ? generatedFilteredItems : assetsTab === 'edited' ? editedFilteredItems : exportedFilteredItems;
-    const filteredByCompliance =
-      assetsComplianceScopeId === 'all' ? baseItems : baseItems.filter((asset) => resolveComplianceStatus(asset) === assetsComplianceScopeId);
-    const selectedCount = selectedAssetIds.size;
-
-    const renderAssetTitle = (asset: PersonalAssetRecord) => {
-      if (asset.kind === 'generated') return asset.prompt?.trim() ? asset.prompt.trim() : '文生图生成';
-      if (asset.kind === 'edited') return asset.meta?.tool || asset.tool || '编辑生成';
-      return asset.meta?.source || '导出';
-    };
-
-    const sortedItems = [...filteredByCompliance].sort((a, b) => b.createdAt - a.createdAt);
-
-    const renderAssetCard = (asset: PersonalAssetRecord) => {
-      const orgCode = resolveOrgCode(asset);
-      const status = resolveComplianceStatus(asset);
-      const statusLabel = status === 'unprotected' ? '未消保' : status === 'processing' ? '消保中' : '已消保';
-      const statusTone =
-        status === 'unprotected'
-          ? 'bg-amber-50 text-amber-700 border-amber-100'
-          : status === 'processing'
-            ? 'bg-blue-50 text-blue-700 border-blue-100'
-            : 'bg-emerald-50 text-emerald-700 border-emerald-100';
-      return (
-        <div key={asset.id} className="mb-4 break-inside-avoid">
-          <div
-            onClick={() => {
-              if (isAssetsSelecting) {
-                toggleAssetSelected(asset.id);
-                return;
-              }
-              setActiveAssetDetail(asset);
-            }}
-            className={clsx(
-              "group overflow-hidden rounded-2xl border border-black/5 bg-white hover:shadow-lg hover:-translate-y-0.5 transition-all",
-              isAssetsSelecting && "cursor-pointer select-none",
-              isAssetsSelecting && selectedAssetIds.has(asset.id) && "ring-2 ring-gray-300 border-gray-200"
-            )}
-          >
-            <div className="relative">
-              <img src={asset.url} alt={renderAssetTitle(asset)} className="w-full h-auto object-cover" />
-              <div
-                className={clsx(
-                  "absolute top-3 px-2.5 py-1 rounded-full border text-[11px] font-black shadow-sm backdrop-blur",
-                  "right-3",
-                  statusTone
-                )}
+          <div className="flex items-center gap-2 shrink-0 pb-[1px]">
+            <input
+              ref={importPersonalAssetsInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImportPersonalAssetsChange}
+            />
+            <div className="relative inline-flex items-center gap-1.5 h-9 px-1 rounded-2xl border border-black/10 bg-white shadow-[0_1px_0_rgba(17,24,39,0.04)]">
+              <button
+                type="button"
+                onClick={openImportPersonalAssetsDialog}
+                className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[14px] text-[12px] font-semibold text-gray-700 hover:bg-gray-100 hover:text-gray-950 transition-colors"
+                title="导入到个人素材库"
+                aria-label="导入个人素材"
               >
-                {statusLabel}
+                <Upload size={13} strokeWidth={2.2} />
+                导入
+              </button>
+              <div className="h-4 w-px bg-black/10" />
+              <button
+                type="button"
+                onClick={() => setIsAssetsFilterPanelOpen((prev) => !prev)}
+                className={clsx(
+                  "inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[14px] text-[12px] font-semibold transition-colors",
+                  hasActiveFilter || isAssetsFilterPanelOpen
+                    ? "bg-[#7C5CFA]/10 text-[#6F58F3] hover:bg-[#7C5CFA]/15"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-950"
+                )}
+                title="筛选"
+                aria-label="筛选资产"
+                aria-expanded={isAssetsFilterPanelOpen}
+              >
+                <SlidersHorizontal size={13} strokeWidth={2.2} />
+                筛选
+              </button>
+              <div className="h-4 w-px bg-black/10" />
+              <button
+                type="button"
+                onClick={toggleAssetsSelecting}
+                className={clsx(
+                  "inline-flex items-center gap-1.5 h-7 px-2.5 rounded-[14px] text-[12px] font-semibold transition-colors",
+                  isAssetsSelecting
+                    ? "bg-gray-900 text-white shadow-[0_6px_16px_-8px_rgba(17,24,39,0.45)]"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-gray-950"
+                )}
+                title="选择"
+                aria-label="选择资产"
+                aria-pressed={isAssetsSelecting}
+              >
+                {isAssetsSelecting ? (
+                  <X size={13} strokeWidth={2.4} />
+                ) : (
+                  <Check size={13} strokeWidth={2.4} />
+                )}
+                {isAssetsSelecting ? '取消' : '选择'}
+              </button>
+            </div>
+            {isAssetsFilterPanelOpen && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setIsAssetsFilterPanelOpen(false)} />
+                <div className="absolute right-0 top-[calc(100%+12px)] z-40 w-[340px] max-w-[calc(100vw-2rem)] rounded-3xl border border-black/10 bg-white shadow-[0_24px_64px_-24px_rgba(17,24,39,0.28)] overflow-hidden">
+                  <div className="p-4 border-b border-black/5 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="text-sm font-bold text-gray-900">筛选资产</div>
+                      <div className="text-[11px] text-gray-400">按所属组织与消保状态筛选</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAssetsOrgScopeId('all');
+                        setAssetsComplianceScopeId('all');
+                        setIsAssetsFilterPanelOpen(false);
+                      }}
+                      className="text-[11px] font-semibold text-gray-400 hover:text-gray-700 transition-colors"
+                    >
+                      重置
+                    </button>
+                  </div>
+                  <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
+                    <div className="space-y-2">
+                      <label className="block">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400 mb-2">所属组织</div>
+                        <select
+                          value={assetsOrgScopeId}
+                          onChange={(e) => setAssetsOrgScopeId(e.target.value)}
+                          className="w-full h-11 px-3 rounded-2xl border border-black/10 bg-white text-[13px] text-gray-800 outline-none focus:border-[#7C5CFA]/40 focus:ring-2 focus:ring-[#7C5CFA]/15 transition-shadow"
+                          aria-label="所属组织"
+                        >
+                          <option value="all">全部组织（{orgOptions.length} 个可选）</option>
+                          {orgOptions.map((org) => (
+                            <option key={org} value={org}>{org}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400 mb-2">消保状态</div>
+                        <select
+                          value={assetsComplianceScopeId}
+                          onChange={(e) => setAssetsComplianceScopeId(e.target.value as ComplianceStatusId)}
+                          className="w-full h-11 px-3 rounded-2xl border border-black/10 bg-white text-[13px] text-gray-800 outline-none focus:border-[#7C5CFA]/40 focus:ring-2 focus:ring-[#7C5CFA]/15 transition-shadow"
+                          aria-label="消保状态"
+                        >
+                          {COMPLIANCE_OPTIONS.map((o) => (
+                            <option key={o.id} value={o.id}>{o.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="p-3 border-t border-black/5 bg-gray-50/70">
+                    <button
+                      type="button"
+                      onClick={() => setIsAssetsFilterPanelOpen(false)}
+                      className="w-full h-10 rounded-2xl bg-gray-900 text-white text-sm font-semibold hover:bg-gray-800 transition-colors"
+                    >
+                      完成
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {hasActiveFilter && (
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 h-7 rounded-full border border-[#7C5CFA]/15 bg-[#7C5CFA]/10 text-[11px] font-bold text-[#6F58F3]">
+              <SlidersHorizontal size={11} strokeWidth={2.2} />
+              已筛选 · {orgLabel} / {complianceLabel}
+              <button
+                type="button"
+                onClick={() => {
+                  setAssetsOrgScopeId('all');
+                  setAssetsComplianceScopeId('all');
+                }}
+                className="ml-1 w-5 h-5 rounded-full inline-flex items-center justify-center text-[#6F58F3] hover:bg-white/70 hover:text-[#6F58F3] transition-colors"
+                aria-label="清除筛选"
+                title="清除筛选"
+              >
+                <X size={11} strokeWidth={2.6} />
+              </button>
+            </span>
+            <span className="text-[11px] text-gray-400 truncate">匹配 {filteredCount} 个资产</span>
+          </div>
+        )}
+
+        {isAssetsSelecting && (
+          <div className="sticky top-0 z-30 -mx-2 px-2 py-3 backdrop-blur-xl bg-white/80 border-b border-black/5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="h-8 px-3 rounded-full border border-black/10 bg-white inline-flex items-center text-[11px] font-bold text-gray-700">
+                已选择 {selectedAssetCount} 张
               </div>
-              {isAssetsSelecting && (
+              {selectedAssetCount > 0 && (
                 <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    toggleAssetSelected(asset.id);
+                  type="button"
+                  onClick={() => {
+                    setSelectedAssetIds(new Set());
                   }}
-                  className={clsx(
-                    "absolute top-3 left-3 w-7 h-7 rounded-full border flex items-center justify-center transition-colors",
-                    selectedAssetIds.has(asset.id)
-                      ? "bg-gray-800 border-gray-800 text-white"
-                      : "bg-white/85 backdrop-blur border-black/10 text-transparent hover:border-black/20"
-                  )}
-                  aria-pressed={selectedAssetIds.has(asset.id)}
-                  title={selectedAssetIds.has(asset.id) ? '取消勾选' : '勾选'}
+                  className="text-[11px] font-semibold text-gray-400 hover:text-gray-700 transition-colors"
                 >
-                  <Check size={16} strokeWidth={3} />
+                  清空
                 </button>
               )}
             </div>
-            <div className="p-3 space-y-1">
-              <div className="text-xs font-bold text-gray-900 line-clamp-2">{renderAssetTitle(asset)}</div>
-              <div className="text-[11px] text-gray-500">{new Date(asset.createdAt).toLocaleString()}</div>
-              <div className="pt-1">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full border border-black/10 bg-gray-50 text-[10px] font-bold text-gray-600">
-                  {orgCode}
-                </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBulkDeleteAssets}
+                className={clsx(
+                  "inline-flex items-center gap-1.5 h-9 px-3 rounded-2xl border text-[12px] font-semibold transition-colors shadow-[0_1px_0_rgba(17,24,39,0.04)]",
+                  selectedAssetCount > 0
+                    ? "bg-white text-red-600 border-red-100 hover:bg-red-50 hover:border-red-200"
+                    : "bg-white text-gray-400 border-black/5 cursor-not-allowed"
+                )}
+                disabled={selectedAssetCount === 0}
+                aria-label="批量删除"
+              >
+                <Trash2 size={14} strokeWidth={2.2} />
+                删除
+              </button>
+
+              <div className="relative" ref={assetsWorkflowMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAssetsWorkflowMenuOpen((prev) => !prev);
+                    setIsAssetsSyncMenuOpen(false);
+                  }}
+                  className={clsx(
+                    "inline-flex items-center gap-1.5 h-9 px-3 rounded-2xl border text-[12px] font-semibold transition-colors shadow-[0_1px_0_rgba(17,24,39,0.04)]",
+                    selectedAssetCount > 0 && isAssetsWorkflowMenuOpen
+                      ? "bg-[#7C5CFA]/10 text-[#6F58F3] border-[#7C5CFA]/25"
+                      : selectedAssetCount > 0
+                        ? "bg-white text-gray-700 border-black/10 hover:bg-gray-50 hover:border-black/15"
+                        : "bg-white text-gray-400 border-black/5 cursor-not-allowed"
+                  )}
+                  disabled={selectedAssetCount === 0}
+                  aria-label="批量流程"
+                  aria-expanded={isAssetsWorkflowMenuOpen}
+                >
+                  <Workflow size={14} strokeWidth={2.2} />
+                  流程
+                  <ChevronDown size={12} strokeWidth={2.4} />
+                </button>
+                {isAssetsWorkflowMenuOpen && selectedAssetCount > 0 && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsAssetsWorkflowMenuOpen(false)} />
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[260px] rounded-3xl border border-black/10 bg-white shadow-[0_24px_64px_-24px_rgba(17,24,39,0.28)] overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b border-black/5">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">发起流程</div>
+                      </div>
+                      <div className="p-2">
+                        <button
+                          type="button"
+                          onClick={() => handleBulkWorkflow('compliance')}
+                          className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="text-[13px] font-bold text-gray-900">消保审核</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">将所选资产提交给合规团队消保审核</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBulkWorkflow('experience')}
+                          className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="text-[13px] font-bold text-gray-900">体验审核</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">将所选资产提交给用户体验评审组</div>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="relative" ref={assetsSyncMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAssetsSyncMenuOpen((prev) => !prev);
+                    setIsAssetsWorkflowMenuOpen(false);
+                  }}
+                  className={clsx(
+                    "inline-flex items-center gap-1.5 h-9 px-3 rounded-2xl border text-[12px] font-semibold transition-colors shadow-[0_1px_0_rgba(17,24,39,0.04)]",
+                    selectedAssetCount > 0 && isAssetsSyncMenuOpen
+                      ? "bg-[#7C5CFA]/10 text-[#6F58F3] border-[#7C5CFA]/25"
+                      : selectedAssetCount > 0
+                        ? "bg-white text-gray-700 border-black/10 hover:bg-gray-50 hover:border-black/15"
+                        : "bg-white text-gray-400 border-black/5 cursor-not-allowed"
+                  )}
+                  disabled={selectedAssetCount === 0}
+                  aria-label="批量同步"
+                  aria-expanded={isAssetsSyncMenuOpen}
+                >
+                  <RefreshCcwDot size={14} strokeWidth={2.2} />
+                  同步
+                  <ChevronDown size={12} strokeWidth={2.4} />
+                </button>
+                {isAssetsSyncMenuOpen && selectedAssetCount > 0 && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsAssetsSyncMenuOpen(false)} />
+                    <div className="absolute right-0 top-[calc(100%+8px)] z-40 w-[280px] rounded-3xl border border-black/10 bg-white shadow-[0_24px_64px_-24px_rgba(17,24,39,0.28)] overflow-hidden">
+                      <div className="px-4 pt-3 pb-2 border-b border-black/5">
+                        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">同步到</div>
+                      </div>
+                      <div className="p-2">
+                        <button
+                          type="button"
+                          onClick={() => handleBulkSync('loan')}
+                          className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="text-[13px] font-bold text-gray-900">贷款小程序平台</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">推送到贷款中心的小程序素材库</div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBulkSync('marketing')}
+                          className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="text-[13px] font-bold text-gray-900">营销中台</div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">推送到全行营销素材统一中台</div>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      );
-    };
+        )}
 
-    return (
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center justify-end gap-4">
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <div className="flex items-center gap-2">
-              <div className="text-xs font-semibold text-gray-500">组织</div>
-              <select
-                value={assetsOrgScopeId}
-                onChange={(e) => setAssetsOrgScopeId(e.target.value)}
-                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm text-gray-700 outline-none focus:border-black/25"
-                aria-label="选择组织"
+        {sortedAssetItems.length === 0 ? (
+          <div className="py-16 text-center">
+            <div className="text-sm text-gray-400">暂无符合筛选条件的资产</div>
+            {hasActiveFilter && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAssetsOrgScopeId('all');
+                  setAssetsComplianceScopeId('all');
+                  setAssetsTab('generated');
+                }}
+                className="mt-3 text-[12px] font-semibold text-[#6F58F3] hover:underline underline-offset-2"
               >
-                <option value="all">全部组织</option>
-                {orgOptions.map((org) => (
-                  <option key={org} value={org}>
-                    {org}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="text-xs font-semibold text-gray-500">消保状态</div>
-              <select
-                value={assetsComplianceScopeId}
-                onChange={(e) => setAssetsComplianceScopeId(e.target.value as 'all' | 'unprotected' | 'processing' | 'protected')}
-                className="h-9 px-3 rounded-xl border border-black/10 bg-white text-sm text-gray-700 outline-none focus:border-black/25"
-                aria-label="选择消保状态"
-              >
-                <option value="all">全部状态</option>
-                <option value="unprotected">未消保</option>
-                <option value="processing">消保中</option>
-                <option value="protected">已消保</option>
-              </select>
-            </div>
-            <button onClick={toggleAssetsSelecting} className={clsx("btn-flat-neutral", isAssetsSelecting && "bg-gray-50")}>
-              {isAssetsSelecting ? '取消' : '选择'}
-            </button>
-            {isAssetsSelecting && (
-              <div className="h-9 px-3 inline-flex items-center rounded-xl border border-black/10 bg-white text-sm font-semibold text-gray-800">
-                已选 {selectedCount}
-              </div>
+                清空筛选条件
+              </button>
             )}
           </div>
-        </div>
-
-        <div className="border-b border-black/5">
-          <nav className="flex items-center gap-6">
-            <button
-              onClick={() => setAssetsTab('generated')}
-              className={clsx(
-                "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-                assetsTab === 'generated' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
-              )}
-              aria-selected={assetsTab === 'generated'}
-            >
-              生图资产
-              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{generatedFilteredItems.length}</span>
-            </button>
-            <button
-              onClick={() => setAssetsTab('edited')}
-              className={clsx(
-                "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-                assetsTab === 'edited' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
-              )}
-              aria-selected={assetsTab === 'edited'}
-            >
-              编辑资产
-              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{editedFilteredItems.length}</span>
-            </button>
-            <button
-              onClick={() => setAssetsTab('exported')}
-              className={clsx(
-                "inline-flex items-center gap-2 py-3 -mb-px text-sm font-semibold border-b-2 transition-colors",
-                assetsTab === 'exported' ? "text-gray-700 border-gray-300" : "text-gray-500 border-transparent hover:text-gray-700"
-              )}
-              aria-selected={assetsTab === 'exported'}
-            >
-              导出资产
-              <span className="text-[11px] px-2 py-0.5 rounded-full border border-black/10 bg-white text-gray-600">{exportedFilteredItems.length}</span>
-            </button>
-          </nav>
-        </div>
-
-        {sortedItems.length === 0 ? (
-          <div className="py-10 text-center text-gray-400 text-sm">暂无符合筛选条件的资产</div>
         ) : (
           <div className="columns-2 md:columns-3 lg:columns-4 xl:columns-5 gap-4">
-            {sortedItems.map(renderAssetCard)}
+            {sortedAssetItems.map((asset) => (
+              <AssetCard
+                key={asset.id}
+                asset={asset}
+                isSelecting={isAssetsSelecting}
+                isSelected={selectedAssetIds.has(asset.id)}
+                fallbackOrgCode={currentOrgCode}
+                onToggleSelected={toggleAssetSelected}
+                onOpenDetail={setActiveAssetDetail}
+              />
+            ))}
+          </div>
+        )}
+
+        {isAssetsSelecting && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 px-3 h-14 rounded-full border border-black/10 bg-white/95 backdrop-blur-xl shadow-[0_18px_54px_-24px_rgba(17,24,39,0.4)] inline-flex items-center gap-2 md:gap-3 max-w-[calc(100vw-1.5rem)] overflow-x-auto">
+            <div className="px-2 text-[12px] md:text-[13px] font-bold text-gray-900 whitespace-nowrap shrink-0">已选择 {selectedAssetCount} 张</div>
+            <div className="h-6 w-px bg-black/10 shrink-0" />
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAssetsWorkflowMenuOpen((prev) => !prev);
+                  setIsAssetsSyncMenuOpen(false);
+                }}
+                className={clsx(
+                  "inline-flex items-center gap-1 px-2 md:px-3 h-10 rounded-full text-[12px] font-semibold transition-colors",
+                  selectedAssetCount > 0 && isAssetsWorkflowMenuOpen
+                    ? "bg-[#7C5CFA]/10 text-[#6F58F3]"
+                    : selectedAssetCount > 0
+                      ? "text-gray-700 hover:bg-gray-50"
+                      : "text-gray-400 cursor-not-allowed"
+                )}
+                disabled={selectedAssetCount === 0}
+                aria-label="批量流程"
+                aria-expanded={isAssetsWorkflowMenuOpen}
+              >
+                <Workflow size={14} />
+                流程
+                <ChevronDown size={12} strokeWidth={2.4} />
+              </button>
+              {isAssetsWorkflowMenuOpen && selectedAssetCount > 0 && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setIsAssetsWorkflowMenuOpen(false)} />
+                  <div className="absolute right-0 bottom-[calc(100%+12px)] z-40 w-[260px] rounded-3xl border border-black/10 bg-white shadow-[0_24px_64px_-24px_rgba(17,24,39,0.28)] overflow-hidden">
+                    <div className="px-4 pt-3 pb-2 border-b border-black/5">
+                      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">发起流程</div>
+                    </div>
+                    <div className="p-2">
+                      <button
+                        type="button"
+                        onClick={() => handleBulkWorkflow('compliance')}
+                        className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="text-[13px] font-bold text-gray-900">消保审核</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">将所选资产提交给合规团队消保审核</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkWorkflow('experience')}
+                        className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="text-[13px] font-bold text-gray-900">体验审核</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">将所选资产提交给用户体验评审组</div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAssetsSyncMenuOpen((prev) => !prev);
+                  setIsAssetsWorkflowMenuOpen(false);
+                }}
+                className={clsx(
+                  "inline-flex items-center gap-1 px-2 md:px-3 h-10 rounded-full text-[12px] font-semibold transition-colors",
+                  selectedAssetCount > 0 && isAssetsSyncMenuOpen
+                    ? "bg-[#7C5CFA]/10 text-[#6F58F3]"
+                    : selectedAssetCount > 0
+                      ? "text-gray-700 hover:bg-gray-50"
+                      : "text-gray-400 cursor-not-allowed"
+                )}
+                disabled={selectedAssetCount === 0}
+                aria-label="批量同步"
+                aria-expanded={isAssetsSyncMenuOpen}
+              >
+                <RefreshCcwDot size={14} />
+                同步
+                <ChevronDown size={12} strokeWidth={2.4} />
+              </button>
+              {isAssetsSyncMenuOpen && selectedAssetCount > 0 && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setIsAssetsSyncMenuOpen(false)} />
+                  <div className="absolute right-0 bottom-[calc(100%+12px)] z-40 w-[280px] rounded-3xl border border-black/10 bg-white shadow-[0_24px_64px_-24px_rgba(17,24,39,0.28)] overflow-hidden">
+                    <div className="px-4 pt-3 pb-2 border-b border-black/5">
+                      <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">同步到</div>
+                    </div>
+                    <div className="p-2">
+                      <button
+                        type="button"
+                        onClick={() => handleBulkSync('loan')}
+                        className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="text-[13px] font-bold text-gray-900">贷款小程序平台</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">推送到贷款中心的小程序素材库</div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleBulkSync('marketing')}
+                        className="w-full px-3 h-11 rounded-2xl text-left hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="text-[13px] font-bold text-gray-900">营销中台</div>
+                        <div className="text-[11px] text-gray-400 mt-0.5">推送到全行营销素材统一中台</div>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="h-6 w-px bg-black/10 shrink-0" />
+            <button
+              type="button"
+              onClick={handleBulkDeleteAssets}
+              className={clsx(
+                "inline-flex items-center gap-1 px-2 md:px-3 h-10 rounded-full text-[12px] font-semibold transition-colors shrink-0",
+                selectedAssetCount > 0 ? "text-red-600 hover:bg-red-50" : "text-gray-400 cursor-not-allowed"
+              )}
+              disabled={selectedAssetCount === 0}
+            >
+              <Trash2 size={14} />
+              删除
+            </button>
           </div>
         )}
 
@@ -1387,7 +2067,7 @@ export default function Projects() {
             <div className="relative z-10 w-full max-w-4xl max-h-[calc(100vh-2rem)] md:max-h-[calc(100vh-3rem)] overflow-hidden rounded-3xl border border-black/10 bg-white shadow-2xl">
               <div className="p-5 border-b border-black/5 flex items-center justify-between">
                 <div className="min-w-0">
-                  <div className="text-sm font-semibold text-gray-900 truncate">{renderAssetTitle(activeAssetDetail)}</div>
+                  <div className="text-sm font-semibold text-gray-900 truncate">{getAssetCardTitle(activeAssetDetail)}</div>
                   <div className="text-xs text-gray-500 mt-1">{new Date(activeAssetDetail.createdAt).toLocaleString()}</div>
                 </div>
                 <button
@@ -1402,7 +2082,7 @@ export default function Projects() {
 
               <div className="grid max-h-[calc(100vh-8rem)] grid-cols-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
                 <div className="rounded-2xl overflow-hidden border border-black/10 bg-gray-50">
-                  <img src={activeAssetDetail.url} alt={renderAssetTitle(activeAssetDetail)} className="w-full h-auto max-h-[70vh] object-contain bg-gray-50" />
+                  <img src={activeAssetDetail.url} alt={getAssetCardTitle(activeAssetDetail)} className="w-full h-auto max-h-[70vh] object-contain bg-gray-50" loading="lazy" decoding="async" />
                 </div>
 
                 <div className="space-y-4">
@@ -1411,16 +2091,12 @@ export default function Projects() {
                       {activeAssetDetail.kind === 'generated' ? '生图资产' : activeAssetDetail.kind === 'edited' ? '编辑资产' : '导出资产'}
                     </span>
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-black/10 bg-gray-50 text-xs font-bold text-gray-700">
-                      {resolveOrgCode(activeAssetDetail)}
+                      {resolveAssetOrgCode(activeAssetDetail, currentOrgCode)}
                     </span>
                     {(() => {
-                      const status = resolveComplianceStatus(activeAssetDetail);
-                      const label = status === 'unprotected' ? '未消保' : status === 'processing' ? '消保中' : '已消保';
-                      const tone = status === 'unprotected'
-                        ? 'bg-amber-50 text-amber-700 border-amber-100'
-                        : status === 'processing'
-                          ? 'bg-blue-50 text-blue-700 border-blue-100'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-100';
+                      const status = resolveAssetComplianceStatus(activeAssetDetail);
+                      const label = COMPLIANCE_OPTIONS.find((o) => o.id === status)?.label ?? '未消保';
+                      const tone = resolveComplianceTone(status);
                       return <span className={clsx("inline-flex items-center px-2.5 py-1 rounded-full border text-xs font-black", tone)}>{label}</span>;
                     })()}
                   </div>
@@ -1432,11 +2108,11 @@ export default function Projects() {
                     </div>
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">创作者</div>
-                      <div className="mt-1 text-sm text-gray-700">{resolveCreatorName(activeAssetDetail)}</div>
+                      <div className="mt-1 text-sm text-gray-700">{resolveAssetCreatorName(activeAssetDetail, currentOaName)}</div>
                     </div>
                     <div>
                       <div className="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400">创作者机构</div>
-                      <div className="mt-1 text-sm text-gray-700">{resolveCreatorOrg(activeAssetDetail)}</div>
+                      <div className="mt-1 text-sm text-gray-700">{resolveAssetCreatorOrg(activeAssetDetail, currentOrgCode)}</div>
                     </div>
                   </div>
 
