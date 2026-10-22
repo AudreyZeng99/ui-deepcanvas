@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import clsx from 'clsx';
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import { MaterialBatchGeneratorPanel } from '../pages/tools/MaterialBatchGenerator';
 
 interface MaterialsModalProps {
   isOpen: boolean;
@@ -8,6 +10,8 @@ interface MaterialsModalProps {
   onUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
   personalMaterials: string[];
 }
+
+type MaterialsView = 'library' | 'batch-generator';
 
 export default function MaterialsModal({ 
   isOpen, 
@@ -32,6 +36,7 @@ export default function MaterialsModal({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<MaterialTabId>('personal');
+  const [materialsView, setMaterialsView] = useState<MaterialsView>('library');
   const [expandedFolders, setExpandedFolders] = useState({
     personal: true,
     public: true
@@ -274,11 +279,31 @@ export default function MaterialsModal({
     return (
       <div className="space-y-8 animate-in fade-in duration-300">
         <section className="space-y-3">
-          <div className="text-sm font-semibold text-gray-900">上传</div>
-          <label className="w-full flex items-center justify-center gap-3 p-4 bg-gray-50 border border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 hover:border-accent-primary transition-all text-gray-500 hover:text-accent-primary group">
-            <span className="text-sm font-medium">点击上传本地素材（支持 PNG / JPG / SVG）</span>
-            <input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" className="hidden" onChange={onUpload} />
-          </label>
+          <div className="text-sm font-semibold text-gray-900">素材上传</div>
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+            <label className="w-full flex items-center justify-center gap-3 p-4 bg-gray-50 border border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-100 hover:border-accent-primary transition-all text-gray-500 hover:text-accent-primary group">
+              <span className="text-sm font-medium">点击上传本地素材（支持 PNG / JPG / SVG）</span>
+              <input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" className="hidden" onChange={onUpload} />
+            </label>
+            <button
+              type="button"
+              onClick={() => setMaterialsView('batch-generator')}
+              className="w-full inline-flex items-center justify-center gap-2 h-[52px] rounded-xl border border-[rgba(143,122,251,0.28)] text-sm font-semibold shadow-[0_12px_30px_-24px_rgba(111,88,243,0.85)] transition-colors"
+              style={{ color: '#6F58F3', backgroundColor: 'rgba(143, 122, 251, 0.08)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(143, 122, 251, 0.16)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(143, 122, 251, 0.08)';
+              }}
+            >
+              <Sparkles size={16} />
+              批量生成素材
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">
+            已有素材支持上传本地文件；批量生成可通过组合元素类型、状态和色系快速产出一批设计。
+          </p>
         </section>
 
         <section className="space-y-3">
@@ -346,6 +371,28 @@ export default function MaterialsModal({
   };
 
   const renderContent = () => {
+    if (materialsView === 'batch-generator') {
+      const backSlot = (
+        <div className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-black/5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMaterialsView('library')}
+              className="h-9 px-3 rounded-xl border border-black/5 bg-white text-xs font-semibold text-gray-900 hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+            >
+              <ArrowLeft size={14} />
+              返回素材库
+            </button>
+            <div className="text-sm font-semibold text-gray-900">批量生成素材</div>
+            <div className="ml-auto text-xs text-gray-500">
+              在当前弹窗内完成组合，无需跳转到工具页。
+            </div>
+          </div>
+        </div>
+      );
+      return <MaterialBatchGeneratorPanel headerSlot={backSlot} />;
+    }
+
     if (activeTab === 'personal') {
       return renderPersonalContent();
     }
@@ -384,9 +431,25 @@ export default function MaterialsModal({
       <div className="bg-white rounded-xl shadow-2xl w-[900px] h-[600px] overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         <div className="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white shrink-0 z-20 relative">
           <div className="flex items-center gap-3">
+            {materialsView === 'batch-generator' && (
+              <button
+                type="button"
+                onClick={() => setMaterialsView('library')}
+                className="h-9 px-3 rounded-xl border border-black/5 bg-white text-xs font-semibold text-gray-900 hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
+              >
+                <ArrowLeft size={14} />
+                返回素材库
+              </button>
+            )}
             <div>
-              <h2 className="text-lg font-bold text-gray-900">素材百宝箱</h2>
-              <p className="text-xs text-gray-500">管理和使用您的创意素材</p>
+              <h2 className="text-lg font-bold text-gray-900">
+                {materialsView === 'batch-generator' ? '批量生成素材' : '素材百宝箱'}
+              </h2>
+              <p className="text-xs text-gray-500">
+                {materialsView === 'batch-generator'
+                  ? '组合元素类型、状态和色系生成批量 design'
+                  : '管理和使用您的创意素材'}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -406,49 +469,51 @@ export default function MaterialsModal({
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-56 bg-gray-50 border-r border-gray-100 flex flex-col p-4 gap-4 overflow-y-auto">
-            <div className="space-y-1">
-              <button onClick={() => toggleFolder('personal')} className={folderTitleClass}>
-                <span>个人库</span>
-                <span className={clsx("transition-transform inline-block", !expandedFolders.personal && "-rotate-90")}>⌄</span>
-              </button>
-              {expandedFolders.personal && (
-                <div className="pl-2">
-                  <button onClick={() => handleTabChange('personal')} className={menuButtonClass(activeTab === 'personal')}>
-                    个人素材
-                  </button>
-                </div>
-              )}
-            </div>
+          {materialsView === 'library' && (
+            <div className="w-56 bg-gray-50 border-r border-gray-100 flex flex-col p-4 gap-4 overflow-y-auto">
+              <div className="space-y-1">
+                <button onClick={() => toggleFolder('personal')} className={folderTitleClass}>
+                  <span>个人库</span>
+                  <span className={clsx("transition-transform inline-block", !expandedFolders.personal && "-rotate-90")}>⌄</span>
+                </button>
+                {expandedFolders.personal && (
+                  <div className="pl-2">
+                    <button onClick={() => handleTabChange('personal')} className={menuButtonClass(activeTab === 'personal')}>
+                      个人素材
+                    </button>
+                  </div>
+                )}
+              </div>
 
-            <div className="space-y-1">
-              <button onClick={() => toggleFolder('public')} className={folderTitleClass}>
-                <span>公共库</span>
-                <span className={clsx("transition-transform inline-block", !expandedFolders.public && "-rotate-90")}>⌄</span>
-              </button>
-              {expandedFolders.public && (
-                <div className="space-y-1 pl-2">
-                  <button onClick={() => handleTabChange('public-bocom')} className={menuButtonClass(activeTab === 'public-bocom')}>
-                    交通银行
-                  </button>
-                  <button onClick={() => handleTabChange('public-xiaofulu')} className={menuButtonClass(activeTab === 'public-xiaofulu')}>
-                    小福鹿
-                  </button>
-                  <button onClick={() => handleTabChange('public-shanxi-xiaofulu')} className={menuButtonClass(activeTab === 'public-shanxi-xiaofulu')}>
-                    陕西分行特色小福鹿
-                  </button>
-                  <button onClick={() => handleTabChange('public-center')} className={menuButtonClass(activeTab === 'public-center')}>
-                    中心宣传
-                  </button>
-                  <button onClick={() => handleTabChange('public-normal')} className={menuButtonClass(activeTab === 'public-normal')}>
-                    免抠素材
-                  </button>
-                </div>
-              )}
-            </div>
+              <div className="space-y-1">
+                <button onClick={() => toggleFolder('public')} className={folderTitleClass}>
+                  <span>公共库</span>
+                  <span className={clsx("transition-transform inline-block", !expandedFolders.public && "-rotate-90")}>⌄</span>
+                </button>
+                {expandedFolders.public && (
+                  <div className="space-y-1 pl-2">
+                    <button onClick={() => handleTabChange('public-bocom')} className={menuButtonClass(activeTab === 'public-bocom')}>
+                      交通银行
+                    </button>
+                    <button onClick={() => handleTabChange('public-xiaofulu')} className={menuButtonClass(activeTab === 'public-xiaofulu')}>
+                      小福鹿
+                    </button>
+                    <button onClick={() => handleTabChange('public-shanxi-xiaofulu')} className={menuButtonClass(activeTab === 'public-shanxi-xiaofulu')}>
+                      陕西分行特色小福鹿
+                    </button>
+                    <button onClick={() => handleTabChange('public-center')} className={menuButtonClass(activeTab === 'public-center')}>
+                      中心宣传
+                    </button>
+                    <button onClick={() => handleTabChange('public-normal')} className={menuButtonClass(activeTab === 'public-normal')}>
+                      免抠素材
+                    </button>
+                  </div>
+                )}
+              </div>
 
-            
-          </div>
+              
+            </div>
+          )}
 
           <div className="flex-1 bg-white p-6 overflow-y-auto custom-scrollbar">
             {renderContent()}

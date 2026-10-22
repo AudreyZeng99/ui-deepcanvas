@@ -1,748 +1,723 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Copy, Package, Sparkles } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Check,
+  ChevronDown,
+  Download,
+  Loader2,
+  Palette,
+  Package,
+  Sparkles,
+  Upload,
+  X,
+} from 'lucide-react';
 import clsx from 'clsx';
 
 import ToolLayout from './ToolLayout';
 import { useToast } from '../../components/ToastProvider';
+import { ELEMENT_OPTIONS, COLOR_OPTIONS, getCombo, type ElementCombo } from '../../utils/allElements';
 
-type ElementTypeId = 'gift_box' | 'card_pack' | 'flower';
+type Phase = 'config' | 'producing' | 'done';
 
-type ElementTypeDefinition = {
-  id: ElementTypeId;
-  label: string;
-  description: string;
-  detailLabels: {
-    main: string;
-    secondary: string;
-    accent: string;
-  };
-};
+type ResultStatus = 'pending' | 'generating' | 'done';
 
-type ElementVariant = {
+type ResultItem = {
   id: string;
-  typeId: ElementTypeId;
-  label: string;
-  statusLabel: string;
-  description: string;
-  subjectPrompt: string;
-};
-
-type ColorFamily = {
-  id: string;
-  label: string;
+  element_id: string;
+  color_id: string;
+  element_label: string;
+  color_label: string;
   background: string;
   main: string;
   secondary: string;
   accent: string;
-};
-
-type BatchMode = 'same-color-multi-element' | 'same-element-multi-color';
-
-type GeneratedDesign = {
-  id: string;
-  element_id: string;
-  color_id: string;
-  color_label: string;
-  background: string;
-  width: number;
-  height: number;
   prompt: string;
-  negative_prompt: string;
-  seed: number;
-  requested_model: string;
-  used_model: string;
-  api_base: string;
-  size: number;
-  response_request_id: string;
+  status: ResultStatus;
+  imageUrl: string | null;
 };
 
-const ELEMENT_TYPES: ElementTypeDefinition[] = [
-  {
-    id: 'gift_box',
-    label: '礼盒',
-    description: '适合节日活动、福利发放、权益礼包等营销视觉素材。',
-    detailLabels: {
-      main: '礼盒主体',
-      secondary: '丝带颜色',
-      accent: '高光点缀',
-    },
-  },
-  {
-    id: 'card_pack',
-    label: '卡包',
-    description: '适合权益卡、会员卡、金融卡面和礼包权益视觉素材。',
-    detailLabels: {
-      main: '卡包颜色',
-      secondary: '卡片颜色',
-      accent: '边缘点缀',
-    },
-  },
-  {
-    id: 'flower',
-    label: '花朵',
-    description: '适合节气、节日、关怀活动和氛围型装饰素材。',
-    detailLabels: {
-      main: '花瓣颜色',
-      secondary: '花心颜色',
-      accent: '高光点缀',
-    },
-  },
-];
-
-const ELEMENT_VARIANTS: ElementVariant[] = [
-  {
-    id: 'closed_gift_box',
-    typeId: 'gift_box',
-    label: '闭合礼盒',
-    statusLabel: '闭合',
-    description: '一个关闭的方形礼盒，上方有立体蝴蝶结，丝带整齐包裹盒身。',
-    subjectPrompt:
-      '一个关闭的方形礼盒，上方有立体蝴蝶结，丝带整齐包裹盒身，圆润边角，精致礼品感，表面无文字无图案。',
-  },
-  {
-    id: 'opened_gift_box',
-    typeId: 'gift_box',
-    label: '打开的礼盒',
-    statusLabel: '打开',
-    description: '礼盒上盖掀开，丝带自然展开，适合表现惊喜感和赠礼氛围。',
-    subjectPrompt:
-      '一个打开的方形礼盒，盒盖微微掀起，丝带自然展开，内部有精致层次但无额外物品，圆润边角，惊喜礼赠感，表面无文字无图案。',
-  },
-  {
-    id: 'single_card_pack',
-    typeId: 'card_pack',
-    label: '单层卡包',
-    statusLabel: '单层',
-    description: '一个简洁立体的卡包，露出一张卡片，适合权益卡类素材。',
-    subjectPrompt:
-      '一个精致立体卡包，包体圆润挺括，顶部自然露出一张卡片，卡片无文字无图案，整体简洁高级，适合权益和会员视觉物料。',
-  },
-  {
-    id: 'double_card_pack',
-    typeId: 'card_pack',
-    label: '双卡卡包',
-    statusLabel: '双卡',
-    description: '卡包中露出两张有层次的卡片，更适合权益组合表达。',
-    subjectPrompt:
-      '一个精致立体卡包，包体圆润挺括，内部露出两张错落层叠的卡片，卡片无文字无图案，整体简洁高级，适合权益组合和金融营销物料。',
-  },
-  {
-    id: 'single_flower',
-    typeId: 'flower',
-    label: '单朵花',
-    statusLabel: '单朵',
-    description: '一朵圆润立体花朵，适合节气和装饰类素材。',
-    subjectPrompt:
-      '一朵单独的立体花朵，花瓣圆润饱满，花心层次清晰，整体简洁可爱，干净高级，无文字无图案，适合作为节气或氛围装饰素材。',
-  },
-  {
-    id: 'bouquet_flower',
-    typeId: 'flower',
-    label: '花束',
-    statusLabel: '花束',
-    description: '一束简洁花束，更适合祝福、感谢、关怀场景。',
-    subjectPrompt:
-      '一束简洁立体花束，花朵圆润饱满，花心层次清晰，花束结构紧凑精致，干净高级，无文字无图案，适合作为祝福和关怀活动素材。',
-  },
-];
-
-const COLOR_FAMILIES: ColorFamily[] = [
-  {
-    id: 'deep_blue',
-    label: '深蓝色',
-    background: '#00FF00',
-    main: '#1D4ED8',
-    secondary: '#60A5FA',
-    accent: '#DBEAFE',
-  },
-  {
-    id: 'rose_gold',
-    label: '玫瑰金',
-    background: '#00FF00',
-    main: '#E879A6',
-    secondary: '#F9A8D4',
-    accent: '#FCE7F3',
-  },
-  {
-    id: 'emerald_green',
-    label: '翡翠绿',
-    background: '#00FF00',
-    main: '#059669',
-    secondary: '#34D399',
-    accent: '#D1FAE5',
-  },
-  {
-    id: 'sunshine_orange',
-    label: '日光橙',
-    background: '#00FF00',
-    main: '#F97316',
-    secondary: '#FDBA74',
-    accent: '#FFEDD5',
-  },
-];
-
-const NEGATIVE_PROMPT = [
-  '不要文字',
-  '不要logo',
-  '不要商标',
-  '不要水印',
-  '不要二维码',
-  '不要条形码',
-  '不要真实品牌',
-  '不要人物',
-  '不要复杂背景',
-  '不要边框',
-  '不要海报排版',
-  '不要信息卡片',
-  '不要真实纸币',
-  '不要真实银行卡',
-  '不要卡号',
-  '不要日期',
-  '不要姓名',
-  '不要芯片',
-  '不要磁条',
-  '不要货币符号',
-  '不要人民币符号',
-  '不要美元符号',
-  '不要欧元符号',
-  '不要¥',
-  '不要$',
-  '不要€',
-  '不要多余图案。',
-].join('，');
-
-const MODEL_META = {
-  requested_model: 'qwen-image2512',
-  used_model: 'qwen-image-max',
-  api_base: 'dashscope.aliyuncs.com',
+const ELEMENT_EMOJI: Record<string, string> = {
+  open_gift_box: '🎁',
+  closed_gift_box: '🎁',
+  glowing_gift_box: '✨',
+  filled_gift_box: '🎁',
+  red_packet: '🧧',
+  card_wallet: '💳',
+  growth_arrow: '📈',
+  piggy_bank: '🐷',
+  empty_cart: '🛒',
+  appliance_cart: '🛒',
+  daily_goods_cart: '🛒',
+  beauty_cart: '🛒',
+  shield: '🛡️',
+  calendar: '📅',
+  coupon: '🎫',
+  appliances: '📺',
+  daily_goods: '🧴',
+  beauty_products: '💄',
+  movie_products: '🎬',
 };
 
-const OUTPUT_SIZE = 1024;
-
-function makeRequestId() {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return `req_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+function buildMockImageUrl(combo: ElementCombo, main: string, secondary: string, accent: string): string {
+  const elementLabel = ELEMENT_OPTIONS.find((e) => e.id === combo.element_id)?.label ?? combo.element_id;
+  const emoji = ELEMENT_EMOJI[combo.element_id] ?? '🎨';
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="70%">
+      <stop offset="0%" stop-color="${main}" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="${combo.background}" stop-opacity="1"/>
+    </radialGradient>
+    <radialGradient id="core" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="${secondary}" stop-opacity="0.95"/>
+      <stop offset="60%" stop-color="${main}" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="${accent}" stop-opacity="0.3"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="470" r="280" fill="url(#core)" opacity="0.85"/>
+  <circle cx="512" cy="470" r="200" fill="${main}" opacity="0.55"/>
+  <text x="512" y="500" font-size="240" text-anchor="middle" dominant-baseline="central">${emoji}</text>
+  <text x="512" y="780" font-size="44" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-weight="700" fill="#333" text-anchor="middle">${elementLabel} · ${combo.color_label}</text>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
-function buildPrompt(variant: ElementVariant, colorFamily: ColorFamily, elementType: ElementTypeDefinition) {
-  return [
-    '单独生成一个营销活动3D图标素材，整体为精致商业3D插画风格，圆润可爱，干净高级，适合金融、电商、福利活动海报使用。',
-    `主体是：${variant.subjectPrompt}`,
-    '画幅要求：1:1正方形构图，单个主体素材，不是海报，不要排版。',
-    `配色要求：${elementType.detailLabels.main}为${colorFamily.label}主色 ${colorFamily.main}，${elementType.detailLabels.secondary}为 ${colorFamily.secondary}，${elementType.detailLabels.accent}为 ${colorFamily.accent}。颜色明亮、通透、统一，不要杂乱。`,
-    `纯色背景 ${colorFamily.background}，背景必须完全平坦、纯色、无渐变、无纹理、无光斑、无阴影。主体不能使用背景色。主体完整居中，四周留出足够边距，不要裁切。`,
-    '物体本身可以有柔和高光、材质明暗和圆润体积感，但不要投影、不要接触阴影、不要地面阴影、不要反射阴影、不要桌面、不要地面。',
-    NEGATIVE_PROMPT,
-  ].join('\n');
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement('a');
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
 }
 
-function buildDesign(variant: ElementVariant, colorFamily: ColorFamily, prompt: string): GeneratedDesign {
-  return {
-    id: `${variant.id}__${colorFamily.id}`,
-    element_id: variant.id,
-    color_id: colorFamily.id,
-    color_label: colorFamily.label,
-    background: colorFamily.background,
-    width: OUTPUT_SIZE,
-    height: OUTPUT_SIZE,
-    prompt,
-    negative_prompt: NEGATIVE_PROMPT,
-    seed: 20260713,
-    requested_model: MODEL_META.requested_model,
-    used_model: MODEL_META.used_model,
-    api_base: MODEL_META.api_base,
-    size: OUTPUT_SIZE,
-    response_request_id: makeRequestId(),
-  };
+async function svgDataUrlToPng(svgDataUrl: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024;
+      canvas.height = 1024;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('no ctx'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, 1024, 1024);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = reject;
+    img.src = svgDataUrl;
+  });
 }
 
-function DesignJsonCard({
-  title,
-  design,
-  onCopy,
+export function MaterialBatchGeneratorPanel({
+  headerSlot,
 }: {
-  title: string;
-  design: GeneratedDesign;
-  onCopy: (payload: string, message: string) => void;
+  headerSlot?: React.ReactNode;
 }) {
-  return (
-    <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
-      <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between gap-4">
-        <div>
-          <div className="text-base font-semibold text-gray-900">{title}</div>
-          <div className="text-sm text-gray-500">
-            {design.id} · {design.color_label}
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={() => onCopy(JSON.stringify(design, null, 2), '已复制 design JSON')}
-          className="h-10 px-4 rounded-2xl border border-black/5 bg-white text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
-        >
-          <Copy size={16} />
-          复制 JSON
-        </button>
-      </div>
-      <div className="p-6">
-        <pre className="min-h-[340px] overflow-auto whitespace-pre-wrap break-all rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-800">
-          {JSON.stringify(design, null, 2)}
-        </pre>
-      </div>
-    </section>
-  );
-}
-
-export default function MaterialBatchGenerator() {
   const toast = useToast();
-  const [selectedTypeId, setSelectedTypeId] = useState<ElementTypeId>('gift_box');
-  const [selectedVariantId, setSelectedVariantId] = useState<string>('closed_gift_box');
-  const [selectedColorFamilyId, setSelectedColorFamilyId] = useState<string>('deep_blue');
-  const [batchMode, setBatchMode] = useState<BatchMode>('same-color-multi-element');
-  const [selectedBatchVariantIds, setSelectedBatchVariantIds] = useState<string[]>(['closed_gift_box', 'opened_gift_box']);
-  const [selectedBatchColorIds, setSelectedBatchColorIds] = useState<string[]>(['deep_blue', 'rose_gold']);
+  const [selectedElementIds, setSelectedElementIds] = useState<string[]>(['closed_gift_box', 'open_gift_box']);
+  const [selectedColorIds, setSelectedColorIds] = useState<string[]>(['red', 'gold']);
+  const [phase, setPhase] = useState<Phase>('config');
+  const [results, setResults] = useState<ResultItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showResults, setShowResults] = useState(false);
 
-  const openInNewTab = (path: string) => {
-    const normalized = path.startsWith('/') ? path : `/${path}`;
-    const url = `${window.location.origin}${import.meta.env.BASE_URL}#${normalized}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const timerRef = useRef<number | null>(null);
+  const resultsRef = useRef<ResultItem[]>([]);
+
+  resultsRef.current = results;
+
+  const elementLabelMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    ELEMENT_OPTIONS.forEach((e) => {
+      map[e.id] = e.label;
+    });
+    return map;
+  }, []);
+
+  const colorMap = useMemo(() => {
+    const map: Record<string, (typeof COLOR_OPTIONS)[number]> = {};
+    COLOR_OPTIONS.forEach((c) => {
+      map[c.id] = c;
+    });
+    return map;
+  }, []);
+
+  const combos = useMemo<ElementCombo[]>(() => {
+    const list: ElementCombo[] = [];
+    for (const eid of selectedElementIds) {
+      for (const cid of selectedColorIds) {
+        const combo = getCombo(eid, cid);
+        if (combo) list.push(combo);
+      }
+    }
+    return list;
+  }, [selectedElementIds, selectedColorIds]);
+
+  const comboCount = selectedElementIds.length * selectedColorIds.length;
+  const doneCount = results.filter((r) => r.status === 'done').length;
+
+  const toggleElement = (id: string) => {
+    setSelectedElementIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
-  const selectedType = useMemo(
-    () => ELEMENT_TYPES.find((item) => item.id === selectedTypeId) ?? ELEMENT_TYPES[0],
-    [selectedTypeId]
-  );
+  const toggleColor = (id: string) => {
+    setSelectedColorIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
-  const variantsForType = useMemo(
-    () => ELEMENT_VARIANTS.filter((item) => item.typeId === selectedTypeId),
-    [selectedTypeId]
-  );
+  const selectAllElements = () => setSelectedElementIds(ELEMENT_OPTIONS.map((e) => e.id));
+  const clearElements = () => setSelectedElementIds([]);
+  const selectAllColors = () => setSelectedColorIds(COLOR_OPTIONS.map((c) => c.id));
+  const clearColors = () => setSelectedColorIds([]);
 
-  const selectedVariant = useMemo(
-    () => variantsForType.find((item) => item.id === selectedVariantId) ?? variantsForType[0],
-    [selectedVariantId, variantsForType]
-  );
+  const startProduction = useCallback(() => {
+    if (combos.length === 0) {
+      toast.show('请至少选择一个元素和一个配色');
+      return;
+    }
+    const initial: ResultItem[] = combos.map((combo) => {
+      const color = colorMap[combo.color_id];
+      return {
+        id: combo.id,
+        element_id: combo.element_id,
+        color_id: combo.color_id,
+        element_label: elementLabelMap[combo.element_id] ?? combo.element_id,
+        color_label: combo.color_label,
+        background: combo.background,
+        main: color?.main ?? '#888',
+        secondary: color?.secondary ?? '#aaa',
+        accent: color?.accent ?? '#ccc',
+        prompt: combo.prompt,
+        status: 'pending',
+        imageUrl: null,
+      };
+    });
+    setResults(initial);
+    setSelectedIds(new Set());
+    setPhase('producing');
+    setShowResults(true);
 
-  const selectedColorFamily = useMemo(
-    () => COLOR_FAMILIES.find((item) => item.id === selectedColorFamilyId) ?? COLOR_FAMILIES[0],
-    [selectedColorFamilyId]
-  );
-
-  const defaultPrompt = useMemo(
-    () => buildPrompt(selectedVariant, selectedColorFamily, selectedType),
-    [selectedColorFamily, selectedType, selectedVariant]
-  );
-
-  const [editablePrompt, setEditablePrompt] = useState(defaultPrompt);
+    let idx = 0;
+    const tick = () => {
+      const current = resultsRef.current;
+      if (idx >= current.length) {
+        setPhase('done');
+        return;
+      }
+      setResults((prev) => {
+        const next = [...prev];
+        const item = next[idx];
+        if (item) {
+          const combo = getCombo(item.element_id, item.color_id);
+          const color = colorMap[item.color_id];
+          next[idx] = {
+            ...item,
+            status: 'done',
+            imageUrl: combo ? buildMockImageUrl(combo, color?.main ?? '#888', color?.secondary ?? '#aaa', color?.accent ?? '#ccc') : null,
+          };
+        }
+        return next;
+      });
+      idx += 1;
+      timerRef.current = window.setTimeout(tick, 350);
+    };
+    timerRef.current = window.setTimeout(tick, 350);
+  }, [combos, colorMap, elementLabelMap, toast]);
 
   useEffect(() => {
-    setEditablePrompt(defaultPrompt);
-  }, [defaultPrompt]);
+    return () => {
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+    };
+  }, []);
 
-  const currentDesign = useMemo(
-    () => buildDesign(selectedVariant, selectedColorFamily, editablePrompt),
-    [editablePrompt, selectedColorFamily, selectedVariant]
-  );
+  const resetToConfig = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    setPhase('config');
+    setResults([]);
+    setSelectedIds(new Set());
+    setShowResults(false);
+  };
 
-  const batchVariantPool = useMemo(() => ELEMENT_VARIANTS, []);
+  const stopProduction = () => {
+    if (timerRef.current) window.clearTimeout(timerRef.current);
+    setPhase('done');
+    toast.show('已停止生成，保留已完成的素材');
+  };
 
-  const batchDesigns = useMemo(() => {
-    if (batchMode === 'same-color-multi-element') {
-      return batchVariantPool
-        .filter((item) => selectedBatchVariantIds.includes(item.id))
-        .map((item) => {
-          const type = ELEMENT_TYPES.find((typeItem) => typeItem.id === item.typeId) ?? ELEMENT_TYPES[0];
-          const prompt = buildPrompt(item, selectedColorFamily, type);
-          return buildDesign(item, selectedColorFamily, prompt);
-        });
-    }
-
-    return COLOR_FAMILIES.filter((item) => selectedBatchColorIds.includes(item.id)).map((item) => {
-      const prompt = buildPrompt(selectedVariant, item, selectedType);
-      return buildDesign(selectedVariant, item, prompt);
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
-  }, [batchMode, batchVariantPool, selectedBatchColorIds, selectedBatchVariantIds, selectedColorFamily, selectedType, selectedVariant]);
+  };
 
-  const batchPayload = useMemo(() => JSON.stringify(batchDesigns, null, 2), [batchDesigns]);
+  const doneResults = results.filter((r) => r.status === 'done');
+  const allDoneSelected = doneResults.length > 0 && doneResults.every((r) => selectedIds.has(r.id));
 
-  const handleCopy = async (payload: string, message: string) => {
+  const toggleSelectAll = () => {
+    if (allDoneSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(doneResults.map((r) => r.id)));
+    }
+  };
+
+  const handleSingleDownload = async (item: ResultItem) => {
+    if (!item.imageUrl) return;
     try {
-      await navigator.clipboard.writeText(payload);
-      toast.show(message);
+      const png = await svgDataUrlToPng(item.imageUrl);
+      downloadDataUrl(png, `${item.element_label}_${item.color_label}.png`);
     } catch {
-      toast.show('复制失败，请手动复制');
+      downloadDataUrl(item.imageUrl, `${item.element_label}_${item.color_label}.svg`);
     }
   };
 
-  const handleOpenInCanvas = () => {
-    const params = new URLSearchParams();
-    params.set('q', editablePrompt.trim() || defaultPrompt);
-    params.set('width', String(currentDesign.width));
-    params.set('height', String(currentDesign.height));
-    params.set('seed', String(currentDesign.seed));
-    openInNewTab(`/public-canvas?${params.toString()}`);
+  const handleBatchDownload = async () => {
+    const targets = results.filter((r) => selectedIds.has(r.id) && r.imageUrl);
+    if (targets.length === 0) {
+      toast.show('请先勾选要下载的素材');
+      return;
+    }
+    toast.show(`开始下载 ${targets.length} 张素材`);
+    for (let i = 0; i < targets.length; i += 1) {
+      const item = targets[i];
+      if (!item.imageUrl) continue;
+      try {
+        const png = await svgDataUrlToPng(item.imageUrl);
+        downloadDataUrl(png, `${item.element_label}_${item.color_label}.png`);
+      } catch {
+        downloadDataUrl(item.imageUrl, `${item.element_label}_${item.color_label}.svg`);
+      }
+      await new Promise((r) => setTimeout(r, 200));
+    }
   };
 
-  const toggleBatchVariant = (variantId: string) => {
-    setSelectedBatchVariantIds((prev) => {
-      if (prev.includes(variantId)) {
-        if (prev.length === 1) return prev;
-        return prev.filter((item) => item !== variantId);
-      }
-      return [...prev, variantId];
-    });
-  };
-
-  const toggleBatchColor = (colorId: string) => {
-    setSelectedBatchColorIds((prev) => {
-      if (prev.includes(colorId)) {
-        if (prev.length === 1) return prev;
-        return prev.filter((item) => item !== colorId);
-      }
-      return [...prev, colorId];
-    });
+  const handleImportToLibrary = () => {
+    const targets = results.filter((r) => selectedIds.has(r.id) && r.status === 'done');
+    if (targets.length === 0) {
+      toast.show('请先勾选要导入的素材');
+      return;
+    }
+    toast.success(`已将 ${targets.length} 张素材导入个人素材库`);
   };
 
   return (
-    <ToolLayout title="素材批量生成">
-      <div className="space-y-8">
-        <section className="rounded-[28px] border border-black/5 bg-gradient-to-r from-[rgba(143,122,251,0.08)] to-[rgba(255,255,255,0.96)] px-8 py-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(143,122,251,0.2)] bg-white/80 px-3 py-1 text-xs font-medium text-[#6F58F3]">
-                <Sparkles size={14} />
-                设计系统化生成
-              </div>
-              <div className="text-2xl font-bold text-gray-900">把元素、状态和色系组合成可复用的 design</div>
-              <div className="text-sm leading-6 text-gray-600">
-                先选择元素类型，再确定具体状态和色系。系统会自动生成 design JSON 和可编辑 prompt，
-                你可以直接送到无限画布生成，也可以切换到批量模式，一次输出多组设计组合。
-              </div>
+    <div className="space-y-8 animate-in fade-in duration-300">
+      {headerSlot}
+
+      <section className="rounded-[28px] border border-black/5 bg-gradient-to-r from-[rgba(143,122,251,0.08)] to-[rgba(255,255,255,0.96)] px-8 py-7">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-3xl space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[rgba(143,122,251,0.2)] bg-white/80 px-3 py-1 text-xs font-medium text-[#6F58F3]">
+              <Sparkles size={14} />
+              批量素材生成
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center text-sm">
-              <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
-                <div className="text-gray-400">元素类型</div>
-                <div className="mt-1 font-semibold text-gray-900">{ELEMENT_TYPES.length}</div>
-              </div>
-              <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
-                <div className="text-gray-400">元素状态</div>
-                <div className="mt-1 font-semibold text-gray-900">{ELEMENT_VARIANTS.length}</div>
-              </div>
-              <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
-                <div className="text-gray-400">预置色系</div>
-                <div className="mt-1 font-semibold text-gray-900">{COLOR_FAMILIES.length}</div>
-              </div>
+            <div className="text-2xl font-bold text-gray-900">多选元素与配色，一键批量生成素材</div>
+            <div className="text-sm leading-6 text-gray-600">
+              从 {ELEMENT_OPTIONS.length} 个元素和 {COLOR_OPTIONS.length} 套配色中自由组合，系统按 N×M 逐条拼接提示词并模拟生成。
+              生成完成后可单张下载，或批量勾选下载 / 导入个人素材库。
             </div>
           </div>
-        </section>
+          <div className="grid grid-cols-3 gap-3 text-center text-sm">
+            <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+              <div className="text-gray-400">元素</div>
+              <div className="mt-1 font-semibold text-gray-900">{ELEMENT_OPTIONS.length}</div>
+            </div>
+            <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+              <div className="text-gray-400">配色</div>
+              <div className="mt-1 font-semibold text-gray-900">{COLOR_OPTIONS.length}</div>
+            </div>
+            <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+              <div className="text-gray-400">本次组合</div>
+              <div className="mt-1 font-semibold text-[#6F58F3]">{comboCount}</div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.95fr]">
-          <div className="space-y-6">
-            <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-black/5">
-                <div className="text-base font-semibold text-gray-900">1 选择元素类型</div>
-                <div className="mt-1 text-sm text-gray-500">先决定要生成什么素材类别，比如礼盒、卡包、花朵。</div>
+      {phase === 'config' && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_1fr]">
+          <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold text-gray-900">选择元素（可多选）</div>
+                <div className="mt-1 text-sm text-gray-500">已选 {selectedElementIds.length} / {ELEMENT_OPTIONS.length}</div>
               </div>
-              <div className="grid gap-3 p-6 md:grid-cols-3">
-                {ELEMENT_TYPES.map((item) => (
+              <div className="inline-flex rounded-full border border-black/5 bg-gray-50 p-0.5">
+                <button
+                  onClick={selectAllElements}
+                  className="h-7 px-3 rounded-full text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  全选
+                </button>
+                <button
+                  onClick={clearElements}
+                  className="h-7 px-3 rounded-full text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  清空
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-2 p-6 sm:grid-cols-2">
+              {ELEMENT_OPTIONS.map((item) => {
+                const active = selectedElementIds.includes(item.id);
+                return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedTypeId(item.id);
-                      const nextVariant = ELEMENT_VARIANTS.find((variant) => variant.typeId === item.id);
-                      if (nextVariant) setSelectedVariantId(nextVariant.id);
-                    }}
+                    onClick={() => toggleElement(item.id)}
                     className={clsx(
-                      'rounded-2xl border px-4 py-4 text-left transition-all',
-                      item.id === selectedTypeId
-                        ? 'border-[rgba(143,122,251,0.25)] bg-[rgba(143,122,251,0.08)]'
+                      'rounded-2xl border px-4 py-3 text-left transition-all flex items-center gap-3',
+                      active
+                        ? 'border-[rgba(143,122,251,0.35)] bg-[rgba(143,122,251,0.08)]'
                         : 'border-black/5 bg-white hover:border-black/10 hover:bg-gray-50'
                     )}
                   >
-                    <div className="text-sm font-semibold text-gray-900">{item.label}</div>
-                    <div className="mt-2 text-xs leading-5 text-gray-500">{item.description}</div>
+                    <span className="text-2xl">{ELEMENT_EMOJI[item.id] ?? '🎨'}</span>
+                    <span className="flex-1 text-sm font-semibold text-gray-900">{item.label}</span>
+                    {active && (
+                      <span className="h-5 w-5 rounded-full bg-[#7C5CFA] flex items-center justify-center">
+                        <Check size={13} className="text-white" />
+                      </span>
+                    )}
                   </button>
-                ))}
-              </div>
-            </section>
+                );
+              })}
+            </div>
+          </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-black/5">
-                <div className="text-base font-semibold text-gray-900">2 选择具体元素</div>
-                <div className="mt-1 text-sm text-gray-500">
-                  `element = element type + element status`，例如 `礼盒 + 打开 = 打开的礼盒`
-                </div>
+          <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between gap-3">
+              <div>
+                <div className="text-base font-semibold text-gray-900">选择配色（可多选）</div>
+                <div className="mt-1 text-sm text-gray-500">已选 {selectedColorIds.length} / {COLOR_OPTIONS.length}</div>
               </div>
-              <div className="grid gap-3 p-6 md:grid-cols-2">
-                {variantsForType.map((item) => (
+              <div className="inline-flex rounded-full border border-black/5 bg-gray-50 p-0.5">
+                <button
+                  onClick={selectAllColors}
+                  className="h-7 px-3 rounded-full text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  全选
+                </button>
+                <button
+                  onClick={clearColors}
+                  className="h-7 px-3 rounded-full text-xs font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  清空
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-2 p-6 sm:grid-cols-2">
+              {COLOR_OPTIONS.map((item) => {
+                const active = selectedColorIds.includes(item.id);
+                return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setSelectedVariantId(item.id)}
+                    onClick={() => toggleColor(item.id)}
                     className={clsx(
-                      'rounded-2xl border px-4 py-4 text-left transition-all',
-                      item.id === selectedVariant.id
-                        ? 'border-[rgba(143,122,251,0.25)] bg-[rgba(143,122,251,0.08)]'
+                      'rounded-2xl border px-4 py-3 text-left transition-all',
+                      active
+                        ? 'border-[rgba(143,122,251,0.35)] bg-[rgba(143,122,251,0.08)]'
                         : 'border-black/5 bg-white hover:border-black/10 hover:bg-gray-50'
                     )}
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-semibold text-gray-900">{item.label}</div>
-                      <div className="rounded-full bg-gray-100 px-2 py-1 text-[11px] text-gray-500">{item.statusLabel}</div>
+                      <div className="flex items-center gap-1.5">
+                        {[item.main, item.secondary, item.accent].map((c) => (
+                          <span key={c} className="h-4 w-4 rounded-full border border-black/10" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
                     </div>
-                    <div className="mt-2 text-xs leading-5 text-gray-500">{item.description}</div>
+                    {active && (
+                      <div className="mt-2 flex items-center gap-1 text-[11px] font-medium text-[#6F58F3]">
+                        <Check size={12} /> 已选中
+                      </div>
+                    )}
                   </button>
-                ))}
-              </div>
-            </section>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+      )}
 
-            <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-black/5">
-                <div className="text-base font-semibold text-gray-900">3 选择配色方案</div>
-                <div className="mt-1 text-sm text-gray-500">
-                  `element + colorset = design`，当前元素会自动映射到对应的颜色槽位。
-                </div>
-              </div>
-              <div className="space-y-5 p-6">
-                <div className="grid gap-3 md:grid-cols-2">
-                  {COLOR_FAMILIES.map((item) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => setSelectedColorFamilyId(item.id)}
-                      className={clsx(
-                        'rounded-2xl border px-4 py-4 text-left transition-all',
-                        item.id === selectedColorFamilyId
-                          ? 'border-[rgba(143,122,251,0.25)] bg-[rgba(143,122,251,0.08)]'
-                          : 'border-black/5 bg-white hover:border-black/10 hover:bg-gray-50'
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold text-gray-900">{item.label}</div>
-                        <div className="flex items-center gap-1.5">
-                          {[item.main, item.secondary, item.accent].map((color) => (
-                            <span
-                              key={color}
-                              className="h-4 w-4 rounded-full border border-black/10"
-                              style={{ backgroundColor: color }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-[11px] text-gray-500">
-                        <div>
-                          <div>{selectedType.detailLabels.main}</div>
-                          <div className="mt-1 font-medium text-gray-700">{item.main}</div>
-                        </div>
-                        <div>
-                          <div>{selectedType.detailLabels.secondary}</div>
-                          <div className="mt-1 font-medium text-gray-700">{item.secondary}</div>
-                        </div>
-                        <div>
-                          <div>{selectedType.detailLabels.accent}</div>
-                          <div className="mt-1 font-medium text-gray-700">{item.accent}</div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+      <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
+        <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <div className="text-base font-semibold text-gray-900">
+              {phase === 'config' ? '提示词拼接预览' : '制作进度'}
+            </div>
+            <div className="mt-1 text-sm text-gray-500">
+              {phase === 'config'
+                ? `共 ${comboCount} 组提示词（${selectedElementIds.length} 元素 × ${selectedColorIds.length} 配色）`
+                : `已生成 ${doneCount} / ${results.length}`}
+            </div>
+          </div>
 
-                <div className="rounded-2xl border border-dashed border-[rgba(143,122,251,0.24)] bg-[rgba(143,122,251,0.06)] px-4 py-4">
-                  <div className="text-sm font-semibold text-gray-900">当前 design 组合</div>
-                  <div className="mt-2 text-sm text-gray-600">
-                    <span className="font-medium text-gray-900">{selectedVariant.label}</span>
-                    {' + '}
-                    <span className="font-medium text-gray-900">{selectedColorFamily.label}</span>
-                    {' = '}
-                    <span className="font-medium text-[#6F58F3]">{currentDesign.id}</span>
-                  </div>
-                </div>
-              </div>
-            </section>
+          <div className="flex items-center gap-2">
+            {phase === 'config' && (
+              <button
+                type="button"
+                onClick={startProduction}
+                disabled={comboCount === 0}
+                className={clsx(
+                  'h-11 px-5 rounded-2xl text-sm font-semibold text-white transition-all inline-flex items-center gap-2',
+                  comboCount === 0 ? 'bg-gray-300 cursor-not-allowed' : 'hover:opacity-90 shadow-sm shadow-[rgba(124,92,250,0.3)]'
+                )}
+                style={comboCount > 0 ? { backgroundColor: '#7C5CFA' } : undefined}
+              >
+                <Sparkles size={16} />
+                开始批量制作
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-xs font-bold">
+                  {comboCount}
+                </span>
+              </button>
+            )}
 
-            <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-base font-semibold text-gray-900">4 Prompt 编辑区</div>
-                  <div className="mt-1 text-sm text-gray-500">系统先自动生成 prompt，你可以继续调整后再去生图。</div>
-                </div>
+            {phase === 'producing' && (
+              <>
                 <button
                   type="button"
-                  onClick={() => setEditablePrompt(defaultPrompt)}
-                  className="h-10 px-4 rounded-2xl border border-black/5 bg-white text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
+                  onClick={() => setShowResults((v) => !v)}
+                  className="h-11 px-4 rounded-2xl border border-black/5 bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2"
                 >
-                  恢复默认 prompt
+                  {showResults ? '收起结果' : '查看结果'}
+                  <ChevronDown size={16} className={clsx('transition-transform', showResults && 'rotate-180')} />
                 </button>
-              </div>
-              <div className="p-6 space-y-4">
-                <textarea
-                  value={editablePrompt}
-                  onChange={(event) => setEditablePrompt(event.target.value)}
-                  className="min-h-[360px] w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm leading-6 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-4"
-                  style={{
-                    ['--tw-ring-color' as any]: 'rgba(143, 122, 251, 0.12)',
-                    ['--tw-ring-opacity' as any]: '1',
-                  }}
-                />
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(editablePrompt, '已复制 prompt')}
-                    className="h-10 px-4 rounded-2xl border border-black/5 bg-white text-sm font-semibold text-gray-900 hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
-                  >
-                    <Copy size={16} />
-                    复制 prompt
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenInCanvas}
-                    className="h-10 px-4 rounded-2xl text-sm font-semibold text-white transition-colors"
-                    style={{ backgroundColor: '#8F7AFB' }}
-                  >
-                    送去无限画布生成
-                  </button>
+                <button
+                  type="button"
+                  onClick={stopProduction}
+                  className="h-11 px-4 rounded-2xl border border-red-200 bg-white text-sm font-semibold text-red-600 hover:bg-red-50 inline-flex items-center gap-2"
+                >
+                  <X size={16} />
+                  停止
+                </button>
+                <div
+                  className="h-11 px-5 rounded-2xl text-sm font-semibold text-white inline-flex items-center gap-2"
+                  style={{ backgroundColor: '#7C5CFA' }}
+                >
+                  <Loader2 size={16} className="animate-spin" />
+                  制作中
+                  <span className="font-mono text-xs bg-white/20 rounded-full px-2 py-0.5">
+                    {doneCount}/{results.length}
+                  </span>
                 </div>
-              </div>
-            </section>
-          </div>
+              </>
+            )}
 
-          <div className="space-y-6">
-            <DesignJsonCard title="当前 design JSON" design={currentDesign} onCopy={handleCopy} />
-
-            <section className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-black/5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-base font-semibold text-gray-900">批量组合预览</div>
-                  <div className="mt-1 text-sm text-gray-500">当前先输出批量设计数据，后续可以直接接批量生图任务。</div>
-                </div>
-                <div className="inline-flex rounded-full border border-black/5 bg-gray-50 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setBatchMode('same-color-multi-element')}
-                    className={clsx(
-                      'h-8 rounded-full px-3 text-xs font-semibold transition-colors',
-                      batchMode === 'same-color-multi-element' ? 'bg-white text-[#6F58F3] border border-black/10' : 'text-gray-500'
-                    )}
-                  >
-                    同色系批量元素
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBatchMode('same-element-multi-color')}
-                    className={clsx(
-                      'h-8 rounded-full px-3 text-xs font-semibold transition-colors',
-                      batchMode === 'same-element-multi-color' ? 'bg-white text-[#6F58F3] border border-black/10' : 'text-gray-500'
-                    )}
-                  >
-                    同元素批量配色
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-5">
-                {batchMode === 'same-color-multi-element' ? (
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-black/5 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                      当前统一色系：
-                      <span className="ml-1 font-semibold text-gray-900">{selectedColorFamily.label}</span>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {batchVariantPool.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => toggleBatchVariant(item.id)}
-                          className={clsx(
-                            'rounded-2xl border px-3 py-3 text-left transition-all',
-                            selectedBatchVariantIds.includes(item.id)
-                              ? 'border-[rgba(143,122,251,0.25)] bg-[rgba(143,122,251,0.08)]'
-                              : 'border-black/5 bg-white hover:border-black/10 hover:bg-gray-50'
-                          )}
-                        >
-                          <div className="text-sm font-semibold text-gray-900">{item.label}</div>
-                          <div className="mt-1 text-[11px] text-gray-500">{item.description}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-black/5 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-                      当前统一元素：
-                      <span className="ml-1 font-semibold text-gray-900">{selectedVariant.label}</span>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {COLOR_FAMILIES.map((item) => (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => toggleBatchColor(item.id)}
-                          className={clsx(
-                            'rounded-2xl border px-3 py-3 text-left transition-all',
-                            selectedBatchColorIds.includes(item.id)
-                              ? 'border-[rgba(143,122,251,0.25)] bg-[rgba(143,122,251,0.08)]'
-                              : 'border-black/5 bg-white hover:border-black/10 hover:bg-gray-50'
-                          )}
-                        >
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="text-sm font-semibold text-gray-900">{item.label}</div>
-                            <div className="flex gap-1.5">
-                              {[item.main, item.secondary, item.accent].map((color) => (
-                                <span
-                                  key={color}
-                                  className="h-4 w-4 rounded-full border border-black/10"
-                                  style={{ backgroundColor: color }}
-                                />
-                              ))}
-                            </div>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-gray-900">已生成 {batchDesigns.length} 个批量 design</div>
-                      <div className="mt-1 text-xs text-gray-500">后续接 API 时，这里可以直接变成批量任务请求体。</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(batchPayload, '已复制批量 design JSON')}
-                      className="h-9 px-3 rounded-2xl border border-black/5 bg-white text-xs font-semibold text-gray-900 hover:bg-gray-50 transition-colors inline-flex items-center gap-2"
-                    >
-                      <Package size={14} />
-                      复制批量 JSON
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {batchDesigns.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-black/5 bg-white px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-sm font-semibold text-gray-900">{item.id}</div>
-                          <div className="mt-1 text-[11px] text-gray-500">{item.color_label}</div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopy(item.prompt, `已复制 ${item.id} 的 prompt`)}
-                          className="h-8 px-3 rounded-xl border border-black/5 bg-white text-xs font-semibold text-gray-900 hover:bg-gray-50 transition-colors"
-                        >
-                          复制 prompt
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
+            {phase === 'done' && (
+              <button
+                type="button"
+                onClick={resetToConfig}
+                className="h-11 px-4 rounded-2xl border border-black/5 bg-white text-sm font-semibold text-gray-500 hover:bg-gray-50 hover:text-gray-700 inline-flex items-center gap-2"
+              >
+                <X size={16} />
+                重新配置
+              </button>
+            )}
           </div>
         </div>
+
+        {phase === 'config' && combos.length > 0 && (
+          <div className="p-6 max-h-96 overflow-auto space-y-2">
+            {combos.slice(0, 30).map((combo) => (
+              <div key={combo.id} className="rounded-2xl border border-black/5 bg-gray-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-semibold text-gray-900">
+                    {elementLabelMap[combo.element_id]} · {combo.color_label}
+                  </div>
+                  <div className="text-[11px] text-gray-400">{combo.id}</div>
+                </div>
+                <div className="mt-1.5 text-xs text-gray-500 line-clamp-2">{combo.prompt}</div>
+              </div>
+            ))}
+            {combos.length > 30 && (
+              <div className="text-center text-xs text-gray-400 py-2">仅展示前 30 条，共 {combos.length} 条</div>
+            )}
+          </div>
+        )}
+
+        {phase === 'config' && combos.length === 0 && (
+          <div className="p-12 text-center text-sm text-gray-400">
+            请至少选择一个元素和一个配色
+          </div>
+        )}
+
+        {(phase === 'producing' || phase === 'done') && showResults && (
+          <div className="p-6 space-y-4">
+            <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm text-gray-600 flex items-center justify-between flex-wrap gap-2">
+              <span className="inline-flex items-center gap-1.5">
+                {phase === 'producing' ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin text-[#7C5CFA]" />
+                    正在逐张生成素材，已完成 <b className="text-[#7C5CFA]">{doneCount}</b> / {results.length}
+                  </>
+                ) : (
+                  <>
+                    <Check size={14} className="text-green-500" />
+                    全部生成完成，共 <b className="text-gray-900">{results.length}</b> 张素材
+                  </>
+                )}
+              </span>
+              <span className="text-xs text-gray-400">勾选卡片可批量下载或导入素材库</span>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {results.map((item) => (
+                <ResultCard
+                  key={item.id}
+                  item={item}
+                  selected={selectedIds.has(item.id)}
+                  selectable={item.status === 'done'}
+                  onToggle={() => toggleSelect(item.id)}
+                  onDownload={() => handleSingleDownload(item)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {phase === 'done' && showResults && (
+        <div className="sticky bottom-6 z-20 flex justify-center px-4">
+          <div className="inline-flex items-center gap-1 rounded-full border border-black/5 bg-white/95 backdrop-blur px-2 py-2 shadow-xl shadow-black/5">
+            <label className="inline-flex items-center gap-2 pl-3 pr-4 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allDoneSelected}
+                onChange={toggleSelectAll}
+                className="h-4 w-4 accent-[#7C5CFA]"
+              />
+              <span className="text-sm text-gray-600">
+                已选 <b className="text-[#7C5CFA] tabular-nums">{selectedIds.size}</b>
+                <span className="text-gray-300 mx-1">/</span>
+                {doneResults.length}
+              </span>
+            </label>
+            <div className="h-5 w-px bg-gray-200" />
+            <button
+              type="button"
+              onClick={handleBatchDownload}
+              disabled={selectedIds.size === 0}
+              className={clsx(
+                'h-9 px-4 rounded-full text-sm font-semibold inline-flex items-center gap-1.5 transition-all',
+                selectedIds.size === 0
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-white hover:opacity-90'
+              )}
+              style={selectedIds.size > 0 ? { backgroundColor: '#7C5CFA' } : undefined}
+            >
+              <Download size={15} />
+              批量下载
+            </button>
+            <button
+              type="button"
+              onClick={handleImportToLibrary}
+              disabled={selectedIds.size === 0}
+              className={clsx(
+                'h-9 px-4 rounded-full text-sm font-semibold inline-flex items-center gap-1.5 transition-all',
+                selectedIds.size === 0
+                  ? 'text-gray-300 cursor-not-allowed'
+                  : 'text-white hover:opacity-90'
+              )}
+              style={selectedIds.size > 0 ? { backgroundColor: '#111' } : undefined}
+            >
+              <Upload size={15} />
+              导入个人素材
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResultCard({
+  item,
+  selected,
+  selectable,
+  onToggle,
+  onDownload,
+}: {
+  item: ResultItem;
+  selected: boolean;
+  selectable: boolean;
+  onToggle: () => void;
+  onDownload: () => void;
+}) {
+  return (
+    <div
+      className={clsx(
+        'rounded-2xl border overflow-hidden bg-white transition-all',
+        selected ? 'border-[#7C5CFA] ring-2 ring-[rgba(124,92,250,0.2)]' : 'border-black/5'
+      )}
+    >
+      <div className="relative aspect-square bg-gray-100">
+        {item.status === 'pending' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-gray-400">
+            <Package size={28} />
+            <span className="text-xs">等待生成</span>
+          </div>
+        )}
+        {item.status === 'generating' && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-[#7C5CFA]">
+            <Loader2 size={28} className="animate-spin" />
+            <span className="text-xs">生成中</span>
+          </div>
+        )}
+        {item.status === 'done' && item.imageUrl && (
+          <img src={item.imageUrl} alt={item.id} className="h-full w-full object-cover" />
+        )}
+
+        {selectable && (
+          <label
+            className={clsx(
+              'absolute top-2 left-2 h-5 w-5 rounded-md border-2 flex items-center justify-center cursor-pointer transition-all',
+              selected ? 'bg-[#7C5CFA] border-[#7C5CFA]' : 'bg-white/80 border-gray-300 hover:border-[#7C5CFA]'
+            )}
+          >
+            <input type="checkbox" checked={selected} onChange={onToggle} className="sr-only" />
+            {selected && <Check size={13} className="text-white" />}
+          </label>
+        )}
+
+        {item.status === 'done' && (
+          <button
+            type="button"
+            onClick={onDownload}
+            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-white/90 backdrop-blur flex items-center justify-center text-gray-700 hover:bg-white hover:text-[#7C5CFA] transition-colors shadow-sm"
+            title="下载"
+          >
+            <Download size={15} />
+          </button>
+        )}
       </div>
+
+      <div className="px-3 py-2.5">
+        <div className="text-sm font-semibold text-gray-900 truncate">{item.element_label}</div>
+        <div className="mt-0.5 text-[11px] text-gray-500 flex items-center gap-1.5">
+          <Palette size={11} />
+          {item.color_label}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function MaterialBatchGenerator() {
+  return (
+    <ToolLayout title="素材批量生成">
+      <MaterialBatchGeneratorPanel />
     </ToolLayout>
   );
 }
